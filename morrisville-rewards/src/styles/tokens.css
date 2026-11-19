@@ -1,0 +1,154 @@
+/* PingPod Morrisville Rewards — design tokens + base.
+   Brand: black, white, PingPod pink (#FF0078, from the official logo).
+   Type: Barlow / Barlow Condensed (Barlow is used on pingpod.com; Apercu, the
+   primary brand face, is a paid font, so it isn't bundled). */
+@import "@fontsource/barlow/latin-400.css";
+@import "@fontsource/barlow/latin-500.css";
+@import "@fontsource/barlow/latin-600.css";
+@import "@fontsource/barlow/latin-700.css";
+@import "@fontsource/barlow-condensed/latin-600.css";
+@import "@fontsource/barlow-condensed/latin-700.css";
+@import "@fontsource/barlow-condensed/latin-800.css";
+
+:root {
+  --pink: #ff0078;
+  --pink-press: #e0006b;
+  --pink-soft: rgba(255, 0, 120, 0.14);
+  --pink-line: rgba(255, 0, 120, 0.45);
+  --on-pink: #0a0a0a;
+
+  --bg: #000000;
+  --surface: #111113;
+  --surface-2: #19191c;
+  --surface-3: #232327;
+  --line: #2a2a2f;
+  --line-strong: #3a3a40;
+  --text: #ffffff;
+  --text-2: #c9c9d1;
+  --muted: #9a9aa5;
+
+  --ok: #46d483;
+  --ok-soft: rgba(70, 212, 131, 0.14);
+  --warn: #ffbe3d;
+  --warn-soft: rgba(255, 190, 61, 0.14);
+  --bad: #ff6b6b;
+  --bad-soft: rgba(255, 107, 107, 0.14);
+
+  --font: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Barlow Condensed", "Barlow", system-ui, sans-serif;
+
+  --r-sm: 8px;
+  --r: 14px;
+  --r-lg: 20px;
+  --gutter: 16px;
+  --tap: 48px;
+  --nav-h: 64px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  color-scheme: dark;
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  min-height: 100%;
+}
+body {
+  min-width: 320px;
+  overflow-x: hidden;
+  overscroll-behavior-y: none;
+  font-size: 16px;
+  line-height: 1.45;
+}
+body.no-scroll {
+  overflow: hidden;
+}
+#root {
+  min-height: 100dvh;
+}
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0.005em;
+  line-height: 1.02;
+  text-transform: uppercase;
+}
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+button {
+  cursor: pointer;
+}
+a {
+  color: inherit;
+}
+img,
+svg {
+  display: block;
+}
+:focus-visible {
+  outline: 2px solid var(--pink);
+  outline-offset: 2px;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.num {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

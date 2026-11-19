@@ -1,0 +1,14 @@
+{
+  "name": "PingPod Morrisville Rewards",
+  "short_name": "PingPod MVL",
+  "description": "Track your table time at PingPod Morrisville and climb the leaderboard.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
