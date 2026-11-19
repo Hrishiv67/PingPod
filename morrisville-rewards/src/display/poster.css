@@ -1,0 +1,343 @@
+/* Printable join sign (/poster). The sheet is sized in container-query units (cqw)
+   so the on-screen preview and the printed page are the same design at any scale.
+   Print: white paper, black type, PingPod pink accents. */
+
+.poster-root {
+  min-height: 100dvh;
+  padding: calc(var(--safe-top) + 16px) calc(var(--safe-right) + 16px) calc(var(--safe-bottom) + 32px)
+    calc(var(--safe-left) + 16px);
+  background: var(--bg);
+}
+
+.poster-toolbar {
+  display: grid;
+  gap: 14px;
+  width: min(8.5in, 100%);
+  margin: 0 auto 20px;
+}
+.poster-toolbar h1 {
+  font-size: 32px;
+}
+.poster-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  width: fit-content;
+  color: var(--text-2);
+  font-weight: 600;
+  text-decoration: none;
+}
+.poster-check {
+  font-size: 15px;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.poster-check strong {
+  color: var(--text);
+}
+.poster-warning {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-weight: 600;
+  font-size: 15px;
+}
+.poster-warning svg {
+  flex: none;
+  margin-top: 2px;
+}
+@media (max-width: 520px) {
+  .poster-toolbar .segmented {
+    flex-direction: column;
+  }
+}
+
+.poster-pages {
+  display: grid;
+  justify-items: center;
+}
+
+/* The sheet of paper */
+.paper {
+  container-type: inline-size;
+  width: min(8.5in, 100%);
+  aspect-ratio: 8.5 / 11;
+  overflow: hidden;
+  background: #fff;
+  color: #000;
+  border-radius: 6px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  font-family: var(--font);
+}
+.paper h2 {
+  color: #000;
+}
+.paper em {
+  font-style: normal;
+  color: var(--pink);
+}
+.paper .pp-mark {
+  color: #000;
+  width: auto;
+}
+
+/* Brand header (shared) */
+.sign-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3cqw;
+}
+.sign-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 2cqw;
+}
+.sign-head .pp-mark {
+  height: 5.4cqw;
+}
+.sign-wordmark {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 6.4cqw;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+.sign-tag {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 2.3cqw;
+  letter-spacing: 0.14em;
+  color: var(--pink);
+  text-align: right;
+}
+
+/* Letter poster */
+.paper-poster {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 3cqw;
+  padding: 7cqw 7.5cqw 6cqw;
+}
+.poster-headline {
+  display: grid;
+  gap: 2.4cqw;
+}
+.poster-headline h2 {
+  font-size: 11.6cqw;
+  line-height: 0.9;
+}
+.poster-headline p {
+  font-size: 3.1cqw;
+  line-height: 1.35;
+  color: #333;
+  max-width: 34em;
+}
+.poster-qr {
+  display: grid;
+  justify-items: center;
+  gap: 1.6cqw;
+}
+.poster-qr img {
+  width: 44cqw;
+  height: 44cqw;
+  padding: 1.6cqw;
+  border: 0.5cqw solid #000;
+  border-radius: 2cqw;
+}
+.poster-qr span {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 5.6cqw;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.poster-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3cqw;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.poster-steps li,
+.card-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.6cqw;
+  font-weight: 600;
+}
+.poster-steps li {
+  font-size: 2.8cqw;
+  line-height: 1.25;
+}
+.step-num {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border-radius: 50%;
+  background: var(--pink);
+  color: #000;
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+.poster-steps .step-num {
+  width: 5.4cqw;
+  height: 5.4cqw;
+  font-size: 3.2cqw;
+}
+.poster-small {
+  display: grid;
+  gap: 0.8cqw;
+  padding-top: 2.4cqw;
+  border-top: 0.25cqw solid #000;
+  font-size: 1.9cqw;
+  color: #444;
+}
+.poster-small strong {
+  font-family: var(--font-display);
+  font-size: 2.6cqw;
+  letter-spacing: 0.02em;
+  color: #000;
+}
+
+/* Two table cards per letter page (each half a page) */
+.paper-cards {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+.table-card {
+  display: grid;
+  grid-template-columns: 40cqw minmax(0, 1fr);
+  align-items: center;
+  gap: 5cqw;
+  padding: 5cqw 6cqw;
+}
+.card-qr {
+  display: grid;
+  justify-items: center;
+  gap: 1.4cqw;
+}
+.card-qr img {
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 1.4cqw;
+  border: 0.45cqw solid #000;
+  border-radius: 1.6cqw;
+}
+.card-qr span {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 4.4cqw;
+  text-transform: uppercase;
+}
+.card-text {
+  display: grid;
+  gap: 2.2cqw;
+  min-width: 0;
+}
+.sign-head-compact {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1cqw;
+}
+.sign-head-compact .pp-mark {
+  height: 4cqw;
+}
+.sign-head-compact .sign-wordmark {
+  font-size: 4.6cqw;
+}
+.sign-head-compact .sign-tag {
+  font-size: 1.8cqw;
+  text-align: left;
+}
+.card-text h2 {
+  font-size: 6.6cqw;
+  line-height: 0.92;
+}
+.card-steps {
+  display: grid;
+  gap: 1.2cqw;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.card-steps li {
+  font-size: 2.4cqw;
+  align-items: center;
+}
+.card-steps .step-num {
+  width: 3.8cqw;
+  height: 3.8cqw;
+  font-size: 2.3cqw;
+}
+.card-small {
+  font-size: 1.55cqw;
+  line-height: 1.35;
+  color: #444;
+}
+.card-url {
+  font-family: var(--font-display);
+  font-size: 2.3cqw;
+  letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
+}
+.cut-line {
+  position: relative;
+  height: 0;
+  margin: 0 3cqw;
+  border-top: 0.25cqw dashed #999;
+}
+.cut-line span {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0 1.4cqw;
+  background: #fff;
+  color: #999;
+  font-size: 1.5cqw;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+@media print {
+  @page {
+    size: letter;
+    margin: 0.4in;
+  }
+  html.poster-mode,
+  html.poster-mode body,
+  html.poster-mode #root {
+    background: #fff !important;
+    color: #000;
+    min-height: 0;
+  }
+  html.poster-mode * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .poster-root {
+    min-height: 0;
+    padding: 0;
+    background: #fff;
+  }
+  .paper {
+    width: 100%;
+    height: 10.15in;
+    aspect-ratio: auto;
+    border-radius: 0;
+    box-shadow: none;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

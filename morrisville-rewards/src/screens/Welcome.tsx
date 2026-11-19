@@ -1,0 +1,211 @@
+import { useEffect, useState, type FormEvent } from "react";
+import { Eye, EyeOff, Users } from "lucide-react";
+import { api, errorText } from "../lib/api";
+import { KEYS, store } from "../lib/storage";
+import type { CrewPreview } from "../lib/types";
+import { Logo } from "../components/Logo";
+import { Button, Chip, Field, IconButton, InlineError, Segmented, Sheet } from "../components/ui";
+
+type Mode = "create" | "signin";
+
+export default function Welcome({ inviteCode }: { inviteCode: string | null }) {
+  const [mode, setMode] = useState<Mode>(() => (store.get<boolean>(KEYS.hasAccount) ? "signin" : "create"));
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [forgot, setForgot] = useState(false);
+  const [invite, setInvite] = useState<CrewPreview | null>(null);
+
+  useEffect(() => {
+    if (!inviteCode) return;
+    void api
+      .previewCrew(inviteCode)
+      .then(setInvite)
+      .catch(() => setInvite(null));
+  }, [inviteCode]);
+
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
+  const passwordOk = password.length >= 6;
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!emailOk) return setError("Enter a valid email address.");
+    if (!passwordOk) return setError("Use at least 6 characters for your password.");
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      if (mode === "create") {
+        const { needsConfirmation } = await api.signUp(email, password);
+        if (needsConfirmation) {
+          setNotice("Check your email to confirm your account, then come back and sign in.");
+          setMode("signin");
+        }
+      } else {
+        await api.signIn(email, password);
+      }
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="welcome">
+      <div className="welcome-top">
+        <Logo size="md" />
+        <Chip tone="pink">Morrisville · Beta</Chip>
+      </div>
+
+      <main className="welcome-main">
+        <div className="stack">
+          <h1 className="hero-title">
+            Track your play.
+            <br />
+            <em>Climb the board.</em>
+          </h1>
+          <p className="hero-sub">
+            Log your table time at PingPod Morrisville, see where you rank this week, and compete with your crew.
+          </p>
+        </div>
+
+        {invite && (
+          <div className="invite-banner">
+            <Users size={22} aria-hidden />
+            <div>
+              <strong>You're invited to join {invite.name}</strong>
+              <div className="small-print">Create an account and you'll join the crew right after.</div>
+            </div>
+          </div>
+        )}
+
+        <form className="auth-form" onSubmit={submit} noValidate>
+          <Segmented<Mode>
+            label="Account"
+            value={mode}
+            onChange={(m) => {
+              setMode(m);
+              setError("");
+            }}
+            options={[
+              { value: "create", label: "Create account" },
+              { value: "signin", label: "Sign in" },
+            ]}
+          />
+          <Field
+            label="Email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+          <div className="password-wrap">
+            <Field
+              label="Password"
+              type={show ? "text" : "password"}
+              autoComplete={mode === "create" ? "new-password" : "current-password"}
+              placeholder={mode === "create" ? "At least 6 characters" : "Your password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            <IconButton type="button" label={show ? "Hide password" : "Show password"} onClick={() => setShow((s) => !s)}>
+              {show ? <EyeOff size={20} /> : <Eye size={20} />}
+            </IconButton>
+          </div>
+          {mode === "create" && (
+            <p className="small-print">Make a new password just for Morrisville Rewards — not your PingPod booking password.</p>
+          )}
+          {error && <InlineError>{error}</InlineError>}
+          {notice && (
+            <div className="invite-banner" role="status">
+              <span>{notice}</span>
+            </div>
+          )}
+          <Button type="submit" variant="primary" size="lg" block loading={busy} disabled={!email || !password}>
+            {mode === "create" ? "Create account" : "Sign in"}
+          </Button>
+          {mode === "signin" && (
+            <Button type="button" variant="ghost" onClick={() => setForgot(true)}>
+              Forgot password?
+            </Button>
+          )}
+        </form>
+      </main>
+
+      <footer className="welcome-foot">
+        A local pilot at PingPod Morrisville. Not the official PingPod app or booking system.
+        <br />
+        Your email stays private — leaderboards show nicknames only.
+        {api.mode === "demo" && (
+          <>
+            <br />
+            <strong>Demo mode:</strong> not connected to the live database. Data stays in this browser.
+          </>
+        )}
+      </footer>
+
+      {forgot && <ForgotSheet initialEmail={email} onClose={() => setForgot(false)} />}
+    </div>
+  );
+}
+
+function ForgotSheet({ initialEmail, onClose }: { initialEmail: string; onClose: () => void }) {
+  const [email, setEmail] = useState(initialEmail);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [sent, setSent] = useState(false);
+  return (
+    <Sheet title="Reset password" onClose={onClose}>
+      {sent ? (
+        <>
+          <p className="sheet-text">If there's an account for {email}, a reset link is on its way. Open it on this phone.</p>
+          <Button variant="primary" size="lg" block onClick={onClose}>
+            Done
+          </Button>
+        </>
+      ) : (
+        <form
+          className="stack"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setBusy(true);
+            setError("");
+            try {
+              await api.sendPasswordReset(email);
+              setSent(true);
+            } catch (err) {
+              setError(errorText(err));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <Field
+            label="Email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          {error && <InlineError>{error}</InlineError>}
+          <Button type="submit" variant="primary" size="lg" block loading={busy} disabled={!email.includes("@")}>
+            Send reset link
+          </Button>
+          <p className="small-print">Can't get the email? Ask at the front desk.</p>
+        </form>
+      )}
+    </Sheet>
+  );
+}

@@ -3,5 +3,6 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
-  base: "./",
+  // Absolute asset paths: deep links like /join/ABCD2345 must still load /assets/*.
+  base: "/",
 });
