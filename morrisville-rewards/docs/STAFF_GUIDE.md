@@ -121,7 +121,7 @@ address set in Settings, so it never points to a test address. Reprint if that a
 | Logging past sessions → How far back | 7 days | How far back players can log |
 | Logging past sessions → Longest session | 180 min | Longest single session a player can log |
 | Crews → Largest crew / Members needed | 8 / 2 | Size limit, and members needed to appear on the board |
-| iPad display → Seconds per screen, Screens to show | 15 s, 4 screens | Rotation on the front-desk board |
+| iPad display → Seconds per screen, Screens to show | 15 s, all 6 screens (minutes, streaks, longest session, crew rankings, highest SPINDEX, this week) | Rotation on the front-desk board |
 | Rewards → Show rewards to players | Off | Master switch for prizes |
 | **Advanced** (tap to open) | — | QR address, venue name, shortest session (5 min), daily limit (300 min), which leaderboards players see |
 

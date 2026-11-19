@@ -100,7 +100,7 @@ step, `*_pending` values are normally 0 — clients can show `*_verified + *_pen
 | --- | --- | --- |
 | `get_leaderboard` | `p_metric` minutes·streaks·longest·spindex, `p_period` week·month·all (ignored for streaks/spindex but must be valid), `p_scope` verified·community, `p_limit`=50 (1–200) | table: `rank, user_id, display_name, avatar_color, value, secondary, sessions, detail, is_me`. The caller's own row is always included even if outside the limit. `secondary` = longest streak (streaks). `detail` = session date (longest) or `verified`/`self_reported` (spindex). |
 | `get_crew_leaderboard` | `p_period`, `p_scope`, `p_limit`=50 | table: `rank, crew_id, name, minutes, members, contributors, avg_minutes, is_mine` |
-| `get_display_data` | — | jsonb for the iPad: `generated_at, scope, rotation_seconds, slides, public_app_url, venue_name, week_start, minutes[], longest[], streaks[], crews[], highlights{players, minutes, sessions, new_players, longest, most_sessions, top_crew, active_crews}`. Nicknames only — no ids, emails or notes. |
+| `get_display_data` | — | jsonb for the iPad: `generated_at, scope, rotation_seconds, slides, public_app_url, venue_name, week_start, minutes[], longest[], streaks[], spindex[], crews[], highlights{players, minutes, sessions, new_players, longest, most_sessions, top_crew, top_spindex, active_crews}`. Nicknames only — no ids, emails or notes. |
 
 Realtime: every change to sessions, profiles, crews, memberships or ratings sends a **broadcast**
 on public channel `leaderboard`, event `changed`, payload `{at}` (no data). Clients refetch the
@@ -161,7 +161,7 @@ does not expose.
 | `auto_approve_timer` | false | boolean — no effect since migration 0009 (sessions always count) |
 | `default_board_scope`, `display_scope` | community | verified·community (see Scope above) |
 | `display_rotation_seconds` | 15 | 8–60 |
-| `display_slides` | minutes, streaks, crews, highlights | subset of minutes·streaks·crews·highlights·longest (≥1) |
+| `display_slides` | minutes, streaks, longest, crews, spindex, highlights | subset of those (≥1) |
 | `boards_enabled` | minutes, streaks, longest, spindex, crews | subset of those |
 | `rewards_enabled` | false | boolean (master switch for physical rewards) |
 

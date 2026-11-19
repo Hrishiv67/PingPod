@@ -35,7 +35,7 @@ Latest results (2026-11-19): `npm test` 22/22 pass · `tsc` clean · `npm run bu
 - Welcome: smaller headline, form above the fold on small iPhones, clear disabled buttons, visible "Forgot password?".
 - Home: Start playing / Log past session first, one compact stats strip, recent sessions; the active timer has its own focused view.
 - Less repeated grey text on Rankings, Crew and Me.
-- iPad `/display`: one welcome screen until someone plays (shows the pilot start date), category-specific labels and units, standings-first layout with a compact QR card, empty slides skipped.
+- iPad `/display`: back to the original layout (large QR panel beside the board) by request. Six boards rotate: most minutes, longest streaks, longest session, crew rankings, highest SPINDEX (new; verified ratings marked) and this week. Category-specific labels and units, pilot dates in the header, an invitation row under short lists, and each empty board shows its own message.
 - `/admin`: Sessions · Players · Crews · Stats · Settings, with the rest under More; plain labels; staff notes are optional.
 - Tested: demo walkthrough at iPhone SE/14/Pro Max/desktop, display states at iPad portrait/landscape/TV, admin against mocked data, and a live two-phone + iPad run on the real database (test accounts deleted afterwards). Not yet tested: admin against live data, physical devices.
 

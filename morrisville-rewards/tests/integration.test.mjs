@@ -73,6 +73,7 @@ describe("PingPod Morrisville Rewards · live backend", { skip: !ready }, () => 
     await ok(anon.rpc("get_crew_leaderboard", { p_period: "week", p_scope: "verified" }));
     const display = await ok(anon.rpc("get_display_data"));
     assert.ok(Array.isArray(display.minutes));
+    assert.ok(Array.isArray(display.spindex) && display.slides.includes("spindex"));
     await fails(anon.from("profiles").select("*"), /permission denied/);
     await fails(anon.from("play_sessions").select("*"), /permission denied/);
     await fails(anon.rpc("get_me"), /permission denied|sign in/i);

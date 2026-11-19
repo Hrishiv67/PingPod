@@ -66,7 +66,7 @@ export interface Settings {
   updated_at?: string;
 }
 
-export type DisplaySlide = "minutes" | "streaks" | "crews" | "highlights" | "longest";
+export type DisplaySlide = "minutes" | "streaks" | "longest" | "crews" | "spindex" | "highlights";
 export type BoardKey = "minutes" | "streaks" | "longest" | "spindex" | "crews";
 
 export interface Stats {
@@ -228,6 +228,8 @@ export interface DisplayData {
   minutes: DisplayPlayer[];
   longest: DisplayPlayer[];
   streaks: DisplayPlayer[];
+  /** Highest current SPINDEX ratings; `detail` is "verified" or "self_reported". Older backends omit it. */
+  spindex?: DisplayPlayer[];
   crews: DisplayCrew[];
   highlights: {
     players: number;
@@ -237,6 +239,7 @@ export interface DisplayData {
     longest: { display_name: string; minutes: number } | null;
     most_sessions: { display_name: string; sessions: number } | null;
     top_crew: { name: string; minutes: number } | null;
+    top_spindex?: { display_name: string; rating: number } | null;
     active_crews: number;
   };
 }

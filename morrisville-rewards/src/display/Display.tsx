@@ -14,7 +14,7 @@ const POLL_MS = 30_000;
 const LIVE_WINDOW_MS = 90_000;
 const PING_DEBOUNCE_MS = 2_000;
 const IDLE_MS = 3_000;
-const KNOWN_SLIDES: DisplaySlide[] = ["minutes", "streaks", "crews", "highlights", "longest"];
+const KNOWN_SLIDES: DisplaySlide[] = ["minutes", "streaks", "longest", "crews", "spindex", "highlights"];
 
 const SETTINGS_POLL_MS = 5 * 60_000;
 
@@ -29,23 +29,7 @@ function weekRange(day: string): string {
   return a.split(" ")[0] === b.split(" ")[0] ? `${a}–${b.split(" ")[1]}` : `${a} – ${b}`;
 }
 
-/** Whether a slide has anything real to show (empty categories are skipped, never faked). */
-function hasContent(slide: DisplaySlide, d: DisplayData): boolean {
-  switch (slide) {
-    case "minutes":
-      return d.minutes.length > 0;
-    case "streaks":
-      return d.streaks.length > 0;
-    case "longest":
-      return d.longest.length > 0;
-    case "crews":
-      return d.crews.length > 0;
-    case "highlights":
-      return d.highlights.players > 0 || d.highlights.sessions > 0;
-  }
-}
-
-/** Pilot status line for the welcome screen, from the admin-set pilot dates. */
+/** Pilot status line ("Starts Monday, Nov 23" / "Week 2 of 4"), from the admin-set pilot dates. */
 function pilotLine(settings: Settings | null): string | null {
   if (!settings?.pilot_start) return null;
   const today = venueDate();
@@ -77,7 +61,7 @@ export default function Display() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const inflight = useRef(false);
 
-  // Pilot dates for the welcome screen (anonymous read; a failure just hides the date line).
+  // Pilot dates for the header line (anonymous read; a failure just hides it).
   useEffect(() => {
     let cancelled = false;
     const fetchSettings = () =>
@@ -192,14 +176,15 @@ export default function Display() {
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
 
+  // Every board the admin turned on, always in the rotation; an empty board shows its own invitation.
   const slides = useMemo<DisplaySlide[]>(() => {
-    if (!data) return [];
-    const wanted = (data.slides?.length ? data.slides : KNOWN_SLIDES).filter((s): s is DisplaySlide => KNOWN_SLIDES.includes(s));
-    return wanted.filter((s, i) => wanted.indexOf(s) === i && hasContent(s, data));
-  }, [data]);
+    const wanted = (data?.slides?.length ? data.slides : KNOWN_SLIDES).filter((s): s is DisplaySlide => KNOWN_SLIDES.includes(s));
+    const unique = wanted.filter((s, i) => wanted.indexOf(s) === i);
+    return unique.length ? unique : ["minutes"];
+  }, [data?.slides]);
 
   const rotationMs = Math.min(60, Math.max(8, Number(data?.rotation_seconds) || 15)) * 1000;
-  const current = slides.length ? slideIndex % slides.length : 0;
+  const current = slideIndex % slides.length;
 
   // Calm rotation; restarts its timer whenever the slide or settings change.
   useEffect(() => {
@@ -231,20 +216,16 @@ export default function Display() {
     );
   }
 
-  const welcome = slides.length === 0;
   const joinUrl = displayUrl(appUrl);
   const pilot = pilotLine(settings);
-  const qrImg = qr ? <img src={qr} alt={`QR code to join: ${joinUrl}`} /> : <div className="display-qr-placeholder" />;
-  const localWarning = isLocalUrl(appUrl) ? (
-    <div className="display-join-warning">Test address: set the public app URL in Admin → Settings.</div>
-  ) : null;
 
   return (
-    <div className={`display ${welcome ? "is-welcome" : "is-board"} ${idle ? "is-idle" : ""}`}>
+    <div className={`display ${idle ? "is-idle" : ""}`}>
       <header className="display-head">
         <Logo size="lg" sub="MORRISVILLE" />
         <div className="display-status">
           {api.mode === "demo" && <span className="display-demo">DEMO DATA</span>}
+          {pilot && <span className="display-pilot">{pilot}</span>}
           {live ? (
             <span className="display-live">
               <span className="display-live-dot" aria-hidden /> LIVE
@@ -258,55 +239,36 @@ export default function Display() {
         </div>
       </header>
 
-      {welcome ? (
-        <main className="display-main display-welcome" key="welcome">
-          <section className="welcome-copy">
-            {pilot && <div className="welcome-kicker">{pilot}</div>}
-            <h1 className="welcome-title">
-              The competition
-              <br />
-              <em>starts here.</em>
-            </h1>
-            <p className="welcome-line">Track your playing time. Compete with friends. Climb the leaderboard.</p>
-          </section>
-          <aside className="welcome-join">
-            <div className="display-qr">{qrImg}</div>
-            <div className="welcome-scan">Scan to join</div>
-            <div className="display-join-url">{joinUrl}</div>
-            {localWarning}
-          </aside>
-        </main>
-      ) : (
-        <main className="display-main display-scoreboard" key="board">
-          <section className="display-board" aria-live="polite">
-            {slides.map((slide, i) => (
-              <div key={slide} className={`display-slide ${i === current ? "is-active" : ""}`} aria-hidden={i !== current}>
-                <Slide slide={slide} data={data} />
-              </div>
-            ))}
-            {slides.length > 1 && (
-              <div className="display-progress" aria-hidden>
-                {slides.map((slide, i) => (
-                  <span
-                    key={`${slide}-${i === current ? slideIndex : "x"}`}
-                    className={i === current ? "is-active" : i < current ? "is-done" : ""}
-                    style={{ "--rotation": `${rotationMs}ms` } as CSSProperties}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-
-          <aside className="display-join">
-            <div className="display-qr">{qrImg}</div>
-            <div className="display-join-text">
-              <div className="display-join-kicker">Scan to join</div>
-              <div className="display-join-url">{joinUrl}</div>
-              {localWarning}
+      <main className="display-main">
+        <section className="display-board" aria-live="polite">
+          {slides.map((slide, i) => (
+            <div key={slide} className={`display-slide ${i === current ? "is-active" : ""}`} aria-hidden={i !== current}>
+              <Slide slide={slide} data={data} pilot={pilot} />
             </div>
-          </aside>
-        </main>
-      )}
+          ))}
+          {slides.length > 1 && (
+            <div className="display-progress" aria-hidden>
+              {slides.map((slide, i) => (
+                <span
+                  key={`${slide}-${i === current ? slideIndex : "x"}`}
+                  className={i === current ? "is-active" : i < current ? "is-done" : ""}
+                  style={{ "--rotation": `${rotationMs}ms` } as CSSProperties}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        <aside className="display-join">
+          <div className="display-qr">{qr ? <img src={qr} alt={`QR code to join: ${joinUrl}`} /> : <div className="display-qr-placeholder" />}</div>
+          <div className="display-join-text">
+            <div className="display-join-kicker">Scan to join</div>
+            <p className="display-join-line">No app download. Track your play, climb the board.</p>
+            <div className="display-join-url">{joinUrl}</div>
+            {isLocalUrl(appUrl) && <div className="display-join-warning">Test address: set the public app URL in Admin → Settings.</div>}
+          </div>
+        </aside>
+      </main>
 
       <footer className="display-foot">
         <span>Morrisville Rewards · Beta — a local PingPod Morrisville pilot</span>
@@ -331,65 +293,95 @@ export default function Display() {
 }
 
 // ── Slides ─────────────────────────────────────────────────────────────
-function Slide({ slide, data }: { slide: DisplaySlide; data: DisplayData }) {
+const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
+
+function Slide({ slide, data, pilot }: { slide: DisplaySlide; data: DisplayData; pilot: string | null }) {
   const week = weekRange(data.week_start);
+  const notStarted = Boolean(pilot?.startsWith("Starts"));
   switch (slide) {
-    case "minutes":
+    case "minutes": {
+      const lead = data.minutes.length > 1 ? data.minutes[0].value - data.minutes[1].value : 0;
       return (
-        <SlideFrame title="Most minutes" subtitle="Total playing time this week" when={week}>
+        <SlideFrame title="Most minutes" subtitle="Total playing time this week" chip={week}>
           <PlayerRows
             rows={data.minutes}
             value={(r) => formatNumber(r.value)}
             unit="min"
-            meta={(r) => (r.sessions ? `${r.sessions} ${r.sessions === 1 ? "session" : "sessions"}` : null)}
+            meta={(r) => {
+              const sessions = r.sessions ? `${r.sessions} ${plural(r.sessions, "session", "sessions")}` : null;
+              if (r.rank === 1 && lead > 0) return [sessions, `leads by ${formatNumber(lead)} min`].filter(Boolean).join(" · ");
+              return sessions;
+            }}
+            empty={
+              notStarted ? (
+                <SlideEmpty title="Be on the board from day one." text="Scan the code now to set up your account." />
+              ) : (
+                <SlideEmpty title="No minutes logged yet this week." text="Scan, tap Start playing, and take the top spot." />
+              )
+            }
           />
         </SlideFrame>
       );
+    }
     case "streaks":
       return (
-        <SlideFrame title="Longest streaks" subtitle="Consecutive active weeks">
+        <SlideFrame title="Longest streaks" subtitle="Weeks in a row with at least one session">
           <PlayerRows
             rows={data.streaks}
             value={(r) => String(r.value)}
-            unit={(r) => (r.value === 1 ? "week" : "weeks")}
-            meta={(r) => (r.secondary && r.secondary > r.value ? `Best ${r.secondary} weeks` : null)}
+            unit={(r) => plural(r.value, "week", "weeks")}
+            meta={(r) => (r.secondary && r.secondary > r.value ? `Best ever ${r.secondary} weeks` : null)}
+            empty={<SlideEmpty title="No streaks running yet." text="Play once a week to start one." />}
           />
         </SlideFrame>
       );
     case "longest":
       return (
-        <SlideFrame title="Longest session" subtitle="Longest single session this week" when={week}>
+        <SlideFrame title="Longest session" subtitle="Longest single session this week" chip={week}>
           <PlayerRows
             rows={data.longest}
             value={(r) => formatNumber(r.value)}
             unit="min"
-            meta={(r) => (r.detail && /^\d{4}-\d{2}-\d{2}$/.test(r.detail) ? weekdayFmt.format(atNoon(r.detail)) : null)}
+            meta={(r) => (r.detail && /^\d{4}-\d{2}-\d{2}$/.test(r.detail) ? `Played ${weekdayFmt.format(atNoon(r.detail))}` : null)}
+            empty={<SlideEmpty title="No sessions yet this week." text="One long session sets the mark." />}
           />
         </SlideFrame>
       );
     case "crews":
       return (
-        <SlideFrame title="Top crews" subtitle="Combined crew minutes this week" when={week}>
+        <SlideFrame title="Crew rankings" subtitle="Combined crew minutes this week" chip={week}>
           <CrewRows rows={data.crews} />
+        </SlideFrame>
+      );
+    case "spindex":
+      return (
+        <SlideFrame title="Highest SPINDEX" subtitle="Current ratings · self-reported unless marked verified">
+          <PlayerRows
+            rows={data.spindex ?? []}
+            value={(r) => String(r.value)}
+            unit=""
+            badge={(r) => (r.detail === "verified" ? "Verified" : null)}
+            empty={<SlideEmpty title="No ratings on the board yet." text="Add your SPINDEX on the Me tab in the app." />}
+          />
         </SlideFrame>
       );
     case "highlights":
       return (
-        <SlideFrame title="This week" subtitle="At PingPod Morrisville" when={week}>
+        <SlideFrame title="This week" subtitle="At PingPod Morrisville" chip={week}>
           <Highlights data={data} />
         </SlideFrame>
       );
   }
 }
 
-function SlideFrame({ title, subtitle, when, children }: { title: string; subtitle: string; when?: string; children: ReactNode }) {
+function SlideFrame({ title, subtitle, chip, children }: { title: string; subtitle: string; chip?: string; children: ReactNode }) {
   return (
     <div className="slide">
       <div className="slide-head">
         <h1 className="slide-title">{title}</h1>
         <div className="slide-sub">
           <span>{subtitle}</span>
-          {when && <span className="slide-when">{when}</span>}
+          {chip && <span className="slide-chip">{chip}</span>}
         </div>
       </div>
       <div className="slide-body">{children}</div>
@@ -397,7 +389,17 @@ function SlideFrame({ title, subtitle, when, children }: { title: string; subtit
   );
 }
 
-/** Grid rows for longer lists: podium places a little taller; at least `minSlots` tracks so rows don't balloon. */
+function SlideEmpty({ title, text }: { title: string; text: string }) {
+  return (
+    <div className="slide-empty">
+      <PingPodMark height={40} />
+      <strong>{title}</strong>
+      <span>{text}</span>
+    </div>
+  );
+}
+
+/** Grid rows: podium places a little taller; at least `minSlots` tracks so 1–2 rows don't balloon. */
 function rowTemplate(count: number, minSlots: number): string {
   const slots = Math.max(count, minSlots);
   return Array.from({ length: slots }, (_, i) => (i < 3 && i < count ? "minmax(0, 1.18fr)" : "minmax(0, 1fr)")).join(" ");
@@ -416,13 +418,11 @@ function initials(name: string): string {
   );
 }
 
-/** Short lists (1–4 rows) get tall rows plus one invitation row instead of a half-empty board. */
-const FEW = 4;
-
-function NextUp({ crews = false }: { crews?: boolean }) {
+/** One quiet invitation row under a short list, instead of a half-empty board. */
+function NextUp({ crews = false, index }: { crews?: boolean; index: number }) {
   return (
-    <li className="row row-next" aria-hidden>
-      <span className="row-next-text">{crews ? "Your crew could be next" : "Your name could be next"}</span>
+    <li className="row row-next" style={{ "--i": index } as CSSProperties} aria-hidden>
+      <span className="row-next-text">{crews ? "Your crew could be next" : "Your name could be here"}</span>
       <span className="row-next-cta">Scan to join</span>
     </li>
   );
@@ -433,56 +433,67 @@ function PlayerRows({
   value,
   unit,
   meta,
+  badge,
+  empty,
 }: {
   rows: DisplayPlayer[];
   value: (r: DisplayPlayer) => string;
   unit: string | ((r: DisplayPlayer) => string);
   meta?: (r: DisplayPlayer) => string | null;
+  badge?: (r: DisplayPlayer) => string | null;
+  empty: ReactNode;
 }) {
-  const few = rows.length <= FEW;
+  if (!rows.length) return <>{empty}</>;
+  const shown = rows.slice(0, 8);
+  const invite = shown.length <= 4;
   return (
-    <ol
-      className={`rows rows-players ${few ? "rows-few" : ""}`}
-      style={few ? undefined : { gridTemplateRows: rowTemplate(Math.min(rows.length, 8), 6) }}
-    >
-      {rows.slice(0, 8).map((r) => {
+    <ol className="rows rows-players" style={{ gridTemplateRows: rowTemplate(shown.length + (invite ? 1 : 0), invite ? 5 : 6) }}>
+      {shown.map((r, i) => {
         const extra = meta?.(r);
+        const tag = badge?.(r);
+        const u = typeof unit === "function" ? unit(r) : unit;
         return (
-          <li key={`${r.rank}-${r.display_name}`} className={`row ${r.rank <= 3 ? `row-top row-${r.rank}` : ""}`}>
+          <li
+            key={`${r.rank}-${r.display_name}`}
+            className={`row ${r.rank <= 3 ? `row-top row-${r.rank}` : ""}`}
+            style={{ "--i": i } as CSSProperties}
+          >
             <span className="row-rank num">{r.rank}</span>
             <span className={`row-avatar avatar avatar-${r.avatar_color || "pink"}`} aria-hidden>
               {initials(r.display_name)}
             </span>
             <span className="row-name">
-              <span className="row-name-text">{r.display_name}</span>
+              <span className="row-name-line">
+                <span className="row-name-text">{r.display_name}</span>
+                {tag && <span className="row-badge">{tag}</span>}
+              </span>
               {extra && <span className="row-meta">{extra}</span>}
             </span>
             <span className="row-value">
               <span className="num">{value(r)}</span>
-              <span className="row-unit">{typeof unit === "function" ? unit(r) : unit}</span>
+              {u && <span className="row-unit">{u}</span>}
             </span>
           </li>
         );
       })}
-      {few && <NextUp />}
+      {invite && <NextUp index={shown.length} />}
     </ol>
   );
 }
 
 function CrewRows({ rows }: { rows: DisplayCrew[] }) {
-  const few = rows.length <= FEW;
+  if (!rows.length) return <SlideEmpty title="No crew minutes yet this week." text="Start a crew in the app and bring your friends." />;
+  const shown = rows.slice(0, 6);
+  const invite = shown.length <= 3;
   return (
-    <ol
-      className={`rows rows-crews ${few ? "rows-few" : ""}`}
-      style={few ? undefined : { gridTemplateRows: rowTemplate(Math.min(rows.length, 6), 5) }}
-    >
-      {rows.slice(0, 6).map((c) => (
-        <li key={`${c.rank}-${c.name}`} className={`row ${c.rank <= 3 ? `row-top row-${c.rank}` : ""}`}>
+    <ol className="rows rows-crews" style={{ gridTemplateRows: rowTemplate(shown.length + (invite ? 1 : 0), invite ? 4 : 5) }}>
+      {shown.map((c, i) => (
+        <li key={`${c.rank}-${c.name}`} className={`row ${c.rank <= 3 ? `row-top row-${c.rank}` : ""}`} style={{ "--i": i } as CSSProperties}>
           <span className="row-rank num">{c.rank}</span>
           <span className="row-name">
             <span className="row-name-text">{c.name}</span>
             <span className="row-meta">
-              {c.members} {c.members === 1 ? "player" : "players"} · {formatNumber(c.avg_minutes)} min each
+              {c.members} {plural(c.members, "player", "players")} · {formatNumber(c.avg_minutes)} min each
             </span>
           </span>
           <span className="row-value">
@@ -491,51 +502,43 @@ function CrewRows({ rows }: { rows: DisplayCrew[] }) {
           </span>
         </li>
       ))}
-      {few && <NextUp crews />}
+      {invite && <NextUp crews index={shown.length} />}
     </ol>
   );
 }
 
 function Highlights({ data }: { data: DisplayData }) {
   const h = data.highlights;
-  const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
+  if (!h.players && !h.sessions) {
+    return <SlideEmpty title="The week is just getting started." text="Every session counts toward this week's totals." />;
+  }
   // Row 1: four counts. Row 2: who's leading (only the ones that exist), sharing the width evenly.
   const counts = [
-    { label: "Players this week", value: formatNumber(h.players), unit: plural(h.players, "player", "players") },
-    { label: "Total playing time", value: formatNumber(h.minutes), unit: "min", accent: true },
-    { label: "Sessions played", value: formatNumber(h.sessions), unit: plural(h.sessions, "session", "sessions") },
-    { label: "New this week", value: formatNumber(h.new_players), unit: plural(h.new_players, "player", "players") },
+    { label: "Players this week", value: formatNumber(h.players) },
+    { label: "Minutes played", value: formatNumber(h.minutes), accent: true },
+    { label: "Sessions", value: formatNumber(h.sessions) },
+    { label: "New players", value: formatNumber(h.new_players) },
   ];
-  const leaders: { label: string; value: string; unit: string; detail: string }[] = [];
-  if (h.longest) leaders.push({ label: "Longest session", value: formatNumber(h.longest.minutes), unit: "min", detail: h.longest.display_name });
+  const leaders: { label: string; value: string; detail: string }[] = [];
+  if (h.longest) leaders.push({ label: "Longest session", value: `${formatNumber(h.longest.minutes)} min`, detail: h.longest.display_name });
   if (h.most_sessions)
-    leaders.push({
-      label: "Most sessions",
-      value: formatNumber(h.most_sessions.sessions),
-      unit: plural(h.most_sessions.sessions, "session", "sessions"),
-      detail: h.most_sessions.display_name,
-    });
-  if (h.top_crew) leaders.push({ label: "Top crew", value: formatNumber(h.top_crew.minutes), unit: "min", detail: h.top_crew.name });
+    leaders.push({ label: "Most sessions", value: formatNumber(h.most_sessions.sessions), detail: h.most_sessions.display_name });
+  if (h.top_crew) leaders.push({ label: "Top crew", value: `${formatNumber(h.top_crew.minutes)} min`, detail: h.top_crew.name });
+  if (h.top_spindex) leaders.push({ label: "Top SPINDEX", value: String(h.top_spindex.rating), detail: h.top_spindex.display_name });
   const leaderSpan = leaders.length ? 12 / leaders.length : 12;
   return (
-    <div className={`tiles ${leaders.length ? "" : "tiles-one-row"}`}>
-      {counts.map((t) => (
-        <div key={t.label} className={`tile ${t.accent ? "tile-accent" : ""}`} style={{ gridColumn: "span 3" }}>
+    <div className="tiles">
+      {counts.map((t, i) => (
+        <div key={t.label} className={`tile ${t.accent ? "tile-accent" : ""}`} style={{ gridColumn: "span 3", "--i": i } as CSSProperties}>
           <span className="tile-label">{t.label}</span>
-          <span className="tile-figure">
-            <span className="tile-value num">{t.value}</span>
-            <span className="tile-unit">{t.unit}</span>
-          </span>
+          <span className="tile-value num">{t.value}</span>
         </div>
       ))}
-      {leaders.map((t) => (
-        <div key={t.label} className="tile tile-leader" style={{ gridColumn: `span ${leaderSpan}` }}>
+      {leaders.map((t, i) => (
+        <div key={t.label} className="tile tile-leader" style={{ gridColumn: `span ${leaderSpan}`, "--i": i + 4 } as CSSProperties}>
           <span className="tile-label">{t.label}</span>
           <span className="tile-detail">{t.detail}</span>
-          <span className="tile-figure">
-            <span className="tile-value num">{t.value}</span>
-            <span className="tile-unit">{t.unit}</span>
-          </span>
+          <span className="tile-value num">{t.value}</span>
         </div>
       ))}
     </div>

@@ -49,7 +49,7 @@ const DEFAULT_SETTINGS: Settings = {
   default_board_scope: "community",
   display_scope: "community",
   display_rotation_seconds: 15,
-  display_slides: ["minutes", "streaks", "crews", "highlights"],
+  display_slides: ["minutes", "streaks", "longest", "crews", "spindex", "highlights"],
   boards_enabled: ["minutes", "streaks", "longest", "spindex", "crews"],
   rewards_enabled: false,
 };
@@ -1195,6 +1195,9 @@ export const demoApi: Api = {
       streaks: board(s, "streaks", "all", scope)
         .slice(0, 8)
         .map((r) => ({ rank: r.rank, display_name: r.display_name, avatar_color: r.avatar_color, value: r.value, secondary: r.secondary ?? 0 })),
+      spindex: board(s, "spindex", "all", scope)
+        .slice(0, 8)
+        .map((r) => ({ rank: r.rank, display_name: r.display_name, avatar_color: r.avatar_color, value: r.value, detail: r.detail ?? undefined })),
       crews: crews
         .filter((c) => c.minutes > 0)
         .slice(0, 6)
@@ -1207,6 +1210,10 @@ export const demoApi: Api = {
         longest: longest[0] ? { display_name: longest[0].display_name, minutes: longest[0].value } : null,
         most_sessions: mostSessions ? { display_name: mostSessions.display_name, sessions: mostSessions.sessions ?? 0 } : null,
         top_crew: crews[0] && crews[0].minutes > 0 ? { name: crews[0].name, minutes: crews[0].minutes } : null,
+        top_spindex: (() => {
+          const top = board(s, "spindex", "all", scope)[0];
+          return top ? { display_name: top.display_name, rating: top.value } : null;
+        })(),
         active_crews: crews.filter((c) => c.minutes > 0).length,
       },
     };

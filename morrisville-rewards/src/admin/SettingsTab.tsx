@@ -31,9 +31,10 @@ const NUM_FIELDS: Record<NumKey, { label: string; unit: string; min: number; max
 const SLIDES: { value: DisplaySlide; label: string }[] = [
   { value: "minutes", label: "Most minutes this week" },
   { value: "streaks", label: "Longest streaks" },
-  { value: "crews", label: "Top crews" },
-  { value: "highlights", label: "This week's highlights" },
   { value: "longest", label: "Longest session this week" },
+  { value: "crews", label: "Crew rankings" },
+  { value: "spindex", label: "Highest SPINDEX" },
+  { value: "highlights", label: "This week's highlights" },
 ];
 
 const BOARDS: { value: BoardKey; label: string }[] = [

@@ -1,5 +1,6 @@
 /* In-venue scoreboard (/display). Sized in vmin so one layout scales from iPad to TV.
-   Landscape: board left (~65%), join panel right. Portrait: board top, join strip bottom. */
+   Landscape: board left (~65%), join panel right. Portrait: board top, join strip bottom.
+   Boards: most minutes, streaks, longest session, crew rankings, highest SPINDEX, weekly highlights. */
 
 html.display-mode,
 html.display-mode body {
@@ -126,25 +127,25 @@ html.display-mode body {
 .display-updated {
   white-space: nowrap;
 }
+.display-pilot {
+  padding: 0.3em 0.8em;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
 
 /* Main split */
 .display-main {
   display: grid;
+  grid-template-columns: minmax(0, 1.85fr) minmax(0, 1fr);
   gap: clamp(14px, 2.6vmin, 40px);
   min-height: 0;
-  animation: display-in 0.6s ease;
-}
-@keyframes display-in {
-  from {
-    opacity: 0;
-  }
-}
-.display-scoreboard {
-  grid-template-columns: minmax(0, 1fr) clamp(190px, 21vw, 340px);
-}
-/* Landscape: the join card sits in the bottom corner, only as tall as its content. */
-.display-scoreboard .display-join {
-  align-self: end;
 }
 .display-board {
   position: relative;
@@ -189,18 +190,17 @@ html.display-mode body {
   font-weight: 600;
   color: var(--text-2);
 }
-.slide-when {
-  font-family: var(--font-display);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.slide-chip {
+  padding: 0.2em 0.75em;
+  border-radius: 999px;
+  background: var(--pink-soft);
   color: var(--pink);
+  font-family: var(--font-display);
+  font-size: 0.85em;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   white-space: nowrap;
-}
-.slide-when::before {
-  content: "·";
-  margin-right: clamp(8px, 1.4vmin, 18px);
-  color: var(--muted);
 }
 .slide-body {
   min-height: 0;
@@ -247,6 +247,12 @@ html.display-mode body {
 .row-1 .row-value .num {
   color: var(--pink);
 }
+.row-2 {
+  box-shadow: inset clamp(3px, 0.45vmin, 6px) 0 0 rgba(255, 255, 255, 0.85);
+}
+.row-3 {
+  box-shadow: inset clamp(3px, 0.45vmin, 6px) 0 0 rgba(255, 255, 255, 0.4);
+}
 .row-avatar.avatar {
   width: clamp(32px, 5.6vmin, 76px);
   height: clamp(32px, 5.6vmin, 76px);
@@ -266,6 +272,59 @@ html.display-mode body {
 }
 .row-top .row-name-text {
   font-size: clamp(20px, 3.9vmin, 56px);
+}
+.row-name-line {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 1.2vmin, 16px);
+  min-width: 0;
+}
+.row-badge {
+  flex: none;
+  padding: 0.25em 0.6em;
+  border-radius: 999px;
+  border: 1px solid var(--pink-line);
+  color: var(--pink);
+  font-family: var(--font-display);
+  font-size: clamp(11px, 1.6vmin, 20px);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.row-next {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  padding: 0 clamp(16px, 2.6vmin, 34px);
+  background: transparent;
+  border: 1px dashed var(--line-strong);
+  font-size: clamp(16px, 2.6vmin, 34px);
+}
+.row-next-text {
+  font-weight: 600;
+  color: var(--text-2);
+}
+.row-next-cta {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pink);
+  white-space: nowrap;
+}
+
+/* Each time a board comes up, its rows slide in one after another. */
+.display-slide.is-active .row,
+.display-slide.is-active .tile {
+  animation: display-row-in 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  animation-delay: calc(0.25s + var(--i, 0) * 70ms);
+}
+@keyframes display-row-in {
+  from {
+    opacity: 0;
+    transform: translateX(-18px);
+  }
 }
 .row-meta {
   overflow: hidden;
@@ -297,54 +356,6 @@ html.display-mode body {
   color: var(--muted);
 }
 
-/* Short lists: tall, generous rows that start at the top, plus one invitation row */
-.rows-few {
-  grid-template-rows: none;
-  grid-auto-rows: clamp(64px, 15vmin, 190px);
-  align-content: start;
-}
-.rows-few .row-name-text,
-.rows-few .row-top .row-name-text {
-  font-size: clamp(22px, 4.8vmin, 68px);
-}
-.rows-few .row-value .num,
-.rows-few .row-top .row-value .num {
-  font-size: clamp(32px, 7vmin, 100px);
-}
-.rows-few .row-rank {
-  font-size: clamp(26px, 5.2vmin, 74px);
-}
-.rows-few .row-avatar.avatar {
-  width: clamp(40px, 7.4vmin, 100px);
-  height: clamp(40px, 7.4vmin, 100px);
-  font-size: clamp(16px, 3.2vmin, 42px);
-}
-.rows-few .row-meta {
-  font-size: clamp(13px, 2.2vmin, 30px);
-}
-.row-next {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1em;
-  padding: 0 clamp(16px, 2.6vmin, 34px);
-  background: transparent;
-  border: 1px dashed var(--line-strong);
-  font-size: clamp(16px, 2.8vmin, 38px);
-}
-.row-next-text {
-  font-weight: 600;
-  color: var(--text-2);
-}
-.row-next-cta {
-  font-family: var(--font-display);
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--pink);
-  white-space: nowrap;
-}
-
 /* Highlights */
 .tiles {
   display: grid;
@@ -374,31 +385,9 @@ html.display-mode body {
   text-transform: uppercase;
   color: var(--muted);
 }
-.tiles-one-row {
-  grid-template-rows: minmax(0, 1fr);
-  max-height: 55%;
-}
-.tile-figure {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0.15em 0.35em;
-  min-width: 0;
-}
 .tile-value {
   font-size: clamp(30px, 6.4vmin, 92px);
   line-height: 0.95;
-}
-.tile-unit {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(13px, 2vmin, 28px);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.tile-accent .tile-unit {
-  color: rgba(0, 0, 0, 0.65);
 }
 .tile-detail {
   overflow: hidden;
@@ -415,11 +404,16 @@ html.display-mode body {
   margin-bottom: auto;
 }
 .tile-leader .tile-detail {
-  font-size: clamp(18px, 3.2vmin, 44px);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
+  line-height: 1.1;
+  font-size: clamp(16px, 2.8vmin, 40px);
   color: #fff;
 }
 .tile-leader .tile-value {
-  font-size: clamp(24px, 4.6vmin, 66px);
+  font-size: clamp(22px, 4.2vmin, 60px);
   color: var(--pink);
 }
 .tile-accent {
@@ -429,6 +423,35 @@ html.display-mode body {
 }
 .tile-accent .tile-label {
   color: rgba(0, 0, 0, 0.7);
+}
+
+/* Empty slide */
+.slide-empty {
+  height: 100%;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: clamp(8px, 1.4vmin, 18px);
+  text-align: center;
+  border-radius: clamp(12px, 1.6vmin, 20px);
+  border: 1px dashed var(--line-strong);
+  color: var(--text-2);
+}
+.slide-empty .pp-mark {
+  height: clamp(28px, 5vmin, 60px);
+  width: auto;
+  color: #fff;
+  opacity: 0.9;
+}
+.slide-empty strong {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(24px, 4.6vmin, 64px);
+  text-transform: uppercase;
+  color: #fff;
+}
+.slide-empty span {
+  font-size: clamp(16px, 2.6vmin, 34px);
 }
 
 /* Slide progress */
@@ -476,6 +499,10 @@ html.display-mode body {
   .display-live-dot {
     animation: none;
   }
+  .display-slide.is-active .row,
+  .display-slide.is-active .tile {
+    animation: none;
+  }
 }
 
 /* Join panel */
@@ -483,11 +510,11 @@ html.display-mode body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-end;
-  gap: clamp(10px, 1.6vmin, 20px);
+  justify-content: center;
+  gap: clamp(12px, 2.2vmin, 30px);
   min-height: 0;
   min-width: 0;
-  padding: clamp(14px, 2.2vmin, 28px);
+  padding: clamp(16px, 3vmin, 44px);
   border-radius: clamp(14px, 2vmin, 26px);
   background: var(--surface);
   border: 1px solid var(--line);
@@ -495,7 +522,7 @@ html.display-mode body {
 }
 .display-qr {
   flex: none;
-  width: min(100%, 34vmin);
+  width: min(100%, 46vmin);
   aspect-ratio: 1;
   padding: clamp(8px, 1.4vmin, 18px);
   border-radius: clamp(10px, 1.4vmin, 18px);
@@ -515,15 +542,20 @@ html.display-mode body {
 .display-join-kicker {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: clamp(22px, 3.6vmin, 50px);
+  font-size: clamp(30px, 6.4vmin, 92px);
   line-height: 0.95;
   text-transform: uppercase;
   color: var(--pink);
 }
+.display-join-line {
+  font-size: clamp(15px, 2.4vmin, 32px);
+  font-weight: 600;
+  color: var(--text-2);
+}
 .display-join-url {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: clamp(13px, 1.8vmin, 26px);
+  font-size: clamp(14px, 2.1vmin, 28px);
   letter-spacing: 0.03em;
   color: var(--muted);
   overflow-wrap: anywhere;
@@ -532,66 +564,6 @@ html.display-mode body {
   font-size: clamp(12px, 1.6vmin, 20px);
   font-weight: 700;
   color: var(--warn);
-}
-
-/* Welcome (no rankings yet): one intentional screen, QR is the hero */
-.display-welcome {
-  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-  align-items: center;
-}
-.welcome-copy {
-  display: grid;
-  align-content: center;
-  gap: clamp(14px, 2.6vmin, 36px);
-  min-width: 0;
-}
-.welcome-kicker {
-  justify-self: start;
-  padding: 0.35em 0.9em;
-  border-radius: 999px;
-  border: 1px solid var(--pink-line);
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: clamp(16px, 2.8vmin, 38px);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: #fff;
-}
-.welcome-title {
-  font-size: clamp(54px, 12.5vmin, 188px);
-  line-height: 0.88;
-}
-.welcome-title em {
-  font-style: normal;
-  color: var(--pink);
-}
-.welcome-line {
-  max-width: 22em;
-  font-size: clamp(18px, 3.1vmin, 44px);
-  font-weight: 500;
-  line-height: 1.3;
-  color: var(--text-2);
-}
-.welcome-join {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(10px, 1.8vmin, 24px);
-  min-width: 0;
-  text-align: center;
-}
-.welcome-join .display-qr {
-  width: min(100%, 54vmin);
-  padding: clamp(10px, 1.8vmin, 24px);
-}
-.welcome-scan {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: clamp(32px, 6.6vmin, 96px);
-  line-height: 0.95;
-  text-transform: uppercase;
-  color: var(--pink);
 }
 
 /* Footer */
@@ -673,48 +645,23 @@ html.display-mode body {
   font-size: clamp(16px, 2.2vmin, 26px);
 }
 
-/* Portrait iPad: board on top, slim join strip along the bottom */
+/* Portrait iPad: board on top, join strip along the bottom */
 @media (orientation: portrait) {
-  .display-scoreboard {
+  .display-main {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) auto;
   }
-  .display-scoreboard .display-join {
+  .display-join {
     flex-direction: row;
     justify-content: flex-start;
     text-align: left;
-    padding: clamp(12px, 2vmin, 26px);
+    padding: clamp(14px, 2.4vmin, 32px);
   }
-  .display-scoreboard .display-qr {
-    width: clamp(110px, 19vmin, 240px);
+  .display-qr {
+    width: clamp(120px, 24vmin, 300px);
   }
-  .display-scoreboard .display-join {
-    align-self: stretch;
-  }
-  .rows-few {
-    grid-auto-rows: clamp(64px, 17vmin, 210px);
-  }
-  .display-welcome {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
-    align-items: start;
-    justify-items: center;
-    text-align: center;
-  }
-  .display-welcome .welcome-copy {
-    justify-items: center;
-  }
-  .display-welcome .welcome-kicker {
-    justify-self: center;
-  }
-  .welcome-title {
-    font-size: clamp(54px, 13.5vmin, 190px);
-  }
-  .welcome-join {
-    align-self: center;
-  }
-  .welcome-join .display-qr {
-    width: min(100%, 50vmin);
+  .display-join-kicker {
+    font-size: clamp(30px, 6vmin, 84px);
   }
   .display-head {
     flex-wrap: wrap;
@@ -726,7 +673,7 @@ html.display-mode body {
   .display-foot {
     display: none;
   }
-  .welcome-line {
+  .display-join-line {
     display: none;
   }
 }
