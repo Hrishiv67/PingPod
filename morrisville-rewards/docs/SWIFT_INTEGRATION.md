@@ -99,10 +99,10 @@ enum EmailKey {
     }
 }
 
-enum EnterResult { case signedIn, needsPassword }
+enum EnterResult { case signedIn, staffPassword }
 
-/// Signs in, or creates the account if it's new. `.needsPassword` = an older account (or a staff
-/// account) that has its own password: ask for it once, then call `finishWithPassword`.
+/// Signs in, or creates the account if it's new. `.staffPassword` only happens for staff accounts,
+/// which keep a real password; players never see a password.
 func enter(email raw: String) async throws -> EnterResult {
     let auth = Backend.client.auth
     let email = EmailKey.normalize(raw)
@@ -117,19 +117,8 @@ func enter(email raw: String) async throws -> EnterResult {
         try await auth.signUp(email: email, password: key)   // "Confirm email" is OFF → signed in
         return .signedIn
     } catch {
-        if "\(error)".localizedCaseInsensitiveContains("already registered") { return .needsPassword }
+        if "\(error)".localizedCaseInsensitiveContains("already registered") { return .staffPassword }
         throw error
-    }
-}
-
-/// One-time password sign-in for older accounts; players then switch to email-only.
-func finishWithPassword(email raw: String, password: String) async throws {
-    let auth = Backend.client.auth
-    let email = EmailKey.normalize(raw)
-    try await auth.signIn(email: email, password: password)
-    let me: MeResponse = try await Backend.client.rpc("get_me").execute().value
-    if me.adminRole == nil && me.staffNeedsPassword != true {
-        try await auth.update(user: UserAttributes(password: EmailKey.key(for: email)))
     }
 }
 
@@ -140,7 +129,8 @@ try await Backend.client.auth.signOut()
 ```
 
 Write the welcome screen as one email field and a **Continue** button, with "No password needed"
-under it. Only show a password field after `.needsPassword`.
+under it. Only show a password field after `.staffPassword` (staff accounts), then
+`auth.signIn(email:password:)` with what they type.
 
 Staff: a staff or owner role only works once the account has a real password (the database checks
 this). `get_me` returns `admin_role = nil` and `staff_needs_password = true` until then. Staff tools

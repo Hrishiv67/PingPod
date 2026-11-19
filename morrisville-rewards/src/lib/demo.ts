@@ -788,7 +788,7 @@ export const demoApi: Api = {
     const key = await emailKey(e);
     let s = load();
     if (s.account && s.account.email === e) {
-      if (s.account.pw !== hashPw(key)) return "password";
+      s.account.pw = hashPw(key); // players never need a password, even if one was set before
     } else {
       // One demo account per browser: a different email starts a fresh demo.
       if (s.account) s = fresh();
@@ -798,12 +798,6 @@ export const demoApi: Api = {
     save(s);
     emitAuth("SIGNED_IN", authUser(s));
     return "in";
-  },
-  async useEmailOnly() {
-    const s = load();
-    requireUser(s);
-    s.account!.pw = hashPw(await emailKey(s.account!.email));
-    save(s);
   },
   async signOut() {
     const s = load();

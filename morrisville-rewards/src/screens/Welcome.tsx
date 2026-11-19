@@ -47,13 +47,6 @@ export default function Welcome({ inviteCode }: { inviteCode: string | null }) {
         return setError("Enter your password.");
       }
       await api.signIn(email, password);
-      // Players switch to email-only from now on; staff keep their password.
-      try {
-        const me = await api.getMe();
-        if (!me.admin_role && !me.staff_needs_password) await api.useEmailOnly();
-      } catch {
-        /* still signed in; they'll just be asked for the password again next time */
-      }
     } catch (err) {
       setError(errorText(err));
       setBusy(false);
@@ -111,7 +104,7 @@ export default function Welcome({ inviteCode }: { inviteCode: string | null }) {
           {step === "password" && (
             <>
               <div className="invite-banner" role="status">
-                <span>This email already has a password from before. Enter it once and you won't need it again.</span>
+                <span>This is a staff account. Enter your staff password.</span>
               </div>
               <div className="password-wrap">
                 <Field

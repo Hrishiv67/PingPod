@@ -70,9 +70,9 @@ email + password sign-in:
 key = "Pp!" + first 40 hex chars of SHA-256(lowercase(trim(email)) + "|pingpod-morrisville-email-only-v1") + "9"
 1. auth.signInWithPassword(email, key)      → signed in
 2. if "Invalid login credentials": auth.signUp(email, key) → new account, signed in
-3. if signUp says "already registered": the account has its own password (older account or staff).
-   Ask for it once, sign in with it, and for non-staff call auth.updateUser(password: key) so the
-   next sign-in is email-only.
+3. if signUp says "already registered": it's a staff account (staff keep their own password).
+   Show a password field and sign in with it. Players never get here: every player account,
+   including ones made before email-only sign-in, is on the key (migration 20261119001300).
 ```
 
 Anyone who knows a player's email can open that player's account — an accepted trade-off for the

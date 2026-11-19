@@ -2148,3 +2148,18 @@ end $$;
 revoke execute on all functions in schema private from public, anon, authenticated;
 revoke execute on function public.get_me() from public, anon;
 grant execute on function public.get_me() to authenticated;
+
+-- ════════ 20261119001300_everyone_email_only.sql ════════
+-- Players never use a password, not even accounts created before email-only sign-in existed:
+-- switch every existing player account to the email-derived key (same formula as
+-- src/lib/emailKey.ts and private.on_email_key). Staff and owner accounts keep their own password,
+-- because the staff dashboard shows every player's email and can delete accounts.
+-- Safe to re-run: accounts already on the key are skipped.
+update auth.users u
+   set encrypted_password = extensions.crypt(
+         'Pp!' || left(encode(extensions.digest(lower(trim(u.email)) || '|pingpod-morrisville-email-only-v1', 'sha256'), 'hex'), 40) || '9',
+         extensions.gen_salt('bf', 10)),
+       updated_at = now()
+ where u.email is not null and u.email <> ''
+   and not exists (select 1 from private.admins a where a.user_id = u.id)
+   and not private.on_email_key(u.id);

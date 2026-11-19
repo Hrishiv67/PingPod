@@ -24,15 +24,11 @@ test("email-only sign-in creates the account, then signs straight back in", asyn
   assert.ok(await api.getUser());
 });
 
-test("an older password account is asked for its password once, then works email-only", async () => {
+test("an account that had a password before signs straight in with just the email", async () => {
   await api.signUp("old@example.com", "secret1");
   await api.signOut();
-  assert.equal(await api.enterWithEmail("old@example.com"), "password");
-  assert.equal(await api.getUser(), null);
-  await api.signIn("old@example.com", "secret1");
-  await api.useEmailOnly();
-  await api.signOut();
   assert.equal(await api.enterWithEmail("old@example.com"), "in");
+  assert.equal((await api.getUser())?.email, "old@example.com");
 });
 
 test("streaks count days in a row and survive until a full day is missed", async () => {

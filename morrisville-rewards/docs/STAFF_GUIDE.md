@@ -28,8 +28,9 @@ Returning customers stay signed in, so they just open the app and tap Start play
 
 - Players sign in with just their email, so anyone who knows an email can open that player's
   account. That's fine for a leaderboard, but not for staff tools: **staff accounts need their own
-  password** (8+ characters). The staff screen asks for it when you unlock it, and after that you
-  sign in with email + password. Until a staff password is set, the database keeps staff tools shut.
+  password** (8+ characters). The staff screen asks for it when you unlock it. After that, typing
+  your email on the sign-in screen asks for that password (players never see a password box).
+  Until a staff password is set, the database keeps staff tools shut.
 
 - The first owner opens **/admin** while signed in and enters the one-time staff code they were
   given privately. Codes work once.

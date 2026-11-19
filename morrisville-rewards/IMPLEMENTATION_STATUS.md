@@ -15,7 +15,7 @@ _Last updated: 2026-11-19 · branch `morrisville-rewards-starter` · app in `mor
 | Area | Status | How it was tested |
 | --- | --- | --- |
 | Schema, RLS, permissions, rate limits, audit log | Done | Live API suite (RLS, denied writes, anon limits); Supabase security advisor |
-| Email-only sign-in (no password, no confirmation email; older password accounts asked once, then switched), persistent login, sign out, delete account; staff keep a real password enforced in the database | Done | Live browser E2E (sign in, reload, sign out persists); API suite (deletion) |
+| Email-only sign-in for every player (no password, no confirmation email; accounts made with a password earlier were switched in the database), persistent login, sign out, delete account; staff keep a real password enforced in the database | Done | Live browser E2E (sign in, reload, sign out persists); API suite (deletion) |
 | Nickname onboarding, avatar color, leaderboard opt-in, privacy toggles | Done | Browser E2E + API suite (case-insensitive uniqueness, blocked words) |
 | Server-timed sessions: start/finish/cancel, one active, idempotent retries, offline finish queue, 90-min check-in, 3-hour auto-stop | Done | API suite; rollback SQL time-logic test (DST, clamping, auto-close); browser E2E (timer restored after reload, 54-min finish) |
 | Log past play (7-day backdate, 5–180 min, duplicate + daily-cap checks) | Done | API suite; browser E2E (duplicate rejected with message) |
