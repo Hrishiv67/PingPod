@@ -1,11 +1,12 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, type CSSProperties, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Home as HomeIcon, Trophy, UserRound, Users } from "lucide-react";
 import { api, errorText, type AuthUser } from "./lib/api";
-import { Link, navigate, usePath } from "./lib/router";
+import { currentPath, Link, navigate, usePath } from "./lib/router";
 import { KEYS, store, type PendingStop } from "./lib/storage";
 import type { Me, PlaySession } from "./lib/types";
 import { AppCtx, type AppState } from "./state";
 import { Logo, PingPodMark } from "./components/Logo";
+import Splash, { shouldShowSplash } from "./components/Splash";
 import { Avatar, Button, InlineError, useOnline } from "./components/ui";
 import Welcome from "./screens/Welcome";
 import Onboarding from "./screens/Onboarding";
@@ -31,6 +32,7 @@ export function Boot({ label = "Loading" }: { label?: string }) {
 
 export default function App() {
   const path = usePath();
+  const [splash, setSplash] = useState(() => !["/display", "/poster"].includes(currentPath()) && shouldShowSplash());
   if (path === "/display")
     return (
       <Suspense fallback={<Boot label="Loading the leaderboard" />}>
@@ -43,7 +45,12 @@ export default function App() {
         <Poster />
       </Suspense>
     );
-  return <PlayerApp path={path} />;
+  return (
+    <>
+      <PlayerApp path={path} />
+      {splash && <Splash onDone={() => setSplash(false)} />}
+    </>
+  );
 }
 
 type AuthState = { status: "loading" } | { status: "out" } | { status: "in"; user: AuthUser; recovery: boolean };
@@ -91,6 +98,13 @@ function PlayerApp({ path }: { path: string }) {
   return <SignedIn user={auth.user} path={path} inviteCode={inviteCode} />;
 }
 
+type Tab = "/" | "/rankings" | "/crew" | "/me";
+const TAB_ORDER: Tab[] = ["/", "/rankings", "/crew", "/me"];
+function tabFor(path: string, inviteCode: string | null): Tab {
+  if (inviteCode) return "/crew";
+  return (TAB_ORDER as string[]).includes(path) ? (path as Tab) : "/";
+}
+
 function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; inviteCode: string | null }) {
   const [me, setMe] = useState<Me | null>(null);
   const [loadError, setLoadError] = useState("");
@@ -98,6 +112,17 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
   const [version, setVersion] = useState(0);
   const offset = useRef(0);
   const online = useOnline();
+
+  // Tabs slide in from the side you're moving toward (Home → Rankings → Crew → Me).
+  const currentTab = tabFor(path, inviteCode);
+  const prevTab = useRef<Tab>(currentTab);
+  const dirRef = useRef<"fwd" | "back" | "none">("none");
+  if (prevTab.current !== currentTab) {
+    const d = TAB_ORDER.indexOf(currentTab) - TAB_ORDER.indexOf(prevTab.current);
+    dirRef.current = d > 0 ? "fwd" : d < 0 ? "back" : "none";
+    prevTab.current = currentTab;
+  }
+  const direction = dirRef.current;
 
   const refresh = useCallback(async () => {
     // A finish tapped while offline is replayed first, with the time the player tapped it.
@@ -198,7 +223,7 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
     );
 
   let screen: ReactNode;
-  let tab: "/" | "/rankings" | "/crew" | "/me" = "/";
+  let tab: Tab = "/";
   if (inviteCode) {
     screen = <JoinCrew code={inviteCode} />;
     tab = "/crew";
@@ -228,9 +253,12 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
             </Link>
           </div>
         </header>
-        <main>{screen}</main>
+        <main key={inviteCode ? `join-${inviteCode}` : tab} className={`screen screen-${direction}`}>
+          {screen}
+        </main>
         {!online && <div className="offline-bar">You're offline. A running timer keeps counting — we'll sync when you're back.</div>}
         <nav className="bottom-nav" aria-label="Main">
+          <span className="nav-indicator" style={{ "--i": TAB_ORDER.indexOf(currentTab) } as CSSProperties} aria-hidden />
           <NavItem to="/" label="Home" active={tab === "/"} icon={<HomeIcon size={22} />} />
           <NavItem to="/rankings" label="Rankings" active={tab === "/rankings"} icon={<Trophy size={22} />} />
           <NavItem to="/crew" label="Crew" active={tab === "/crew"} icon={<Users size={22} />} />

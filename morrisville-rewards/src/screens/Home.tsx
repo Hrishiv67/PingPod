@@ -3,11 +3,12 @@ import { ChevronRight, Hand, Pencil, Play, Square, Timer } from "lucide-react";
 import { api, errorText, toAppError } from "../lib/api";
 import { Link } from "../lib/router";
 import { KEYS, newRequestId, store, type PendingStop } from "../lib/storage";
-import { elapsedMs, formatClock, formatDuration, formatNumber, formatTime, relativeDay } from "../lib/time";
+import { elapsedMs, formatClock, formatDuration, formatTime, relativeDay } from "../lib/time";
 import type { PlaySession, Reward } from "../lib/types";
 import { useApp } from "../state";
 import { Button, ConfirmSheet, InlineError, Sheet, Skeleton, StatusChip, useToast } from "../components/ui";
 import LogPlaySheet from "./LogPlaySheet";
+import CountUp from "../components/CountUp";
 
 export default function Home() {
   const { me, serverNow, refresh, finished, setFinished, bump, version } = useApp();
@@ -213,7 +214,7 @@ function FinishedSheet({ session, onClose }: { session: PlaySession; onClose: ()
         {counted ? (
           <>
             <div className="result-min num">
-              {session.minutes}
+              <CountUp value={session.minutes} duration={800} />
               <small>min</small>
             </div>
             <p>Saved to your leaderboard.</p>
@@ -244,7 +245,7 @@ function StatStrip() {
       <Link to="/me" className="stat-cell">
         <span className="stat-label">This week</span>
         <span className="stat-value num">
-          {formatNumber(weekTotal)}
+          <CountUp value={weekTotal} />
           <small>min</small>
         </span>
       </Link>
