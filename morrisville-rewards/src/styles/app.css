@@ -25,9 +25,10 @@
 }
 .pp-logo-sub {
   margin-top: 3px;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
   text-transform: uppercase;
   color: var(--muted);
 }
@@ -55,6 +56,11 @@
   max-width: 720px;
   min-height: 44px;
   margin: 0 auto;
+}
+.pp-logo-link {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
 }
 .header-avatar {
   border: 0;
@@ -205,7 +211,7 @@
   gap: 24px;
 }
 .hero-title {
-  font-size: clamp(48px, 15vw, 72px);
+  font-size: clamp(42px, 12.5vw, 68px);
   line-height: 0.92;
 }
 .hero-title em {

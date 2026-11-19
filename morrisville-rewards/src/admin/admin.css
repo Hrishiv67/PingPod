@@ -509,7 +509,7 @@
   background: var(--surface);
   min-width: 0;
 }
-.adm-group legend {
+.adm-group > legend {
   padding: 0 6px;
   font-family: var(--font-display);
   font-weight: 800;

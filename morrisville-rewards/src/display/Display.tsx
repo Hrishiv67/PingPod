@@ -17,8 +17,8 @@ const IDLE_MS = 3_000;
 const KNOWN_SLIDES: DisplaySlide[] = ["minutes", "streaks", "crews", "highlights", "longest"];
 
 const SCOPE_LABEL: Record<Scope, string> = {
-  verified: "Verified minutes · approved by staff",
-  community: "Includes self-reported minutes awaiting verification",
+  verified: "Minutes logged by players",
+  community: "Minutes logged by players",
 };
 
 const weekFmt = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
@@ -250,7 +250,6 @@ export default function Display() {
 // ── Slides ─────────────────────────────────────────────────────────────
 function Slide({ slide, data }: { slide: DisplaySlide; data: DisplayData }) {
   const scope = data.scope;
-  const verified = scope === "verified";
   switch (slide) {
     case "minutes":
       return (
@@ -262,7 +261,7 @@ function Slide({ slide, data }: { slide: DisplaySlide; data: DisplayData }) {
             meta={(r) => (r.sessions ? `${r.sessions} ${r.sessions === 1 ? "session" : "sessions"}` : null)}
             empty={
               <SlideEmpty
-                title={verified ? "No verified minutes yet this week." : "No minutes logged yet this week."}
+                title="No minutes logged yet this week."
                 text="Scan to be first."
               />
             }
@@ -341,7 +340,7 @@ function rowTemplate(count: number, minSlots: number): string {
 function initials(name: string): string {
   return (
     name
-      .split(/[\s_.-]+/)
+      .split(/[^A-Za-z0-9]+/)
       .filter(Boolean)
       .slice(0, 2)
       .map((p) => p[0])

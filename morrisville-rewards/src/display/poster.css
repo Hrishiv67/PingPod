@@ -214,10 +214,12 @@
 }
 .table-card {
   display: grid;
-  grid-template-columns: 40cqw minmax(0, 1fr);
+  grid-template-columns: 36cqw minmax(0, 1fr);
   align-items: center;
   gap: 5cqw;
-  padding: 5cqw 6cqw;
+  min-height: 0;
+  padding: 4cqw 6cqw;
+  overflow: hidden;
 }
 .card-qr {
   display: grid;
@@ -234,12 +236,12 @@
 .card-qr span {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 4.4cqw;
+  font-size: 3.8cqw;
   text-transform: uppercase;
 }
 .card-text {
   display: grid;
-  gap: 2.2cqw;
+  gap: 1.6cqw;
   min-width: 0;
 }
 .sign-head-compact {
@@ -258,7 +260,7 @@
   text-align: left;
 }
 .card-text h2 {
-  font-size: 6.6cqw;
+  font-size: 5.4cqw;
   line-height: 0.92;
 }
 .card-steps {
@@ -269,7 +271,7 @@
   list-style: none;
 }
 .card-steps li {
-  font-size: 2.4cqw;
+  font-size: 2.2cqw;
   align-items: center;
 }
 .card-steps .step-num {
@@ -311,6 +313,9 @@
   @page {
     size: letter;
     margin: 0.4in;
+  }
+  html.poster-mode {
+    color-scheme: light; /* dark scheme makes Chromium paint the page margins near-black */
   }
   html.poster-mode,
   html.poster-mode body,

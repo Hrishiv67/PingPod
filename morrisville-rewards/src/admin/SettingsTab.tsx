@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, errorText } from "../lib/api";
 import type { BoardKey, DisplaySlide, Scope, Settings } from "../lib/types";
-import { Button, InlineError, Segmented, Skeleton, Toggle, useToast } from "../components/ui";
+import { Button, InlineError, Skeleton, Toggle, useToast } from "../components/ui";
 import { formatDateTime } from "../lib/time";
 import { Note, OwnerOnly, SectionHead } from "./shared";
 
@@ -231,13 +231,6 @@ export default function SettingsTab({
             {num("max_session_minutes")}
             {num("checkin_reminder_minutes")}
           </div>
-          <Toggle
-            checked={draft.auto_approve_timer}
-            disabled={disabled}
-            onChange={(v) => set("auto_approve_timer", v)}
-            label="Auto-approve timer sessions"
-            description="Live-timer sessions skip review. Logged sessions are always reviewed."
-          />
         </Group>
 
         <Group title="Logging past play">
@@ -257,10 +250,6 @@ export default function SettingsTab({
         </Group>
 
         <Group title="Leaderboards">
-          <div className="field">
-            <span className="label">Default board in the app</span>
-            <ScopePicker value={draft.default_board_scope} disabled={disabled} onChange={(v) => set("default_board_scope", v)} />
-          </div>
           <fieldset className="adm-checks" disabled={disabled}>
             <legend className="label">Boards players can see</legend>
             {BOARDS.map((b) => (
@@ -273,10 +262,6 @@ export default function SettingsTab({
         </Group>
 
         <Group title="iPad display">
-          <div className="field">
-            <span className="label">Minutes shown on the iPad</span>
-            <ScopePicker value={draft.display_scope} disabled={disabled} onChange={(v) => set("display_scope", v)} />
-          </div>
           {num("display_rotation_seconds")}
           <fieldset className="adm-checks" disabled={disabled}>
             <legend className="label">Screens in the rotation</legend>
@@ -310,14 +295,14 @@ export default function SettingsTab({
         </Group>
 
         {error && <InlineError>{error}</InlineError>}
-        {isOwner && (
-          <div className={`adm-savebar ${changed ? "on" : ""}`}>
-            <span>{changed ? `${changed} unsaved change${changed === 1 ? "" : "s"}` : "No changes"}</span>
+        {isOwner && changed > 0 && (
+          <div className="adm-savebar on" role="region" aria-label="Unsaved changes">
+            <span>{`${changed} unsaved change${changed === 1 ? "" : "s"}`}</span>
             <div className="adm-actions">
-              <Button type="button" variant="ghost" disabled={!changed || saving} onClick={() => setDraft(toDraft(base))}>
+              <Button type="button" variant="ghost" disabled={saving} onClick={() => setDraft(toDraft(base))}>
                 Discard
               </Button>
-              <Button type="submit" variant="primary" loading={saving} disabled={!changed || numErrors.length > 0}>
+              <Button type="submit" variant="primary" loading={saving} disabled={numErrors.length > 0}>
                 Save settings
               </Button>
             </div>
@@ -337,18 +322,3 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function ScopePicker({ value, onChange, disabled }: { value: Scope; onChange: (v: Scope) => void; disabled: boolean }) {
-  return (
-    <div className={disabled ? "adm-disabled" : ""}>
-      <Segmented<Scope>
-        label="Scope"
-        value={value}
-        onChange={(v) => !disabled && onChange(v)}
-        options={[
-          { value: "verified", label: "Verified only" },
-          { value: "community", label: "Include pending" },
-        ]}
-      />
-    </div>
-  );
-}

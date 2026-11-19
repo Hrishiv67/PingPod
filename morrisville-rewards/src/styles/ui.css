@@ -25,7 +25,7 @@
   cursor: not-allowed;
 }
 .btn-sm {
-  min-height: 36px;
+  min-height: 40px;
   padding: 0 12px;
   font-size: 14px;
   border-radius: 10px;
@@ -389,7 +389,7 @@ textarea.input {
   color: var(--text);
 }
 .segmented-sm button {
-  min-height: 34px;
+  min-height: 40px;
   font-size: 14px;
 }
 

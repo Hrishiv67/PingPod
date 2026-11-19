@@ -65,7 +65,7 @@ test("log past play: limits, backdating, duplicates and the daily cap", async ()
   await assert.rejects(api.logSession({ played_on: addDays(today, -8), minutes: 60, client_request_id: rid() }), /last 7 days/);
   const key = rid();
   const first = await api.logSession({ played_on: addDays(today, -1), minutes: 60, note: "Doubles", client_request_id: key });
-  assert.equal(first.status, "pending");
+  assert.equal(first.status, "approved", "logged time counts immediately");
   assert.equal(first.method, "manual");
   assert.equal(first.played_on, addDays(today, -1));
   const retry = await api.logSession({ played_on: addDays(today, -1), minutes: 60, client_request_id: key });
@@ -80,14 +80,14 @@ test("log past play: limits, backdating, duplicates and the daily cap", async ()
   assert.equal(history.length, 2);
 });
 
-test("pending minutes show on the community board only; sample players are labeled", async () => {
+test("logged minutes count immediately; sample players are labeled", async () => {
   await signedInWithProfile("Board Tester");
   await api.logSession({ played_on: today, minutes: 45, client_request_id: rid() });
   const verified = await api.leaderboard("minutes", "week", "verified");
   const community = await api.leaderboard("minutes", "week", "community");
-  assert.ok(!verified.some((r) => r.is_me), "self-reported time isn't verified");
+  assert.ok(verified.some((r) => r.is_me), "no approval step: logged time is on every board");
   const me = community.find((r) => r.is_me);
-  assert.ok(me, "self-reported time appears in community scope");
+  assert.ok(me, "logged time appears on the board");
   assert.equal(me.value, 45);
   for (const r of [...verified, ...community].filter((x) => !x.is_me)) {
     assert.match(r.display_name, /^Sample · /, "every non-user row is labeled as sample data");
@@ -95,8 +95,8 @@ test("pending minutes show on the community board only; sample players are label
   const ranks = community.map((r) => r.rank);
   assert.deepEqual(ranks, [...ranks].sort((a, b) => a - b));
   const stats = (await api.getMe()).stats;
-  assert.equal(stats?.week_pending, 45);
-  assert.equal(stats?.rank_week_verified, null);
+  assert.equal(stats?.week_verified, 45);
+  assert.equal(stats?.week_pending, 0);
   assert.equal(stats?.rank_week_community, me.rank);
 });
 
@@ -108,7 +108,7 @@ test("hiding from public boards keeps personal stats", async () => {
   assert.ok(!community.some((r) => r.is_me));
   const display = await api.displayData();
   assert.ok(!JSON.stringify(display).includes("Private Pat"));
-  assert.equal((await api.getMe()).stats?.week_pending, 30);
+  assert.equal((await api.getMe()).stats?.week_verified, 30);
 });
 
 test("crews: create, invite rules, sample crew join, leave", async () => {
@@ -156,7 +156,8 @@ test("achievements: ten codes with progress", async () => {
   assert.ok(byCode.first_hour.earned_at);
   assert.equal(byCode.minutes_300.progress, 75);
   assert.equal(byCode.minutes_300.earned_at, null);
-  assert.equal(byCode.first_verified.progress, 0, "demo has no staff approvals");
+  assert.equal(byCode.regular.progress, 1, "one distinct day so far");
+  assert.equal(byCode.regular.target, 5);
 });
 
 test("staff tools are unavailable in demo mode", async () => {

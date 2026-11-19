@@ -12,12 +12,10 @@ import {
   Field,
   IconButton,
   InlineError,
-  Segmented,
   Sheet,
   Skeleton,
   useToast,
 } from "../components/ui";
-import { scopeNote } from "./Rankings";
 
 export function inviteLink(code: string): string {
   return `${window.location.origin}/join/${code}`;
@@ -25,7 +23,7 @@ export function inviteLink(code: string): string {
 
 export default function Crew() {
   const { me, refresh, bump, version } = useApp();
-  const [scope, setScope] = useState<Scope>(me.settings.default_board_scope);
+  const scope: Scope = me.settings.default_board_scope;
   const [crew, setCrew] = useState<MyCrew | null | undefined>(undefined);
   const [error, setError] = useState("");
 
@@ -60,7 +58,7 @@ export default function Crew() {
         <Skeleton count={4} height={88} />
       </div>
     );
-  return crew ? <CrewView crew={crew} scope={scope} setScope={setScope} onChanged={changed} /> : <NoCrew onChanged={changed} />;
+  return crew ? <CrewView crew={crew} onChanged={changed} /> : <NoCrew onChanged={changed} />;
 }
 
 function NoCrew({ onChanged }: { onChanged: () => Promise<void> }) {
@@ -87,6 +85,7 @@ function NoCrew({ onChanged }: { onChanged: () => Promise<void> }) {
       else await api.joinCrew(code);
       toast(kind === "create" ? "Crew created. Invite your friends." : "You joined the crew!");
       await onChanged();
+      window.scrollTo({ top: 0 });
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -189,17 +188,7 @@ function NoCrew({ onChanged }: { onChanged: () => Promise<void> }) {
   );
 }
 
-function CrewView({
-  crew,
-  scope,
-  setScope,
-  onChanged,
-}: {
-  crew: MyCrew;
-  scope: Scope;
-  setScope: (s: Scope) => void;
-  onChanged: () => Promise<void>;
-}) {
+function CrewView({ crew, onChanged }: { crew: MyCrew; onChanged: () => Promise<void> }) {
   const toast = useToast();
   const [manage, setManage] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -244,16 +233,6 @@ function CrewView({
         </div>
         <h1>{crew.name}</h1>
         {crew.hidden_by_admin && <Chip tone="warn">Hidden from public boards by staff</Chip>}
-        <Segmented<Scope>
-          label="Which sessions count"
-          size="sm"
-          value={scope}
-          onChange={setScope}
-          options={[
-            { value: "verified", label: "Verified" },
-            { value: "community", label: "Community" },
-          ]}
-        />
         <div className="crew-kpis">
           <div className="stat">
             <span className="stat-label">Rank</span>
@@ -271,7 +250,6 @@ function CrewView({
             <span className="stat-sub">minutes</span>
           </div>
         </div>
-        <p className="small-print">{scopeNote(scope)}</p>
         {needed > 0 && (
           <div className="invite-banner">
             <Users size={20} aria-hidden />

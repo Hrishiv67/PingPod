@@ -6,7 +6,7 @@
 
 ## Why this works
 
-All rules — timer limits, manual-log validation, crews, verification, rankings, achievements,
+All rules — timer limits, manual-log validation, crews, rankings, achievements,
 privacy — live in Postgres functions in Supabase (see [API.md](API.md)). The web app is a thin
 client over those functions; a SwiftUI app can be the same. Results:
 
@@ -141,6 +141,9 @@ struct Stats: Codable {
     let currentStreak, longestStreak: Int
     let rankWeekVerified, rankWeekCommunity: Int?
     let rankedWeekVerified, rankedWeekCommunity: Int
+    // Sessions count immediately (no approval step), so *Pending is normally 0.
+    // Show one number: weekVerified + weekPending, totalVerified + totalPending.
+    // Use rankWeekCommunity (it matches the boards, which use the "community" scope).
 }
 
 struct PilotSettings: Codable {
@@ -318,16 +321,18 @@ try await db.rpc("remove_crew_member", params: UserParam(p_user_id: memberId)).e
 
 struct BoardParams: Encodable { let p_period: String; let p_scope: String }
 let myCrew: MyCrew? = try await db.rpc("get_my_crew",
-    params: BoardParams(p_period: "week", p_scope: "verified")).execute().value
+    params: BoardParams(p_period: "week", p_scope: "community")).execute().value
 
 // Leaderboards — metric: minutes | streaks | longest | spindex
-//               period: week | month | all   scope: verified | community
+//               period: week | month | all
+// Scope: always pass settings.defaultBoardScope ("community" = everything staff haven't removed).
+// Sessions count immediately, so don't show a verified/community toggle.
 struct LeaderboardParams: Encodable { let p_metric: String; let p_period: String; let p_scope: String; let p_limit: Int }
 let board: [LeaderboardRow] = try await db.rpc("get_leaderboard", params: LeaderboardParams(
-    p_metric: "minutes", p_period: "week", p_scope: "verified", p_limit: 50)).execute().value
+    p_metric: "minutes", p_period: "week", p_scope: "community", p_limit: 50)).execute().value
 struct CrewBoardParams: Encodable { let p_period: String; let p_scope: String; let p_limit: Int }
 let crews: [CrewLeaderboardRow] = try await db.rpc("get_crew_leaderboard", params: CrewBoardParams(
-    p_period: "week", p_scope: "verified", p_limit: 50)).execute().value
+    p_period: "week", p_scope: "community", p_limit: 50)).execute().value
 
 // Achievements
 let achievements: [Achievement] = try await db.rpc("get_my_achievements").execute().value
@@ -379,9 +384,11 @@ Task {
 - If Finish fails for lack of signal, remember when it was tapped and retry with `p_ended_at`.
 - Show a "Still playing?" prompt at `settings.checkinReminderMinutes` (default 90) and call
   `checkin_session`. Timers still running at `settings.maxSessionMinutes` (default 180) are closed
-  by the server and flagged for staff review.
-- Copy: elapsed time is **not** proof of attendance. Finished sessions show "Pending verification"
-  until staff approve them.
+  by the server, capped, and flagged so staff can adjust them if needed.
+- Sessions count the moment they finish or are logged — there's no approval step, so don't show
+  "pending" or "verification" wording. Staff can still adjust or remove a session (status
+  `rejected` = removed from totals). Elapsed time isn't proof of attendance; this is a trust-based,
+  for-fun pilot.
 
 ## 8. Errors
 

@@ -46,8 +46,8 @@ const DEFAULT_SETTINGS: Settings = {
   crew_min_size: 2,
   crew_max_size: 8,
   auto_approve_timer: false,
-  default_board_scope: "verified",
-  display_scope: "verified",
+  default_board_scope: "community",
+  display_scope: "community",
   display_rotation_seconds: 15,
   display_slides: ["minutes", "streaks", "crews", "highlights"],
   boards_enabled: ["minutes", "streaks", "longest", "spindex", "crews"],
@@ -232,7 +232,7 @@ function closeStale(s: Stored) {
   const now = Date.now();
   for (const x of s.sessions) {
     if (x.status === "active" && now - Date.parse(x.started_at) > max * MINUTE) {
-      x.status = "pending";
+      x.status = "approved";
       x.ended_at = iso(Date.parse(x.started_at) + max * MINUTE);
       x.minutes = max;
       x.submitted_minutes = max;
@@ -590,7 +590,9 @@ function achievementsFor(s: Stored): Achievement[] {
   const longAt = q.find((x) => x.minutes >= 120)?.ended_at ?? null;
   const streak = streakInfo(q.map((x) => x.played_on));
   const crewAt = s.memberships.filter((m) => m.user_id === uid).map((m) => m.joined_at).sort(cmpTime)[0] ?? null;
-  const verified = q.filter((x) => x.status === "approved").map((x) => x.reviewed_at ?? x.ended_at).sort(cmpTime)[0] ?? null;
+  const firstByDay = new Map<string, string>();
+  for (const x of q) if (x.ended_at && !firstByDay.has(x.played_on)) firstByDay.set(x.played_on, x.ended_at);
+  const days = [...firstByDay.keys()].sort().map((d) => firstByDay.get(d)!);
 
   // Weekly top five: completed weeks, verified minutes, everyone not hidden by staff.
   const thisWeek = weekStart(venueDate());
@@ -630,8 +632,8 @@ function achievementsFor(s: Stored): Achievement[] {
     row("streak_3", "Three-week streak", "Play at least once in three weeks in a row.", 3, Math.min(streak.longest, 3),
       streak.thirdWeek ? venueDayStartIso(streak.thirdWeek) : null),
     row("crew_joined", "Crew up", "Create or join a crew.", 1, crewAt ? 1 : 0, crewAt),
-    row("first_verified", "Verified", "Have a session approved by PingPod staff.", 1, verified ? 1 : 0, verified),
-    row("weekly_top5", "Top five", "Finish a week in the top five for verified minutes.", 1, top5Week ? 1 : 0,
+    row("regular", "Regular", "Play on 5 different days.", 5, Math.min(days.length, 5), days[4] ?? null),
+    row("weekly_top5", "Top five", "Finish a week in the top five for minutes.", 1, top5Week ? 1 : 0,
       top5Week ? venueDayStartIso(addDays(top5Week, 7)) : null),
   ];
 }
@@ -880,7 +882,7 @@ export const demoApi: Api = {
       row!.minutes = 0;
       row!.flags = [...row!.flags, "too_short"];
     } else {
-      row!.status = "pending";
+      row!.status = "approved";
       row!.minutes = minutes;
       if (minutes >= cfg.max_session_minutes) row!.flags = [...row!.flags, "hit_max"];
     }
@@ -934,7 +936,7 @@ export const demoApi: Api = {
     const start = day === today ? Math.max(venueLocalToUtc(day, 0), Date.now() - m * MINUTE) : venueLocalToUtc(day, 12);
     const row = newSession(profile.id, {
       method: "manual",
-      status: "pending",
+      status: "approved",
       started_at: iso(start),
       ended_at: iso(start + m * MINUTE),
       played_on: day,

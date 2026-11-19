@@ -17,7 +17,8 @@ handle bookings, door entry or payments, and it never asks for anyone's PingPod 
    if they lock the phone or close Safari; reopening the app shows it again.
 4. Forgot to start the timer? **Log past play**: pick the day (up to 7 days back) and 30 / 60 / 90 /
    120 minutes or a custom amount.
-5. Every finished session shows **Pending verification** until staff approve it.
+5. Finished and logged sessions count right away — there's no approval step. We trust players to
+   log their own time; staff only step in to fix obvious mistakes.
 6. Friends can form a **crew** (2–8 people) and share an invite link or code.
 
 Returning customers stay signed in, so they just open the app and tap Start playing.
@@ -27,47 +28,41 @@ Returning customers stay signed in, so they just open the app and tap Start play
 - The first owner opens **/admin** while signed in and enters the one-time staff code they were
   given privately. Codes work once.
 - Owners add other people in **Admin → Staff**: the person must sign up as a customer first; then
-  search for their nickname and choose **Staff** (reviews and moderation) or **Owner** (also
+  search for their nickname and choose **Staff** (session fixes and moderation) or **Owner** (also
   settings, rewards, staff and account deletions).
 - Staff access is stored on the server. Nobody can give themselves access by editing their profile.
 
-## Reviewing sessions (the main daily job)
+## Fixing session mistakes (occasional, not a daily job)
 
-Open **Admin → Review**. Each row shows the nickname, minutes, date, whether it was a live timer or
-a manual entry, any note, and warning flags.
+Sessions count the moment a player finishes a timer or logs past play. **Admin → Review** is a list
+of recent sessions so you can spot and fix anything that looks wrong — you don't need to approve
+anything.
 
 | Action | When | Reason needed? |
 | --- | --- | --- |
-| **Approve** | The time looks right | No |
-| **Approve with different minutes** | Mostly right but the number is off | Yes |
-| **Reject** | Didn't happen, duplicate, or clearly wrong | Optional for pending; required if it was already approved |
-| **Adjust** | Fix the minutes on a session later | Yes |
-| **Reopen** | Undo an approve/reject decision | Yes |
+| **Adjust minutes** | The number is off (e.g. a forgotten timer) | Yes |
+| **Reject** | Didn't happen, duplicate, or clearly wrong — removes it from all totals | Yes |
+| **Reopen** | Undo a reject or adjustment | Yes |
 
-- **Approve all** approves every pending session shown at once (it skips your own).
-- You can't review your own sessions — ask another staff member.
-- A session can only be approved once; the app blocks double approvals.
-- Every decision is recorded in **Admin → Audit log** with who did it, when, and the reason.
-  Reasons matter because rankings may later decide prizes.
+- You can't change your own sessions — ask another staff member.
+- Every change is recorded in **Admin → Audit log** with who did it, when, and the reason.
 
-What the flags mean:
+Flags worth a glance:
 
-| Flag | Meaning | Suggested action |
+| Flag (as shown in Admin) | Meaning | Suggested action |
 | --- | --- | --- |
-| **auto_closed** | The timer was left running and stopped automatically at 3 hours | Check whether they really played that long; adjust down if not |
-| **hit_max** | The player stopped it at or after the 3-hour cap | Usually adjust or ask them |
-| **same_day_as_timer** | A manual entry on a day that already has a timer session | Possible duplicate — check before approving |
+| **Timer ran to the 3-hour limit** | The timer was left running and stopped itself at 3 hours | If you know roughly how long they really played, adjust it |
+| **Hit max length** | The player stopped it at or after the 3-hour cap | Adjust if it looks wrong, or ask them |
+| **Also has a timer session that day** | A logged entry on a day that already has a timer session | Possible duplicate — reject one if it is |
 | **too_short** | Timer stopped under 5 minutes | Already not counted; nothing to do |
 
-Players who repeatedly submit rejected time show a rejection count next to their name.
+Players with removed (rejected) time show a count next to their name.
 
-## Leaderboards: verified vs. community
+## Leaderboards
 
-- **Verified** boards count only approved sessions. These are the official rankings and the only
-  ones to use for any prize.
-- **Community** boards also include pending (self-reported) minutes and are labeled that way.
-- The iPad shows verified by default (owners can change this in Settings). If approvals fall
-  behind, the verified board will look empty — reviewing daily keeps it lively.
+Leaderboards (in the app and on the iPad) show every player's logged minutes, except sessions staff
+have rejected. There's no separate "verified" board. Minutes are self-logged, so treat the rankings
+as friendly competition rather than an audited record.
 
 ## Moderation
 
@@ -104,10 +99,10 @@ that person's sessions and ratings).
    iPad to the board.
 4. Keep it plugged in. Set Display & Brightness → Auto-Lock → **Never**.
 5. **Never sign in as staff on the iPad.** The board needs no login and shows only public nicknames,
-   approved stats and crew names.
+   their stats and crew names.
 
 It rotates through most minutes this week, current streaks, top crews and weekly highlights, and
-refreshes itself when sessions are approved. The small "Updated" time in the corner shows freshness;
+refreshes itself within seconds when anyone finishes or logs a session. The small "Updated" time in the corner shows freshness;
 if the internet drops it says the data may be out of date instead of pretending to be live.
 
 ## The QR sign
@@ -125,8 +120,6 @@ address set in Settings, so it never points to a test address. Reprint if that a
 | Backdating | 7 days | How far back players can log |
 | Daily cap | 300 min | Most minutes one player can record on one day |
 | Crew size | 2–8 | Crews need the minimum to appear on the board; can't exceed the maximum |
-| Auto-approve timer sessions | Off | If on, live-timer sessions skip review (manual entries never do) |
-| Board / display scope | Verified | Which minutes count on the default board and iPad |
 | Display rotation | 15 s | Time per iPad screen |
 | Pilot start / end | — | Used for analytics |
 | Public app address | the Vercel URL | Used for the QR code |
@@ -145,9 +138,9 @@ enabled, and the master "Rewards" switch in Settings must also be on.
 | Metric | Meaning |
 | --- | --- |
 | Registered players | Accounts with a nickname |
-| Players with a session | Logged at least one counted (pending or approved) session |
+| Players with a session | Logged at least one counted session |
 | Repeat players | Played on 2+ different days / in 2+ different weeks |
-| Sessions / minutes | Split into approved, pending, rejected; timer vs. manual |
+| Sessions / minutes | Counted vs. rejected by staff; timer vs. logged later |
 | Active crews | Crews with enough members, and those with play this week |
 | Weekly table | Per week: active, returning and new players, sessions, minutes, crews with play |
 
@@ -159,11 +152,12 @@ are targets to compare against — report the real numbers.
 
 - Emails are never shown publicly; only staff can see them in Admin.
 - Players choose whether their nickname appears on public boards and can change it any time.
-- The iPad shows nicknames, approved stats and crew names only — never emails, notes or staff tools.
+- The iPad shows nicknames, stats and crew names only — never emails, notes or staff tools.
 - Session notes are visible only to the player and staff.
 
 ## What the app does not prove
 
 App activity is not proof that someone was physically at PingPod. A timer only measures time
-between two taps, and manual entries are self-reported. Staff approval is the verification step —
-use your judgment and booking records if a prize is at stake.
+between two taps, and logged entries are self-reported. That's fine for a fun, trust-based pilot.
+If a physical prize is ever attached to a ranking, check the top entries against booking records
+before awarding it.

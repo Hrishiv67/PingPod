@@ -76,12 +76,12 @@ export default function MeScreen() {
 
       <section className="mini-stats" aria-label="Your totals">
         <div className="mini-stat">
-          <div className="num">{formatNumber(s.total_verified)}</div>
-          <span>Verified min</span>
+          <div className="num">{formatNumber(s.total_verified + s.total_pending)}</div>
+          <span>Total min</span>
         </div>
         <div className="mini-stat">
-          <div className="num">{formatNumber(s.total_pending)}</div>
-          <span>Pending min</span>
+          <div className="num">{formatNumber(s.week_verified + s.week_pending)}</div>
+          <span>This week</span>
         </div>
         <div className="mini-stat">
           <div className="num">{s.sessions}</div>
@@ -165,7 +165,7 @@ export default function MeScreen() {
         <span>Morrisville Rewards · Beta</span>
         <span>
           A four-week pilot run by PingPod Morrisville. It's separate from the official PingPod app and booking system.
-          Session times are self-reported or timed in this app; staff verify them.
+          Minutes are logged by players.
         </span>
       </footer>
 
@@ -277,7 +277,7 @@ function Achievements({ version }: { version: number }) {
           ))}
         </div>
       )}
-      <p className="small-print">Milestones come from your sessions automatically. Rejected sessions don't count.</p>
+      <p className="small-print">Milestones come from your sessions automatically.</p>
     </section>
   );
 }
@@ -473,7 +473,7 @@ function SessionSheet({ s, onClose }: { s: PlaySession; onClose: () => void }) {
             ? s.ended_at
               ? `Timer · ${formatTime(s.started_at)} – ${formatTime(s.ended_at)}`
               : "Timer"
-            : `Self-reported · logged ${formatDateTime(s.created_at)}`}
+            : `Logged ${formatDateTime(s.created_at)}`}
           {s.submitted_minutes != null && s.submitted_minutes !== s.minutes && ` · you submitted ${formatDuration(s.submitted_minutes)}`}
         </p>
         {s.auto_closed && <p className="small-print">This timer ran to the limit and was stopped automatically.</p>}
@@ -481,9 +481,7 @@ function SessionSheet({ s, onClose }: { s: PlaySession; onClose: () => void }) {
         {s.review_reason && (s.status === "rejected" || s.status === "approved") && (
           <p className="staff-reply">Staff note: {s.review_reason}</p>
         )}
-        {s.status === "pending" && (
-          <p className="small-print">Waiting for staff to verify. It already counts on Community boards.</p>
-        )}
+        {s.status === "pending" && <p className="small-print">Staff are taking a look at this one.</p>}
       </div>
       {asking ? (
         <form

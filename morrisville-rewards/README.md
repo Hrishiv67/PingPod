@@ -1,95 +1,73 @@
-# PingPod Morrisville — Rewards Beta
+# PingPod Morrisville Rewards · Beta
 
-An approachable mobile-first QR companion for the Morrisville PingPod community. Built as a clean starter for continued work in Claude Code.
+A phone-first companion for players at PingPod Morrisville. Players scan a QR code, make an account, tap **Start playing**, and compete on weekly leaderboards with their crews. An iPad at the front desk shows the standings. Staff get a small dashboard for fixes, moderation and pilot analytics.
 
-![Project status](https://img.shields.io/badge/status-starter%20beta-ec278d)
+It's a local four-week pilot. It isn't the official PingPod app, booking system or PodPlay, and it never asks for PingPod passwords.
 
-## What works in this starter
+**Live app:** https://pingpod-morrisville-rewards.vercel.app · **iPad board:** `/display` (or `/?display=1`) · **Printable QR sign:** `/poster` · **Staff:** `/admin`
 
-- Clean branded signup screen with **real Supabase passwordless email login** when configured.
-- Login persists between visits and works on mobile; first-time account asks for public nickname and leaderboard visibility.
-- **Start / stop timer**, with start and stop timestamps recorded by the database. Timer survives tab refresh and reconnect; capped at three hours.
-- **Manually log past playing time** (last seven days, 5–180 minutes).
-- **Public individual and crew leaderboards**, selectable week/month/all-time, with an attractive `/display` or `/?display=1` iPad scoreboard and join QR.
-- **Crews**: create, copy an invite code, join, leave if not crew owner. Existing history doesn't move to newly joined crews.
-- **Basic admin approval queue**, once a manager's account UUID is added to `private.admins`.
-- Clearly marked **demo mode** with a few *sample* competitors if no Supabase environment variables exist. Demo interactions work in one browser using localStorage; they are not real accounts or shared rankings.
-- Profile editing, leaderboard opt-out, session history, and responsive layout.
+## What players can do
 
-The project intentionally does **not** include booking/PodPlay integrations, official SPINDEX synchronization, paid rewards, or public rewards claims. Their access/approval has not been established. This is a separate Morrisville community companion, not an official PingPod sign-in form.
+- Create an account with email + password (separate from their PingPod login), pick a nickname and avatar color, and choose whether they appear on public boards.
+- **Start playing** → server-timed session that survives refreshes, locked phones and lost signal. They get a check-in prompt at 90 minutes, and timers stop on their own at 3 hours.
+- **Log past play**: date (last 7 days), 30/60/90/120 or custom minutes, optional note.
+- Time counts immediately: the pilot trusts players' own logs. Staff can fix or remove obvious mistakes.
+- Leaderboards: minutes (week / month / all time), weekly streaks, longest session, crews (total + per member), and a separate **self-reported SPINDEX** board.
+- Crews of 2–8: create, share an invite link or code, see each member's minutes, transfer ownership, leave. Crew totals count play from when each person joined.
+- Profile: totals, milestones with progress, SPINDEX (labeled self-reported unless staff verify it), history with "request a correction", privacy toggles, password change, sign out, delete account.
+
+## Project layout
+
+| Path | What |
+| --- | --- |
+| `src/App.tsx` | Routing, auth gate, server-clock sync, offline finish queue, bottom nav |
+| `src/screens/` | Welcome, Onboarding, Home (timer), LogPlaySheet, Rankings, Crew, Me, JoinCrew, ResetPassword |
+| `src/admin/` | Staff dashboard (lazy-loaded at `/admin`) |
+| `src/display/` | iPad scoreboard (`/display`) and QR poster (`/poster`) |
+| `src/lib/api.ts` | The only data layer: typed calls to Supabase functions; picks demo mode when unconfigured |
+| `src/lib/demo.ts` | In-browser demo backend with labeled "Sample ·" players (no env vars) |
+| `src/components/`, `src/styles/` | UI kit (buttons, sheets, toasts…), brand tokens (black/white/#FF0078, Barlow) |
+| `supabase/migrations/` | Database schema, security, and every rule (source of truth) |
+| `supabase/tests/` | QA account setup/teardown, rollback-only time-logic test |
+| `tests/` | Unit tests (time helpers, demo rules) and the live API integration suite |
+| `docs/` | `SETUP.md` (production config), `STAFF_GUIDE.md` (for Joe/staff), `API.md`, `SWIFT_INTEGRATION.md` (iOS app on the same backend) |
+
+All rules live in Postgres functions, so this web app and a native Swift app can share one backend and one set of accounts. See `docs/SWIFT_INTEGRATION.md`.
 
 ## Run locally
 
-Requires Node.js 22+.
+Node 22+.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open the printed local URL. Without `.env.local` you'll see a visible **Explore working demo** button. Use the sample crew invite code `DEMO2027` to try joining in preview mode. To open the display on a second device use `/?display=1` (demo state doesn't sync between devices).
+With no `.env.local`, the app runs a clearly labeled **demo mode** (data stays in your browser; staff tools are disabled). To use the real database:
 
-## Connect a real database and real accounts
-
-1. Create a **new Supabase project specifically for this pilot**. Don't reuse an unrelated production project's database.
-2. Open its SQL editor and run [`supabase/schema.sql`](supabase/schema.sql) once. It creates secure tables, policies, server-owned timer functions, aggregate public leaderboard functions, teams, and an admin review queue.
-3. In Supabase Authentication, enable email OTP/magic links and set **Site URL** and **Redirect URLs** to the local preview and eventual public Vercel domain. Configure a custom SMTP provider if you anticipate regular public pilot traffic; default email limits are restrictive. Google OAuth can be added later.
-4. Copy `.env.example` to `.env.local` and fill:
-
-   ```ini
-   VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
-   VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_YOUR_KEY
-   ```
-
-5. Check the Supabase Data API exposure settings. The SQL includes `GRANT` permissions **and** RLS policies because newly created tables might not be automatically exposed. Use only the publishable key in the browser. **Never put a service-role or secret key in `VITE_` variables.**
-6. Run the app, sign in, select your nickname, and test a timer + manual session.
-7. To allow Joe or a designated manager to approve entries, retrieve that person's `auth.users.id` after they sign in, then run this **manually** in the SQL editor:
-
-   ```sql
-   insert into private.admins(user_id) values ('REPLACE_WITH_MANAGER_AUTH_UUID');
-   ```
-
-   The Admin tab appears after the manager refreshes. Do not use editable profile metadata to grant admin roles.
-
-## Deploy to Vercel
-
-- Select the repository and set **Root Directory** to `morrisville-rewards` if this folder is nested inside another repo.
-- Framework: **Vite**; Build: `npm run build`; Output directory: `dist`.
-- Configure the same `VITE_` environment variables in Vercel.
-- Add the final domain to Supabase Auth's allowed redirect URLs.
-- `vercel.json` includes an SPA fallback for `/display`.
-- Print the QR from the real `/?display=1` screen after domain is final. The join QR always targets the current origin; avoid printing a development URL.
-
-## Data trust and pilot rules
-
-All new sessions are labeled `pending`. The leaderboard shown here is explicitly labeled **community / self-reported** and includes pending + approved sessions. Only administrators can approve or reject a logged session. Do not attach prizes to self-reported rankings. A stricter verified-only leaderboard, fraud checks, admin correction/audit trail, and actual booking corroboration are logical next steps before incentives or a bigger rollout.
-
-The server is the time source for started/stopped live sessions. Manual entries are capped but aren't proof of venue attendance. A scanned join QR doesn't prove physical presence. Profiles share only public nicknames with the community and can opt out of public rankings. Avoid entering sensitive notes in this pilot.
-
-## Common commands
-
-```bash
-npm run dev
-npm run build
-npm test
+```ini
+# .env.local (never commit)
+VITE_SUPABASE_URL=https://apojuerjhvyzjmpanqih.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+# optional: the address QR codes point to (otherwise taken from pilot settings / current site)
+VITE_PUBLIC_APP_URL=https://pingpod-morrisville-rewards.vercel.app
 ```
 
-## Developer map
+Only the publishable key belongs in `VITE_` variables. Never put the service-role/secret key in the frontend.
 
-| File | Role |
-| --- | --- |
-| `src/App.tsx` | Customer routes/views, timer UX, public display, teams, admin queue |
-| `src/lib/api.ts` | Typed Supabase reads/writes and auth configuration |
-| `src/lib/demo.ts` | Explicit preview-only local state and sample players |
-| `src/lib/metrics.ts` | Shared minute/streak/period helpers |
-| `src/styles.css` | Branded mobile and iPad interface |
-| `src/logo.ts` | User-owned PingPod mark from the preexisting PingPod GitHub repo |
-| `supabase/schema.sql` | Database/RLS/permissions/RPC operations |
+## Checks
 
-### Suggested next Claude Code prompt
+```bash
+npm run typecheck        # TypeScript
+npm test                 # unit tests (time helpers, demo rules)
+npm run build            # production build
+npm run test:integration # live API suite — needs QA accounts, see tests/integration.test.mjs
+```
 
-> Continue the existing code in `morrisville-rewards/`. Preserve the visual design and functioning flows. First inspect `README.md`, `src/App.tsx`, `src/lib/api.ts`, and `supabase/schema.sql`. Fix bugs and strengthen verification/admin capabilities before adding complexity. Keep customer actions to Start Playing / Log Past Play, don't invent a SPINDEX API connection, and run `npm run build` + `npm test` after each change. Reuse the existing source rather than generating a second website.
+## Deploy
 
----
+Vercel project `pingpod-morrisville-rewards`, root directory `morrisville-rewards`, framework Vite, output `dist`. `vercel.json` rewrites every path to `index.html`. Set the two `VITE_SUPABASE_*` variables for Production and Preview. Full checklist, including the Supabase Auth settings, is in [`docs/SETUP.md`](docs/SETUP.md).
 
-**Brand note:** The PingPod logo asset is reused from an existing user-owned repository. The owner reports Morrisville franchisee support for this pilot. Any required corporate/API/branding publication permissions should still be confirmed before public launch.
+## Database changes
+
+Add a new numbered file in `supabase/migrations/`, apply it (SQL editor or `supabase db push`), re-run the revoke/grant block from `20261119000400_admin.sql` for any new function, and run `npm run db:schema` to refresh `supabase/schema.sql`.

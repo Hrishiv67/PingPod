@@ -142,6 +142,11 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
     };
   }, [refresh]);
 
+  const hasProfile = Boolean(me?.profile);
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [path, hasProfile]);
+
   const state = useMemo<AppState | null>(
     () =>
       me && {

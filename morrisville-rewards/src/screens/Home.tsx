@@ -194,7 +194,7 @@ export default function Home() {
           onClose={() => setLogOpen(false)}
           onSaved={() => {
             setLogOpen(false);
-            toast("Session submitted · Pending verification");
+            toast("Session saved. Nice work!");
             bump();
             void refresh().catch(() => {});
           }}
@@ -230,15 +230,9 @@ function FinishedSheet({ session, onClose }: { session: PlaySession; onClose: ()
               {session.minutes}
               <small>min</small>
             </div>
-            <p>You played {formatDuration(session.minutes)}. Session submitted.</p>
-            <StatusChip status={session.status} />
-            {session.status === "pending" && (
-              <p className="small-print">
-                Staff verify sessions before they count on the verified leaderboard. You'll see it in Community right away.
-              </p>
-            )}
+            <p>You played {formatDuration(session.minutes)}. It's on the leaderboard now.</p>
             {session.flags.includes("hit_max") && (
-              <p className="small-print">This timer reached the {session.minutes}-minute limit, so staff will take a look.</p>
+              <p className="small-print">Timers stop at {session.minutes} minutes. If you played less, request a fix from your history.</p>
             )}
           </>
         ) : (
@@ -257,8 +251,7 @@ function StatsTiles() {
   const s = me.stats!;
   const profile = me.profile!;
   const weekTotal = s.week_verified + s.week_pending;
-  const rank = s.rank_week_verified ?? s.rank_week_community;
-  const rankScope = s.rank_week_verified ? "verified" : "community";
+  const rank = me.settings.default_board_scope === "verified" ? s.rank_week_verified : s.rank_week_community;
   return (
     <section className="stats-grid" aria-label="Your week">
       <Link to="/me" className="stat">
@@ -268,7 +261,7 @@ function StatsTiles() {
           <small>min</small>
         </span>
         <span className="stat-sub">
-          {s.week_pending > 0 ? `${formatNumber(s.week_pending)} pending` : weekTotal > 0 ? "All verified" : "Start a session"}
+          {weekTotal > 0 ? "Minutes played" : "Start a session"}
         </span>
       </Link>
       <Link to="/rankings" className="stat">
@@ -281,7 +274,7 @@ function StatsTiles() {
         ) : rank ? (
           <>
             <span className="stat-value num">#{rank}</span>
-            <span className="stat-sub pink">You're #{rank} this week · {rankScope}</span>
+            <span className="stat-sub pink">You're #{rank} this week</span>
           </>
         ) : (
           <>
@@ -397,7 +390,13 @@ export function SessionRow({ s, onClick }: { s: PlaySession; onClick?: () => voi
       <span className="session-main">
         <strong>{relativeDay(s.played_on)}</strong>
         <span>
-          {s.method === "timer" ? "Timer" : "Self-reported"} · <StatusChip status={s.status} short />
+          {s.method === "timer" ? "Timer" : "Logged"}
+          {s.status !== "approved" && (
+            <>
+              {" · "}
+              <StatusChip status={s.status} short />
+            </>
+          )}
         </span>
       </span>
       <span className="session-min num">

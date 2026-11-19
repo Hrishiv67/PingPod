@@ -136,7 +136,6 @@ export default function LogPlaySheet({
       <Button variant="primary" size="lg" block loading={busy} onClick={() => void save()}>
         Save session
       </Button>
-      <p className="small-print">Self-reported · Pending verification. Staff check sessions before they count as verified.</p>
     </Sheet>
   );
 }

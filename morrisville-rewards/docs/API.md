@@ -2,9 +2,9 @@
 
 Everything a client can do goes through Postgres functions (RPCs) in the `public` schema of the
 Supabase project `pingpod-morrisville`. The web app and any native app call the **same**
-functions, so rules (limits, verification, crews, rankings) can't drift between clients.
+functions, so rules (limits, crews, rankings) can't drift between clients.
 
-- Source of truth: [`supabase/migrations/`](../supabase/migrations) (files `…0100` → `…0500`).
+- Source of truth: [`supabase/migrations/`](../supabase/migrations) (files `…0100` → `…0900`).
 - Call over HTTPS as `POST /rest/v1/rpc/<name>` with a JSON body of named args, or use a Supabase SDK
   (`supabase.rpc('name', { p_arg: … })` / `supabase.rpc("name", params: …)`).
 - Errors are raised as Postgres exceptions whose **message is written for players** (for example
@@ -19,22 +19,26 @@ functions, so rules (limits, verification, crews, rankings) can't drift between 
 | Time | All timestamps are server time (`timestamptz`). Clients never send start times. |
 | Calendar | Week = Monday 00:00 → Sunday in `America/New_York`. `played_on` is the Morrisville date. |
 | Periods | `week` (this Monday), `month` (1st of this month), `all`. |
-| Scope | `verified` = staff-approved sessions only (default, prize-eligible). `community` = approved **+ pending** (self-reported) — always label it that way in UI. |
+| Counting | Players' timed and logged minutes count immediately (no approval step, migration 0009). Staff can adjust, reject (remove) or reopen a session. |
+| Scope (advanced) | Board functions still take `p_scope`: `community` = everything not rejected (approved + pending), `verified` = approved only. Since sessions are approved automatically these are effectively the same; clients should just pass the `default_board_scope` setting (`community`) and not show a toggle. |
 | Crew credit | A session counts for the crew you belonged to **when it ended**: `ended_at > joined_at` and (`left_at` is null or `ended_at <= left_at`). Joining a crew never brings old history with you; no session counts twice. |
 | Idempotency | `start_session` and `log_session` accept `p_client_request_id` (UUID). Retrying with the same id returns the original row. `stop_session` on an already-stopped session returns it unchanged. |
 
 ### Session status lifecycle
 
 ```
-start_session ──► active ──stop_session──► pending ──staff approve──► approved
-                    │                         │  └──staff reject───► rejected
-                    │                         └── (auto_approve_timer setting) ──► approved
+start_session ──► active ──stop_session──► approved (counts immediately)
                     ├──cancel_session──► cancelled
-                    ├──stop under the minimum (default 5 min)──► cancelled (flag too_short)
-                    └──still running after max (default 180 min)──► pending (flag auto_closed)
-log_session ─────────────────────────────► pending
-approved / rejected ──staff reopen (reason)──► pending
+                    ├──stop under 5 min──► cancelled (flag too_short)
+                    └──still running after max (default 180 min)──► approved, capped (flag auto_closed)
+log_session ──────────────────────────────► approved (counts immediately)
+approved ──staff reject (reason)──► rejected (removed from all totals)
+approved ──staff adjust (reason)──► approved with new minutes
+approved / rejected ──staff reopen (reason)──► pending ──staff approve──► approved
 ```
+
+A database trigger (`private.count_immediately`) turns any new or just-finished session into
+`approved`. `pending` now only happens when staff reopen a session.
 
 Flags on a session: `auto_closed` (timer was abandoned and closed at the max), `hit_max`
 (player stopped it at/after the max), `same_day_as_timer` (manual entry on a day that already has a
@@ -65,10 +69,10 @@ Public boards exclude players with `show_on_leaderboard = false` or `hidden_by_a
 | `save_profile` | `p_display_name`, `p_avatar_color`='pink' (pink·white·blue·green·orange·purple), `p_show_on_leaderboard`=true, `p_show_spindex`=true | `profiles` row | player |
 | `start_session` | `p_client_request_id` uuid? | `play_sessions` row (status `active`) | player with profile |
 | `checkin_session` | `p_id` | row (sets `last_checkin_at`) | owner of session |
-| `stop_session` | `p_id`, `p_ended_at` timestamptz? (accepted only if within the last 30 min, never future) | row (`pending`, `approved` if auto-approve, or `cancelled` if too short) | owner of session |
+| `stop_session` | `p_id`, `p_ended_at` timestamptz? (accepted only if within the last 30 min, never future) | row (`approved`, or `cancelled` if under 5 min) | owner of session |
 | `cancel_session` | `p_id` | row (`cancelled`, 0 min) | owner of session |
-| `log_session` | `p_played_on` date, `p_minutes` int, `p_note` text?, `p_client_request_id` uuid? | row (`manual`, `pending`) | player with profile |
-| `get_my_achievements` | — | table: `code, title, description, target, progress, earned_at` | player |
+| `log_session` | `p_played_on` date, `p_minutes` int, `p_note` text?, `p_client_request_id` uuid? | row (`manual`, `approved`) | player with profile |
+| `get_my_achievements` | — | table: `code, title, description, target, progress, earned_at`. Codes: `first_session, first_hour, minutes_300, minutes_600, minutes_1200, long_session, streak_3, crew_joined, regular` (5 different days), `weekly_top5`. | player |
 | `create_crew` | `p_name` (3–24 chars) | `crews` row | player with profile |
 | `preview_crew` | `p_code` | jsonb {name, members, max_members} or null | anon |
 | `join_crew` | `p_code` | `crews` row (same crew → returns it) | player with profile |
@@ -87,7 +91,8 @@ Public boards exclude players with `show_on_leaderboard = false` or `hidden_by_a
 `stats` keys: `week_verified, week_pending, month_verified, month_pending, total_verified,
 total_pending, sessions, pending_sessions, longest_session, current_streak, longest_streak,
 rank_week_verified, rank_week_community, ranked_week_verified, ranked_week_community` (personal
-streaks count pending + approved; ranks are null when not ranked or opted out).
+streaks count pending + approved; ranks are null when not ranked or opted out). With no approval
+step, `*_pending` values are normally 0 — clients can show `*_verified + *_pending` as one total.
 
 ## Public boards (anon + player)
 
@@ -106,8 +111,8 @@ board; also poll (30–60 s) as a fallback.
 | Function | Args | Returns | Who |
 | --- | --- | --- | --- |
 | `admin_list_sessions` | `p_status`='pending' (pending·approved·rejected·cancelled·active·all), `p_search`?, `p_limit`=200 | jsonb[] incl. nickname, flags, note, is_own, player_sessions, player_rejections | staff |
-| `admin_review_session` | `p_id`, `p_action` approve·reject·adjust·reopen, `p_minutes`?, `p_reason`? | row. Rules: can't review your own session; approve only from pending; changing minutes, rejecting an approved session, adjust and reopen all require a reason. | staff |
-| `admin_bulk_approve` | `p_ids` uuid[] | int approved (skips own and non-pending) | staff |
+| `admin_review_session` | `p_id`, `p_action` approve·reject·adjust·reopen, `p_minutes`?, `p_reason`? | row. Rules: can't change your own session; approve only applies to a reopened (pending) session; changing minutes, rejecting an approved session, adjust and reopen all require a reason. | staff |
+| `admin_bulk_approve` | `p_ids` uuid[] | int approved (skips own and non-pending; only relevant for reopened sessions) | staff |
 | `admin_list_players` | `p_search`? (nickname or email) | jsonb[] incl. email, totals, crew, SPINDEX, admin_role | staff |
 | `admin_moderate_player` | `p_user_id`, `p_action` hide·unhide·rename, `p_value`?, `p_reason`? | void | staff |
 | `admin_delete_player` | `p_user_id`, `p_reason` | void (not self, not staff) | owner |
@@ -148,13 +153,13 @@ does not expose.
 | `pilot_start`, `pilot_end` | null | dates (analytics window) |
 | `max_session_minutes` | 180 | 30–480 (timer cap / auto-close) |
 | `checkin_reminder_minutes` | 90 | 15–240 |
-| `manual_min_minutes` | 5 | 1–60 (also the minimum counted timer session) |
+| `manual_min_minutes` | 5 | 1–60 (timers under 5 min, or this value if lower, aren't counted) |
 | `manual_max_minutes` | 180 | 15–480, > min |
 | `backdate_days` | 7 | 0–60 |
 | `daily_minutes_cap` | 300 | 30–720 (all sessions on one day) |
 | `crew_min_size` / `crew_max_size` | 2 / 8 | 1–10 / 2–30, min ≤ max |
-| `auto_approve_timer` | false | boolean |
-| `default_board_scope`, `display_scope` | verified | verified·community |
+| `auto_approve_timer` | false | boolean — no effect since migration 0009 (sessions always count) |
+| `default_board_scope`, `display_scope` | community | verified·community (see Scope above) |
 | `display_rotation_seconds` | 15 | 8–60 |
 | `display_slides` | minutes, streaks, crews, highlights | subset of minutes·streaks·crews·highlights·longest (≥1) |
 | `boards_enabled` | minutes, streaks, longest, spindex, crews | subset of those |

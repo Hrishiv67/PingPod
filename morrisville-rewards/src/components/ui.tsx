@@ -65,9 +65,9 @@ export function Chip({ children, tone = "neutral" }: { children: ReactNode; tone
 
 const STATUS_LABEL: Record<SessionStatus, string> = {
   active: "Playing now",
-  pending: "Pending verification",
-  approved: "Verified",
-  rejected: "Not approved",
+  pending: "Being checked",
+  approved: "Counted",
+  rejected: "Removed by staff",
   cancelled: "Not counted",
 };
 const STATUS_TONE: Record<SessionStatus, "neutral" | "pink" | "ok" | "warn" | "bad"> = {
@@ -77,8 +77,8 @@ const STATUS_TONE: Record<SessionStatus, "neutral" | "pink" | "ok" | "warn" | "b
   rejected: "bad",
   cancelled: "neutral",
 };
-export function StatusChip({ status, short = false }: { status: SessionStatus; short?: boolean }) {
-  const label = short && status === "pending" ? "Pending" : STATUS_LABEL[status];
+export function StatusChip({ status }: { status: SessionStatus; short?: boolean }) {
+  const label = STATUS_LABEL[status];
   return <Chip tone={STATUS_TONE[status]}>{label}</Chip>;
 }
 
@@ -96,7 +96,7 @@ export function Avatar({
   size?: number;
 }) {
   const initials = name
-    .split(/[\s_.-]+/)
+    .split(/[^A-Za-z0-9]+/)
     .filter(Boolean)
     .slice(0, 2)
     .map((p) => p[0])

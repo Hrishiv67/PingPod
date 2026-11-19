@@ -24,7 +24,7 @@ export default function Review({
   initialSearch?: string;
   onChanged: () => void;
 }) {
-  const [status, setStatus] = useState<ReviewStatus>(initialSearch ? "all" : "pending");
+  const [status, setStatus] = useState<ReviewStatus>("all");
   const [search, setSearch] = useState(initialSearch ?? "");
   const q = useDebounced(search.trim());
   const { data, error, loading, reload } = useLoad(() => api.admin.sessions(status, q), [status, q]);
@@ -75,7 +75,7 @@ export default function Review({
     <section className="adm-section">
       <SectionHead
         title="Review"
-        sub="Approve time that looks right. Verified boards only count approved sessions."
+        sub="Every session counts as soon as a player logs it. Fix or remove anything that looks wrong."
         actions={
           status === "pending" && pendingIds.length > 1 ? (
             <Button variant="primary" icon={<CheckCheck size={18} />} onClick={() => setSheet({ kind: "bulk", ids: pendingIds })}>

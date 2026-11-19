@@ -17,18 +17,12 @@ const BOARD_LABEL: Record<BoardKey, string> = {
 const ORDER: BoardKey[] = ["minutes", "crews", "streaks", "longest", "spindex"];
 const HAS_PERIOD: BoardKey[] = ["minutes", "crews", "longest"];
 
-export function scopeNote(scope: Scope): string {
-  return scope === "verified"
-    ? "Verified: only sessions approved by PingPod staff. These standings count for any official recognition."
-    : "Community: includes self-reported sessions still waiting for staff review.";
-}
-
 export default function Rankings() {
   const { me, version } = useApp();
   const enabled = ORDER.filter((b) => me.settings.boards_enabled.includes(b));
   const [board, setBoard] = useState<BoardKey>(enabled[0] ?? "minutes");
   const [period, setPeriod] = useState<Period>("week");
-  const [scope, setScope] = useState<Scope>(me.settings.default_board_scope);
+  const scope: Scope = me.settings.default_board_scope;
   const [players, setPlayers] = useState<LeaderRow[] | null>(null);
   const [crews, setCrews] = useState<CrewRow[] | null>(null);
   const [error, setError] = useState("");
@@ -109,28 +103,16 @@ export default function Rankings() {
             ]}
           />
         )}
-        <Segmented<Scope>
-          label="Which sessions count"
-          size="sm"
-          value={scope}
-          onChange={setScope}
-          options={[
-            { value: "verified", label: "Verified" },
-            { value: "community", label: "Community" },
-          ]}
-        />
-        <p className="scope-note">
-          <Info size={15} aria-hidden />
-          <span>
-            {board === "spindex"
-              ? scope === "verified"
-                ? "Ratings staff have checked in person. Players add their own SPINDEX on their profile; we don't calculate or import it."
-                : "Includes self-reported SPINDEX ratings that staff haven't checked."
-              : board === "streaks"
-                ? "Weeks in a row with at least one session. " + scopeNote(scope)
-                : scopeNote(scope)}
-          </span>
-        </p>
+        {(board === "spindex" || board === "streaks") && (
+          <p className="scope-note">
+            <Info size={15} aria-hidden />
+            <span>
+              {board === "spindex"
+                ? "Players add their own SPINDEX on their profile — we don't calculate or import it. Ratings staff have checked are marked Verified."
+                : "Weeks in a row with at least one session."}
+            </span>
+          </p>
+        )}
       </div>
 
       {hidden && board !== "crews" && (
@@ -156,7 +138,7 @@ export default function Rankings() {
       ) : players === null ? (
         <Skeleton count={5} height={60} />
       ) : (
-        <PlayerBoard rows={players} board={board} scope={scope} />
+        <PlayerBoard rows={players} board={board} />
       )}
     </div>
   );
@@ -175,19 +157,13 @@ function valueOf(board: BoardKey, r: LeaderRow): { value: string; unit: string; 
   }
 }
 
-function PlayerBoard({ rows, board, scope }: { rows: LeaderRow[]; board: BoardKey; scope: Scope }) {
+function PlayerBoard({ rows, board }: { rows: LeaderRow[]; board: BoardKey }) {
   if (!rows.length)
     return (
       <EmptyState
         icon={<Trophy size={24} />}
         title="Nobody's on the board yet"
-        text={
-          board === "spindex"
-            ? "No ratings here yet. Add your SPINDEX on your profile."
-            : scope === "verified"
-              ? "Verified standings fill in as staff approve sessions. Check Community to see everything submitted."
-              : "Log a session to be the first name up here."
-        }
+        text={board === "spindex" ? "No ratings here yet. Add your SPINDEX on your profile." : "Log a session to be the first name up here."}
       />
     );
   const top = rows.filter((r) => r.rank <= 3);
