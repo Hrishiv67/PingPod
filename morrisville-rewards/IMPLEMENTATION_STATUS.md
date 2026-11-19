@@ -31,9 +31,17 @@ _Last updated: 2026-11-19 · branch `morrisville-rewards-starter` · app in `mor
 
 Latest results (2026-11-19): `npm test` 22/22 pass · `tsc` clean · `npm run build` clean (no warnings) · live API suite 17/17 pass · rollback-only SQL time-logic test 18/18 pass · live browser E2E (2 phones + staff + iPad) passed · iPhone SE / 15 Pro Max walkthrough with no overflow or errors · production smoke test of `/`, `/join/*`, `/display`, `/poster` passed. Test accounts were removed afterwards; the live database starts empty.
 
+## UX refinement pass (2026-11-19)
+- Welcome: smaller headline, form above the fold on small iPhones, clear disabled buttons, visible "Forgot password?".
+- Home: Start playing / Log past session first, one compact stats strip, recent sessions; the active timer has its own focused view.
+- Less repeated grey text on Rankings, Crew and Me.
+- iPad `/display`: one welcome screen until someone plays (shows the pilot start date), category-specific labels and units, standings-first layout with a compact QR card, empty slides skipped.
+- `/admin`: Sessions · Players · Crews · Stats · Settings, with the rest under More; plain labels; staff notes are optional.
+- Tested: demo walkthrough at iPhone SE/14/Pro Max/desktop, display states at iPad portrait/landscape/TV, admin against mocked data, and a live two-phone + iPad run on the real database (test accounts deleted afterwards). Not yet tested: admin against live data, physical devices.
+
 ## Needs live configuration (owner action)
 
-1. **Supabase → Authentication → Sign In / Providers → Email → turn OFF "Confirm email".** Until then, new sign-ups get a "couldn't send email" error, because the built-in mailer won't send to non-team addresses.
+1. ~~Turn off "Confirm email" in Supabase~~ — done; sign-up is instant.
 2. Supabase → Authentication → URL Configuration: Site URL `https://pingpod-morrisville-rewards.vercel.app`, Redirect URLs `https://pingpod-morrisville-rewards.vercel.app/**` and `http://localhost:5173/**`.
 3. Optional: custom SMTP (Gmail app password) so "Forgot password" emails reach players. See `docs/SETUP.md`.
 4. Claim owner access: sign up, open `/admin`, enter the one-time owner code (given privately, expires 2026-12-19). Then add Joe from Admin → Players → Make owner.

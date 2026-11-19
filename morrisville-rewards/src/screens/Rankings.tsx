@@ -11,7 +11,7 @@ const BOARD_LABEL: Record<BoardKey, string> = {
   minutes: "Minutes",
   crews: "Crews",
   streaks: "Streaks",
-  longest: "Longest session",
+  longest: "Longest",
   spindex: "SPINDEX",
 };
 const ORDER: BoardKey[] = ["minutes", "crews", "streaks", "longest", "spindex"];
@@ -146,7 +146,11 @@ export default function Rankings() {
 function valueOf(board: BoardKey, r: LeaderRow): { value: string; unit: string; sub: string } {
   switch (board) {
     case "streaks":
-      return { value: String(r.value), unit: r.value === 1 ? "week" : "weeks", sub: `Best ${r.secondary ?? r.value} · ${r.sessions ?? 0} active weeks` };
+      return {
+        value: String(r.value),
+        unit: r.value === 1 ? "week" : "weeks",
+        sub: r.secondary != null && r.secondary > r.value ? `Best ${r.secondary} weeks` : "",
+      };
     case "longest":
       return { value: formatNumber(r.value), unit: "min", sub: r.detail ? formatDay(r.detail) : "" };
     case "spindex":
