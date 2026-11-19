@@ -23,7 +23,7 @@ begin
   r := public.start_session();
   update public.play_sessions set started_at = clock_timestamp() - interval '54 minutes 30 seconds' where id = r.id;
   r := public.stop_session(r.id);
-  res := res || jsonb_build_object('t', 'stop uses server time (54 min)', 'ok', r.minutes = 54 and r.status = 'pending', 'got', r.minutes);
+  res := res || jsonb_build_object('t', 'stop uses server time (54 min)', 'ok', r.minutes = 54 and r.status = 'approved', 'got', r.minutes);
 
   -- 2. A Finish time in the future is ignored.
   r := public.start_session();
@@ -56,7 +56,7 @@ begin
   v := private.close_stale_sessions(null);
   select * into r from public.play_sessions where id = r.id;
   res := res || jsonb_build_object('t', 'auto-close at 180 min', 'ok',
-    v >= 1 and r.status = 'pending' and r.minutes = 180 and r.auto_closed and 'auto_closed' = any (r.flags)
+    v >= 1 and r.status = 'approved' and r.minutes = 180 and r.auto_closed and 'auto_closed' = any (r.flags)
     and r.ended_at = r.started_at + interval '180 minutes', 'got', to_jsonb(r) - 'note');
 
   -- 7. Reopening the app also closes an abandoned timer (get_me), so no "ghost" running timer.
@@ -65,7 +65,7 @@ begin
   j := public.get_me();
   select * into r from public.play_sessions where id = r.id;
   res := res || jsonb_build_object('t', 'get_me closes stale timer', 'ok',
-    j -> 'active_session' = 'null'::jsonb and r.status = 'pending' and r.auto_closed, 'got', j -> 'active_session');
+    j -> 'active_session' = 'null'::jsonb and r.status = 'approved' and r.auto_closed, 'got', j -> 'active_session');
 
   -- 8. Stopping a session past the max via stop_session is capped and flagged.
   r := public.start_session();
@@ -99,6 +99,8 @@ begin
     v = 1 and v2 = 3, 'got', jsonb_build_array(v, v2));
 
   -- 11. Crew attribution boundaries: joined/left instants, switching crews never double-counts.
+  -- u1's timer sessions above now count immediately; clear them so crew X's total is only u3's play.
+  delete from public.play_sessions where user_id = u1;
   perform set_config('request.jwt.claims', json_build_object('sub', u1, 'role', 'authenticated')::text, true);
   cx := (public.create_crew('TL Crew X')).id;
   perform set_config('request.jwt.claims', json_build_object('sub', u2, 'role', 'authenticated')::text, true);
@@ -136,7 +138,7 @@ begin
   r := public.start_session();
   update public.play_sessions set started_at = clock_timestamp() - interval '7 minutes' where id = r.id;
   r := public.stop_session(r.id);
-  res := res || jsonb_build_object('t', '7-min timer counts when manual minimum is 10', 'ok', r.status = 'pending' and r.minutes = 7, 'got', r.status);
+  res := res || jsonb_build_object('t', '7-min timer counts when manual minimum is 10', 'ok', r.status = 'approved' and r.minutes = 7, 'got', r.status);
   r := public.start_session();
   update public.play_sessions set started_at = clock_timestamp() - interval '4 minutes' where id = r.id;
   r := public.stop_session(r.id);

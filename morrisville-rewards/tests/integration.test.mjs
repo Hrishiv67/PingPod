@@ -123,7 +123,7 @@ describe("PingPod Morrisville Rewards · live backend", { skip: !ready }, () => 
 
   it("log past play: validation, duplicates, backdating window, daily cap", async () => {
     aToday60 = await ok(users.a.rpc("log_session", { p_played_on: today, p_minutes: 60, p_note: "QA doubles" }));
-    assert.equal(aToday60.status, "pending");
+    assert.equal(aToday60.status, "approved", "logged play counts immediately (no approval step)");
     assert.equal(aToday60.method, "manual");
     assert.equal(aToday60.minutes, 60);
     const requestId = randomUUID();
@@ -200,34 +200,59 @@ describe("PingPod Morrisville Rewards · live backend", { skip: !ready }, () => 
     assert.equal(row.is_mine, true);
   });
 
-  it("staff: claim code, review queue, no self-approval, reasons required, bulk approve", async () => {
+  it("staff: claim code, session list, adjust/reject/reopen with reasons, no self-review, audit", async () => {
     await fails(users.c.rpc("admin_list_sessions"), /Staff access only/);
     const claimed = await ok(users.c.rpc("admin_claim", { p_code: QA_STAFF_CODE.toLowerCase() }));
     assert.equal(claimed.role, "staff");
     await fails(users.b.rpc("admin_claim", { p_code: QA_STAFF_CODE }), /didn't work/);
+    const all = await ok(users.c.rpc("admin_list_sessions", { p_status: "all" }));
+    assert.ok(all.some((s) => s.id === aToday60.id && s.status === "approved" && s.display_name === "QA Alex" && s.note === "QA doubles"));
     const pending = await ok(users.c.rpc("admin_list_sessions", { p_status: "pending" }));
-    assert.ok(pending.some((s) => s.id === aToday60.id && s.display_name === "QA Alex" && s.note === "QA doubles"));
-    const approved = await ok(users.c.rpc("admin_review_session", { p_id: aToday60.id, p_action: "approve" }));
-    assert.equal(approved.status, "approved");
+    assert.equal(pending.length, 0, "nothing waits for approval");
     await fails(users.c.rpc("admin_review_session", { p_id: aToday60.id, p_action: "approve" }), /Already approved/);
+
     cOwn = await ok(users.c.rpc("log_session", { p_played_on: today, p_minutes: 20 }));
-    await fails(users.c.rpc("admin_review_session", { p_id: cOwn.id, p_action: "approve" }), /your own session/);
-    await fails(users.c.rpc("admin_review_session", { p_id: bAfterJoin.id, p_action: "approve", p_minutes: 40 }), /reason/);
+    assert.equal(cOwn.status, "approved");
+    await fails(users.c.rpc("admin_review_session", { p_id: cOwn.id, p_action: "adjust", p_minutes: 10, p_reason: "QA" }), /your own session/);
+    await fails(users.c.rpc("admin_review_session", { p_id: cOwn.id, p_action: "reject", p_reason: "QA" }), /your own session/);
+
     await fails(users.c.rpc("admin_review_session", { p_id: bAfterJoin.id, p_action: "adjust", p_minutes: 40 }), /reason/);
     const fixed = await ok(users.c.rpc("admin_review_session",
-      { p_id: bAfterJoin.id, p_action: "approve", p_minutes: 40, p_reason: "QA: front desk saw 40 min" }));
+      { p_id: bAfterJoin.id, p_action: "adjust", p_minutes: 40, p_reason: "QA: front desk saw 40 min" }));
     assert.equal(fixed.minutes, 40);
-    const aSessions = await ok(users.a.from("play_sessions").select("id,status,played_on").eq("status", "pending"));
-    const count = await ok(users.c.rpc("admin_bulk_approve", { p_ids: [...aSessions.map((s) => s.id), cOwn.id] }));
-    assert.equal(count, aSessions.length, "bulk approve skips the reviewer's own session");
-    const cMine = await ok(users.c.from("play_sessions").select("status").eq("id", cOwn.id).single());
-    assert.equal(cMine.status, "pending");
+    assert.equal(fixed.status, "approved");
+
+    const aWeek = async (scope) =>
+      (await ok(anon.rpc("get_leaderboard", { p_metric: "minutes", p_period: "week", p_scope: scope })))
+        .find((r) => r.display_name === "QA Alex")?.value ?? 0;
+    const before = await aWeek("community");
+    assert.ok(before >= 60);
+    await fails(users.c.rpc("admin_review_session", { p_id: aToday60.id, p_action: "reject" }), /reason/);
+    const rejected = await ok(users.c.rpc("admin_review_session",
+      { p_id: aToday60.id, p_action: "reject", p_reason: "QA: duplicate entry" }));
+    assert.equal(rejected.status, "rejected");
+    assert.equal(await aWeek("community"), before - 60, "rejected minutes leave the board");
+    assert.equal(await aWeek("verified"), before - 60);
+
+    await fails(users.c.rpc("admin_review_session", { p_id: aToday60.id, p_action: "reopen" }), /reason/);
+    const reopened = await ok(users.c.rpc("admin_review_session",
+      { p_id: aToday60.id, p_action: "reopen", p_reason: "QA: player showed proof" }));
+    assert.equal(reopened.status, "pending", "staff reopen is not auto-counted");
+    const nowPending = await ok(users.c.rpc("admin_list_sessions", { p_status: "pending" }));
+    assert.ok(nowPending.some((s) => s.id === aToday60.id));
+    const restored = await ok(users.c.rpc("admin_review_session", { p_id: aToday60.id, p_action: "approve" }));
+    assert.equal(restored.status, "approved");
+    assert.equal(restored.minutes, 60);
+    assert.equal(await aWeek("verified"), before, "approving after reopen restores the minutes");
+
     await fails(users.c.rpc("admin_update_settings", { p_patch: { backdate_days: 3 } }), /pilot owner/);
-    const log = await ok(users.c.rpc("admin_audit_log", { p_limit: 20 }));
-    assert.ok(log.some((l) => l.action === "session.approve" && l.actor_name === "QA Casey"));
+    const log = await ok(users.c.rpc("admin_audit_log", { p_limit: 50 }));
+    for (const action of ["session.adjust", "session.reject", "session.reopen", "session.approve"]) {
+      assert.ok(log.some((l) => l.action === action && l.actor_name === "QA Casey"), `audit has ${action}`);
+    }
   });
 
-  it("leaderboards: verified vs community, own-row flag, deterministic order", async () => {
+  it("leaderboards: logged time counts immediately in both scopes, own-row flag, deterministic order", async () => {
     const aRows = await ok(users.a.from("play_sessions").select("minutes,status,played_on"));
     const expectA = aRows.filter((s) => s.status === "approved" && s.played_on >= thisWeek)
       .reduce((n, s) => n + s.minutes, 0);
@@ -235,9 +260,11 @@ describe("PingPod Morrisville Rewards · live backend", { skip: !ready }, () => 
     const aRow = verified.find((r) => r.display_name === "QA Alex");
     assert.equal(aRow.value, expectA);
     assert.equal(aRow.is_me, true);
-    assert.ok(!verified.some((r) => r.display_name === "QA Casey"), "pending-only players are not on the verified board");
+    assert.ok(verified.some((r) => r.display_name === "QA Casey" && r.value === 20), "fresh log is on the board right away");
     const community = await ok(anon.rpc("get_leaderboard", { p_metric: "minutes", p_period: "week", p_scope: "community" }));
     assert.ok(community.some((r) => r.display_name === "QA Casey" && r.value === 20));
+    assert.deepEqual(community.map((r) => [r.display_name, r.value]), verified.map((r) => [r.display_name, r.value]),
+      "with no approval step both scopes match");
     assert.ok(community.every((r) => r.is_me === false));
     const ranks = community.map((r) => r.rank);
     assert.deepEqual(ranks, ranks.map((_, i) => i + 1), "ranks are 1..n with no ties");
@@ -286,7 +313,10 @@ describe("PingPod Morrisville Rewards · live backend", { skip: !ready }, () => 
     assert.ok(by.first_session.earned_at);
     assert.equal(by.first_hour.progress, 60);
     assert.equal(by.crew_joined.progress, 1);
-    assert.equal(by.first_verified.progress, 1);
+    assert.equal(by.first_verified, undefined, "the old staff-approval milestone is gone");
+    assert.equal(by.regular.target, 5);
+    assert.equal(by.regular.progress, 3, "today, yesterday and a week ago");
+    assert.equal(by.regular.earned_at, null);
     assert.ok(by.minutes_300.progress <= 300 && by.minutes_300.progress >= 270);
     const d = await ok(users.d.rpc("get_my_achievements"));
     assert.ok(d.every((x) => x.progress === 0 && x.earned_at === null));
@@ -344,6 +374,8 @@ describe("PingPod Morrisville Rewards · live backend", { skip: !ready }, () => 
       setTimeout(() => resolve("TIMEOUT"), 15000);
     });
     assert.equal(status, "SUBSCRIBED");
+    // Give the server a moment to finish joining the channel before the write (avoids a race).
+    await new Promise((r) => setTimeout(r, 750));
     await ok(users.b.rpc("log_session", { p_played_on: today, p_minutes: 15, p_note: "QA realtime" }));
     for (let i = 0; i < 100 && !received; i += 1) await new Promise((r) => setTimeout(r, 100));
     await listener.removeAllChannels();
