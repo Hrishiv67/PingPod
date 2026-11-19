@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, ChevronRight, Clock3, Hand, Pencil, Play, Square, Timer } from "lucide-react";
+import { ChevronRight, Hand, Pencil, Play, Square, Timer } from "lucide-react";
 import { api, errorText, toAppError } from "../lib/api";
 import { Link } from "../lib/router";
 import { KEYS, newRequestId, store, type PendingStop } from "../lib/storage";
 import { elapsedMs, formatClock, formatDuration, formatNumber, formatTime, relativeDay } from "../lib/time";
-import type { Achievement, PlaySession, Reward } from "../lib/types";
+import type { PlaySession, Reward } from "../lib/types";
 import { useApp } from "../state";
-import { Button, ConfirmSheet, InlineError, ProgressBar, Sheet, Skeleton, StatusChip, useToast } from "../components/ui";
+import { Button, ConfirmSheet, InlineError, Sheet, Skeleton, StatusChip, useToast } from "../components/ui";
 import LogPlaySheet from "./LogPlaySheet";
 
 export default function Home() {
@@ -106,23 +106,27 @@ export default function Home() {
 
   return (
     <div className="page">
-      <section className="greeting" aria-live="polite">
-        <div className="eyebrow">Hey, {profile.display_name}</div>
-        <h1>{active ? (waitingToSync ? "Finishing up" : "You're playing") : "Ready to play?"}</h1>
-      </section>
-
       {!active ? (
-        <section className="play-card">
-          <Button variant="primary" size="xl" block loading={busy === "start"} onClick={() => void start()} icon={<Play size={24} fill="currentColor" />}>
-            Start playing
-          </Button>
-          <Button variant="secondary" size="lg" block onClick={() => setLogOpen(true)} icon={<Pencil size={18} />}>
-            Log past play
-          </Button>
-          {error && <InlineError>{error}</InlineError>}
-        </section>
+        <>
+          <section className="greeting" aria-live="polite">
+            <div className="eyebrow">Hey, {profile.display_name}</div>
+            <h1>Ready to play?</h1>
+          </section>
+          <section className="play-card">
+            <Button variant="primary" size="xl" block loading={busy === "start"} onClick={() => void start()} icon={<Play size={24} fill="currentColor" />}>
+              Start playing
+            </Button>
+            <Button variant="secondary" size="lg" block onClick={() => setLogOpen(true)} icon={<Pencil size={18} />}>
+              Log past session
+            </Button>
+            {error && <InlineError>{error}</InlineError>}
+          </section>
+          <StatStrip />
+          <RecentSessions version={version} />
+          <RewardsStrip enabled={settings.rewards_enabled} />
+        </>
       ) : (
-        <section className="play-card is-active" aria-label="Session in progress">
+        <section className="session-focus" aria-label="Session in progress" aria-live="polite">
           <div className="live-label">
             <span className="live-dot" aria-hidden />
             {waitingToSync ? "Waiting for connection" : "Playing now"}
@@ -130,22 +134,14 @@ export default function Home() {
           <div className="timer num" role="timer" aria-label={`${elapsedMin} minutes played`}>
             {formatClock(elapsed)}
           </div>
-          <div className="timer-meta">
-            <span>
-              <Clock3 size={16} style={{ color: "var(--muted)" }} aria-hidden /> Started {formatTime(active.started_at)}
-            </span>
-            <span>
-              <CheckCircle2 size={16} aria-hidden /> Saved to your account
-            </span>
-          </div>
-          <p className="small-print">You can lock your phone or close this page — the timer keeps running on our side.</p>
+          <p className="timer-meta">
+            Started {formatTime(active.started_at)} · Keeps running if you lock your phone
+          </p>
 
           {needsCheckin && !waitingToSync && (
             <div className="checkin" role="alert">
               <strong>Still playing?</strong>
-              <span className="small-print" style={{ color: "var(--text-2)" }}>
-                It's been {formatDuration(elapsedMin)}. Timers stop automatically at {formatDuration(settings.max_session_minutes)}.
-              </span>
+              <span>Timers stop on their own at {formatDuration(settings.max_session_minutes)}.</span>
               <div className="row-2">
                 <Button variant="secondary" loading={busy === "checkin"} onClick={() => void checkin()} icon={<Hand size={18} />}>
                   Still playing
@@ -156,37 +152,27 @@ export default function Home() {
               </div>
             </div>
           )}
-          {nearMax && !needsCheckin && (
-            <p className="small-print">Heads up: timers stop at {formatDuration(settings.max_session_minutes)}.</p>
-          )}
+          {nearMax && !needsCheckin && <p className="timer-note">Timers stop at {formatDuration(settings.max_session_minutes)}.</p>}
 
-          {waitingToSync ? (
-            <InlineError onRetry={() => void refresh().catch(() => {})}>
-              Your finish time is saved on this phone. It'll submit as soon as you're online.
-            </InlineError>
-          ) : (
-            <>
-              <Button variant="primary" size="xl" block loading={busy === "stop"} onClick={() => void finish()} icon={<Square size={20} fill="currentColor" />}>
-                Finish session
-              </Button>
-              <Button variant="ghost" onClick={() => setDiscardOpen(true)} disabled={busy !== ""}>
-                Discard this session
-              </Button>
-            </>
-          )}
-          {error && <InlineError>{error}</InlineError>}
+          <div className="session-actions">
+            {waitingToSync ? (
+              <InlineError onRetry={() => void refresh().catch(() => {})}>
+                Finish time saved on this phone. It'll submit when you're back online.
+              </InlineError>
+            ) : (
+              <>
+                <Button variant="primary" size="xl" block loading={busy === "stop"} onClick={() => void finish()} icon={<Square size={20} fill="currentColor" />}>
+                  Finish session
+                </Button>
+                <button type="button" className="link-btn discard-btn" onClick={() => setDiscardOpen(true)} disabled={busy !== ""}>
+                  Discard session
+                </button>
+              </>
+            )}
+            {error && <InlineError>{error}</InlineError>}
+          </div>
         </section>
       )}
-
-      <StatsTiles />
-      <NextMilestone version={version} />
-      <RecentSessions version={version} />
-      <RewardsStrip enabled={settings.rewards_enabled} />
-
-      <footer className="app-foot">
-        <span>Morrisville Rewards · Beta</span>
-        <span>A local PingPod Morrisville pilot — not the official PingPod app or booking.</span>
-      </footer>
 
       {logOpen && (
         <LogPlaySheet
@@ -222,7 +208,7 @@ export default function Home() {
 function FinishedSheet({ session, onClose }: { session: PlaySession; onClose: () => void }) {
   const counted = session.status === "pending" || session.status === "approved";
   return (
-    <Sheet title={counted ? "Nice session." : "Session not counted"} onClose={onClose}>
+    <Sheet title={counted ? "Nice session." : "Not saved"} onClose={onClose}>
       <div className="result">
         {counted ? (
           <>
@@ -230,13 +216,13 @@ function FinishedSheet({ session, onClose }: { session: PlaySession; onClose: ()
               {session.minutes}
               <small>min</small>
             </div>
-            <p>You played {formatDuration(session.minutes)}. It's on the leaderboard now.</p>
+            <p>Saved to your leaderboard.</p>
             {session.flags.includes("hit_max") && (
-              <p className="small-print">Timers stop at {session.minutes} minutes. If you played less, request a fix from your history.</p>
+              <p className="result-note">Timer hit the {session.minutes}-minute limit. Played less? Fix it from your history.</p>
             )}
           </>
         ) : (
-          <p>That was under 5 minutes, so it wasn't saved. Start a new session when you're ready.</p>
+          <p>Sessions under 5 minutes aren't saved.</p>
         )}
       </div>
       <Button variant="primary" size="lg" block onClick={onClose}>
@@ -246,104 +232,46 @@ function FinishedSheet({ session, onClose }: { session: PlaySession; onClose: ()
   );
 }
 
-function StatsTiles() {
+function StatStrip() {
   const { me } = useApp();
   const s = me.stats!;
   const profile = me.profile!;
   const weekTotal = s.week_verified + s.week_pending;
   const rank = me.settings.default_board_scope === "verified" ? s.rank_week_verified : s.rank_week_community;
+  const hidden = !profile.show_on_leaderboard || profile.hidden_by_admin;
   return (
-    <section className="stats-grid" aria-label="Your week">
-      <Link to="/me" className="stat">
+    <section className="stat-strip" aria-label="Your week">
+      <Link to="/me" className="stat-cell">
         <span className="stat-label">This week</span>
         <span className="stat-value num">
           {formatNumber(weekTotal)}
           <small>min</small>
         </span>
-        <span className="stat-sub">
-          {weekTotal > 0 ? "Minutes played" : "Start a session"}
-        </span>
       </Link>
-      <Link to="/rankings" className="stat">
-        <span className="stat-label">Your rank</span>
-        {!profile.show_on_leaderboard || profile.hidden_by_admin ? (
-          <>
-            <span className="stat-value text">Hidden</span>
-            <span className="stat-sub">Off public boards</span>
-          </>
-        ) : rank ? (
-          <>
-            <span className="stat-value num">#{rank}</span>
-            <span className="stat-sub pink">You're #{rank} this week</span>
-          </>
+      <Link to="/rankings" className="stat-cell">
+        <span className="stat-label">Rank</span>
+        {hidden ? (
+          <span className="stat-value text">Hidden</span>
         ) : (
-          <>
-            <span className="stat-value num">—</span>
-            <span className="stat-sub">Play to get ranked</span>
-          </>
+          <span className={`stat-value num ${rank ? "pink" : ""}`}>{rank ? `#${rank}` : "—"}</span>
         )}
       </Link>
-      <Link to="/me" className="stat">
-        <span className="stat-label">Weekly streak</span>
+      <Link to="/me" className="stat-cell">
+        <span className="stat-label">Streak</span>
         <span className="stat-value num">
           {s.current_streak}
           <small>{s.current_streak === 1 ? "wk" : "wks"}</small>
         </span>
-        <span className="stat-sub">{s.current_streak ? `Best ${s.longest_streak}` : "Play this week to start one"}</span>
       </Link>
-      <Link to="/crew" className="stat">
-        <span className="stat-label">Your crew</span>
+      <Link to="/crew" className="stat-cell">
+        <span className="stat-label">Crew</span>
         {me.crew ? (
-          <>
-            <span className="stat-value text">{me.crew.name}</span>
-            <span className="stat-sub">See standings</span>
-          </>
+          <span className="stat-value text">{me.crew.name}</span>
         ) : (
-          <>
-            <span className="stat-value text">No crew</span>
-            <span className="stat-sub pink">Join a crew</span>
-          </>
+          <span className="stat-value text pink">Join one</span>
         )}
       </Link>
     </section>
-  );
-}
-
-function NextMilestone({ version }: { version: number }) {
-  const [items, setItems] = useState<Achievement[] | null>(null);
-  useEffect(() => {
-    void api
-      .achievements()
-      .then(setItems)
-      .catch(() => setItems([]));
-  }, [version]);
-  if (!items || !items.length) return null;
-  const next = items
-    .filter((a) => !a.earned_at)
-    .sort((a, b) => b.progress / b.target - a.progress / a.target)[0];
-  const earned = items.filter((a) => a.earned_at).length;
-  if (!next)
-    return (
-      <section className="panel milestone">
-        <strong>All {items.length} milestones earned. Legend.</strong>
-      </section>
-    );
-  return (
-    <Link to="/me" className="panel milestone" style={{ textDecoration: "none", color: "inherit" }}>
-      <div className="milestone-top">
-        <div>
-          <div className="eyebrow">Next milestone</div>
-          <strong>{next.title}</strong>
-        </div>
-        <span>
-          {earned}/{items.length} earned
-        </span>
-      </div>
-      <ProgressBar value={next.progress} max={next.target} label={next.title} />
-      <span className="small-print">
-        {next.description} {next.target > 1 && `· ${formatNumber(next.progress)}/${formatNumber(next.target)}`}
-      </span>
-    </Link>
   );
 }
 
@@ -353,15 +281,15 @@ function RecentSessions({ version }: { version: number }) {
   const load = useCallback(() => {
     setError("");
     void api
-      .mySessions(3)
-      .then(setRows)
+      .mySessions(8)
+      .then((all) => setRows(all.filter((s) => s.status !== "cancelled").slice(0, 3)))
       .catch((err) => setError(errorText(err)));
   }, []);
   useEffect(load, [load, version]);
   return (
     <section className="section">
       <div className="section-head">
-        <h2>Recent play</h2>
+        <h2>Recent sessions</h2>
         <Link to="/me" className="link-btn" style={{ display: "inline-flex", alignItems: "center" }}>
           History <ChevronRight size={16} />
         </Link>
@@ -371,7 +299,7 @@ function RecentSessions({ version }: { version: number }) {
       ) : !rows ? (
         <Skeleton count={2} height={64} />
       ) : rows.length === 0 ? (
-        <div className="panel small-print">No sessions yet. Tap Start playing when you get on a table.</div>
+        <div className="list empty-row">No sessions yet.</div>
       ) : (
         <div className="list">
           {rows.map((s) => (
@@ -434,7 +362,7 @@ function RewardsStrip({ enabled }: { enabled: boolean }) {
           <div key={r.id} className="request-row">
             <strong>{r.title}</strong>
             {r.description && <p>{r.description}</p>}
-            {r.criteria && <span className="small-print">How to earn: {r.criteria}</span>}
+            {r.criteria && <span className="small-print">{r.criteria}</span>}
           </div>
         ))}
       </div>

@@ -17,22 +17,22 @@ type NumKey =
   | "display_rotation_seconds";
 
 const NUM_FIELDS: Record<NumKey, { label: string; unit: string; min: number; max: number; hint?: string }> = {
-  max_session_minutes: { label: "Max session length", unit: "min", min: 30, max: 480, hint: "Timers stop and get flagged after this." },
-  checkin_reminder_minutes: { label: "Check-in reminder", unit: "min", min: 15, max: 240, hint: "When the player's phone asks “Still playing?”" },
-  manual_min_minutes: { label: "Shortest session", unit: "min", min: 1, max: 60, hint: "Minimum for logged play, and the shortest timer that counts." },
-  manual_max_minutes: { label: "Longest logged session", unit: "min", min: 15, max: 480 },
-  backdate_days: { label: "Backdating", unit: "days", min: 0, max: 60, hint: "How far back players can log play." },
-  daily_minutes_cap: { label: "Daily cap", unit: "min", min: 30, max: 720, hint: "Most minutes one player can record on one day." },
-  crew_min_size: { label: "Crew minimum", unit: "players", min: 1, max: 10, hint: "Crews need this many members to appear on the board." },
-  crew_max_size: { label: "Crew maximum", unit: "players", min: 2, max: 30 },
-  display_rotation_seconds: { label: "Display rotation", unit: "sec", min: 8, max: 60, hint: "Time each iPad screen stays up." },
+  max_session_minutes: { label: "Stop timers after", unit: "min", min: 30, max: 480, hint: "A timer left running stops here and gets flagged." },
+  checkin_reminder_minutes: { label: "Ask “Still playing?” after", unit: "min", min: 15, max: 240 },
+  manual_min_minutes: { label: "Shortest session that counts", unit: "min", min: 1, max: 60 },
+  manual_max_minutes: { label: "Longest session players can log", unit: "min", min: 15, max: 480 },
+  backdate_days: { label: "How far back players can log", unit: "days", min: 0, max: 60 },
+  daily_minutes_cap: { label: "Most minutes per player per day", unit: "min", min: 30, max: 720 },
+  crew_min_size: { label: "Members needed to show on the board", unit: "players", min: 1, max: 10 },
+  crew_max_size: { label: "Largest crew", unit: "players", min: 2, max: 30 },
+  display_rotation_seconds: { label: "Seconds per screen", unit: "sec", min: 8, max: 60 },
 };
 
 const SLIDES: { value: DisplaySlide; label: string }[] = [
   { value: "minutes", label: "Most minutes this week" },
-  { value: "streaks", label: "Longest current streaks" },
+  { value: "streaks", label: "Longest streaks" },
   { value: "crews", label: "Top crews" },
-  { value: "highlights", label: "Weekly highlights" },
+  { value: "highlights", label: "This week's highlights" },
   { value: "longest", label: "Longest session this week" },
 ];
 
@@ -170,8 +170,8 @@ export default function SettingsTab({
 
   return (
     <section className="adm-section adm-settings">
-      <SectionHead title="Settings" sub={base.updated_at ? `Last changed ${formatDateTime(base.updated_at)}` : undefined} />
-      {!isOwner && <OwnerOnly>Only an owner can change settings. You can see the current values below.</OwnerOnly>}
+      <SectionHead title="Settings" sub={base.updated_at ? `Last saved ${formatDateTime(base.updated_at)}` : undefined} />
+      {!isOwner && <OwnerOnly>Only an owner can change settings.</OwnerOnly>}
       {loadError && <InlineError onRetry={() => void load()}>{loadError}</InlineError>}
 
       <form
@@ -194,77 +194,44 @@ export default function SettingsTab({
           }
         }}
       >
-        <Group title="Pilot">
-          <div className="field">
-            <label htmlFor="set-venue">Venue name</label>
-            <input id="set-venue" className="input" value={draft.venue_name} disabled={disabled} onChange={(e) => set("venue_name", e.target.value)} />
-          </div>
+        <Group title="Pilot dates">
           <div className="adm-two">
             <div className="field">
-              <label htmlFor="set-start">Pilot start</label>
+              <label htmlFor="set-start">Starts</label>
               <input id="set-start" className="input" type="date" value={draft.pilot_start} disabled={disabled} onChange={(e) => set("pilot_start", e.target.value)} />
             </div>
             <div className="field">
-              <label htmlFor="set-end">Pilot end</label>
+              <label htmlFor="set-end">Ends</label>
               <input id="set-end" className="input" type="date" value={draft.pilot_end} disabled={disabled} onChange={(e) => set("pilot_end", e.target.value)} />
             </div>
           </div>
-          <p className="field-hint">Used for analytics and exports.</p>
-          <div className="field">
-            <label htmlFor="set-url">Public app address</label>
-            <input
-              id="set-url"
-              className="input"
-              type="url"
-              inputMode="url"
-              autoCapitalize="none"
-              value={draft.public_app_url}
-              disabled={disabled}
-              onChange={(e) => set("public_app_url", e.target.value)}
-            />
-            <div className="field-hint">Every QR code (iPad board and printed poster) points here. Reprint the poster if you change it.</div>
-          </div>
         </Group>
 
-        <Group title="Playing sessions">
+        <Group title="Timers">
           <div className="adm-grid-fields">
             {num("max_session_minutes")}
             {num("checkin_reminder_minutes")}
           </div>
         </Group>
 
-        <Group title="Logging past play">
+        <Group title="Logging past sessions">
           <div className="adm-grid-fields">
-            {num("manual_min_minutes")}
-            {num("manual_max_minutes")}
             {num("backdate_days")}
-            {num("daily_minutes_cap")}
+            {num("manual_max_minutes")}
           </div>
         </Group>
 
         <Group title="Crews">
           <div className="adm-grid-fields">
-            {num("crew_min_size")}
             {num("crew_max_size")}
+            {num("crew_min_size")}
           </div>
-        </Group>
-
-        <Group title="Leaderboards">
-          <fieldset className="adm-checks" disabled={disabled}>
-            <legend className="label">Boards players can see</legend>
-            {BOARDS.map((b) => (
-              <label key={b.value} className="adm-check">
-                <input type="checkbox" checked={draft.boards_enabled.includes(b.value)} onChange={() => set("boards_enabled", toggleIn(draft.boards_enabled, b.value))} />
-                {b.label}
-              </label>
-            ))}
-          </fieldset>
         </Group>
 
         <Group title="iPad display">
           {num("display_rotation_seconds")}
           <fieldset className="adm-checks" disabled={disabled}>
-            <legend className="label">Screens in the rotation</legend>
+            <legend className="label">Screens to show</legend>
             {SLIDES.map((s) => (
               <label key={s.value} className="adm-check">
                 <input
@@ -279,6 +246,7 @@ export default function SettingsTab({
               </label>
             ))}
           </fieldset>
+          <p className="field-hint">Screens with no results yet are skipped automatically. Don't sign in on the front-desk iPad.</p>
         </Group>
 
         <Group title="Rewards">
@@ -286,13 +254,50 @@ export default function SettingsTab({
             checked={draft.rewards_enabled}
             disabled={disabled}
             onChange={(v) => set("rewards_enabled", v)}
-            label="Rewards visible to players"
-            description="Master switch. Players only see individual rewards that are also turned on in Rewards."
+            label="Show rewards to players"
+            description="Players only see rewards you've also turned on under More → Rewards."
           />
           {draft.rewards_enabled && !base.rewards_enabled && (
-            <Note tone="warn">Only turn this on after Joe has approved the reward terms and how they're fulfilled.</Note>
+            <Note tone="warn">Only turn this on after Joe has approved the prizes and how they're handed out.</Note>
           )}
         </Group>
+
+        <details className="adm-advanced">
+          <summary>Advanced</summary>
+          <div className="stack">
+            <div className="field">
+              <label htmlFor="set-url">App address for QR codes</label>
+              <input
+                id="set-url"
+                className="input"
+                type="url"
+                inputMode="url"
+                autoCapitalize="none"
+                value={draft.public_app_url}
+                disabled={disabled}
+                onChange={(e) => set("public_app_url", e.target.value)}
+              />
+              <div className="field-hint">Reprint the poster if you change this.</div>
+            </div>
+            <div className="field">
+              <label htmlFor="set-venue">Venue name</label>
+              <input id="set-venue" className="input" value={draft.venue_name} disabled={disabled} onChange={(e) => set("venue_name", e.target.value)} />
+            </div>
+            <div className="adm-grid-fields">
+              {num("manual_min_minutes")}
+              {num("daily_minutes_cap")}
+            </div>
+            <fieldset className="adm-checks" disabled={disabled}>
+              <legend className="label">Leaderboards players can see</legend>
+              {BOARDS.map((b) => (
+                <label key={b.value} className="adm-check">
+                  <input type="checkbox" checked={draft.boards_enabled.includes(b.value)} onChange={() => set("boards_enabled", toggleIn(draft.boards_enabled, b.value))} />
+                  {b.label}
+                </label>
+              ))}
+            </fieldset>
+          </div>
+        </details>
 
         {error && <InlineError>{error}</InlineError>}
         {isOwner && changed > 0 && (
@@ -303,7 +308,7 @@ export default function SettingsTab({
                 Discard
               </Button>
               <Button type="submit" variant="primary" loading={saving} disabled={numErrors.length > 0}>
-                Save settings
+                Save
               </Button>
             </div>
           </div>

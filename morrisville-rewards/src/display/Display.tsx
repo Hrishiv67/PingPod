@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import QRCode from "qrcode";
 import { Maximize, Minimize, RefreshCw } from "lucide-react";
 import { api, errorText } from "../lib/api";
-import type { DisplayCrew, DisplayData, DisplayPlayer, DisplaySlide, Scope } from "../lib/types";
+import type { DisplayCrew, DisplayData, DisplayPlayer, DisplaySlide, Settings } from "../lib/types";
 import { Logo, PingPodMark } from "../components/Logo";
-import { formatNumber, formatTime, timeAgo } from "../lib/time";
+import { addDays, formatNumber, formatTime, timeAgo, venueDate } from "../lib/time";
 import { displayUrl, isLocalUrl, resolveAppUrl } from "./appUrl";
 import "../styles/tokens.css";
 import "../styles/ui.css";
@@ -16,13 +16,49 @@ const PING_DEBOUNCE_MS = 2_000;
 const IDLE_MS = 3_000;
 const KNOWN_SLIDES: DisplaySlide[] = ["minutes", "streaks", "crews", "highlights", "longest"];
 
-const SCOPE_LABEL: Record<Scope, string> = {
-  verified: "Minutes logged by players",
-  community: "Minutes logged by players",
-};
+const SETTINGS_POLL_MS = 5 * 60_000;
 
-const weekFmt = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-const weekOf = (day: string) => `Week of ${weekFmt.format(new Date(`${day}T12:00:00Z`))}`;
+const dayFmt = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+const longDayFmt = new Intl.DateTimeFormat("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" });
+const weekdayFmt = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "UTC" });
+const atNoon = (day: string) => new Date(`${day}T12:00:00Z`);
+/** "Nov 16–22" for the Monday-start week beginning on `day`. */
+function weekRange(day: string): string {
+  const a = dayFmt.format(atNoon(day));
+  const b = dayFmt.format(atNoon(addDays(day, 6)));
+  return a.split(" ")[0] === b.split(" ")[0] ? `${a}–${b.split(" ")[1]}` : `${a} – ${b}`;
+}
+
+/** Whether a slide has anything real to show (empty categories are skipped, never faked). */
+function hasContent(slide: DisplaySlide, d: DisplayData): boolean {
+  switch (slide) {
+    case "minutes":
+      return d.minutes.length > 0;
+    case "streaks":
+      return d.streaks.length > 0;
+    case "longest":
+      return d.longest.length > 0;
+    case "crews":
+      return d.crews.length > 0;
+    case "highlights":
+      return d.highlights.players > 0 || d.highlights.sessions > 0;
+  }
+}
+
+/** Pilot status line for the welcome screen, from the admin-set pilot dates. */
+function pilotLine(settings: Settings | null): string | null {
+  if (!settings?.pilot_start) return null;
+  const today = venueDate();
+  const start = settings.pilot_start;
+  if (today < start) return `Starts ${longDayFmt.format(atNoon(start))}`;
+  const end = settings.pilot_end;
+  if (end && today > end) return null;
+  const day = 86_400_000;
+  const week = Math.floor((atNoon(today).getTime() - atNoon(start).getTime()) / (7 * day)) + 1;
+  if (!end) return `Week ${week}`;
+  const weeks = Math.max(1, Math.ceil((atNoon(end).getTime() - atNoon(start).getTime() + day) / (7 * day)));
+  return `Week ${Math.min(week, weeks)} of ${weeks}`;
+}
 
 /**
  * In-venue iPad scoreboard (/display, /?display=1). Uses only the anonymous public client,
@@ -38,7 +74,26 @@ export default function Display() {
   const [slideIndex, setSlideIndex] = useState(0);
   const [idle, setIdle] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [settings, setSettings] = useState<Settings | null>(null);
   const inflight = useRef(false);
+
+  // Pilot dates for the welcome screen (anonymous read; a failure just hides the date line).
+  useEffect(() => {
+    let cancelled = false;
+    const fetchSettings = () =>
+      api
+        .publicSettings()
+        .then((next) => {
+          if (!cancelled) setSettings(next);
+        })
+        .catch(() => {});
+    void fetchSettings();
+    const id = window.setInterval(() => void fetchSettings(), SETTINGS_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
 
   const load = useCallback(async () => {
     if (inflight.current) return;
@@ -138,12 +193,13 @@ export default function Display() {
   }, []);
 
   const slides = useMemo<DisplaySlide[]>(() => {
-    const list = (data?.slides ?? []).filter((s): s is DisplaySlide => KNOWN_SLIDES.includes(s));
-    return list.length ? list : ["minutes"];
-  }, [data?.slides]);
+    if (!data) return [];
+    const wanted = (data.slides?.length ? data.slides : KNOWN_SLIDES).filter((s): s is DisplaySlide => KNOWN_SLIDES.includes(s));
+    return wanted.filter((s, i) => wanted.indexOf(s) === i && hasContent(s, data));
+  }, [data]);
 
   const rotationMs = Math.min(60, Math.max(8, Number(data?.rotation_seconds) || 15)) * 1000;
-  const current = slideIndex % slides.length;
+  const current = slides.length ? slideIndex % slides.length : 0;
 
   // Calm rotation; restarts its timer whenever the slide or settings change.
   useEffect(() => {
@@ -175,8 +231,16 @@ export default function Display() {
     );
   }
 
+  const welcome = slides.length === 0;
+  const joinUrl = displayUrl(appUrl);
+  const pilot = pilotLine(settings);
+  const qrImg = qr ? <img src={qr} alt={`QR code to join: ${joinUrl}`} /> : <div className="display-qr-placeholder" />;
+  const localWarning = isLocalUrl(appUrl) ? (
+    <div className="display-join-warning">Test address: set the public app URL in Admin → Settings.</div>
+  ) : null;
+
   return (
-    <div className={`display ${idle ? "is-idle" : ""}`}>
+    <div className={`display ${welcome ? "is-welcome" : "is-board"} ${idle ? "is-idle" : ""}`}>
       <header className="display-head">
         <Logo size="lg" sub="MORRISVILLE" />
         <div className="display-status">
@@ -194,36 +258,55 @@ export default function Display() {
         </div>
       </header>
 
-      <main className="display-main">
-        <section className="display-board" aria-live="polite">
-          {slides.map((slide, i) => (
-            <div key={slide} className={`display-slide ${i === current ? "is-active" : ""}`} aria-hidden={i !== current}>
-              <Slide slide={slide} data={data} />
-            </div>
-          ))}
-          {slides.length > 1 && (
-            <div className="display-progress" aria-hidden>
-              {slides.map((slide, i) => (
-                <span
-                  key={`${slide}-${i === current ? slideIndex : "x"}`}
-                  className={i === current ? "is-active" : i < current ? "is-done" : ""}
-                  style={{ "--rotation": `${rotationMs}ms` } as CSSProperties}
-                />
-              ))}
-            </div>
-          )}
-        </section>
+      {welcome ? (
+        <main className="display-main display-welcome" key="welcome">
+          <section className="welcome-copy">
+            {pilot && <div className="welcome-kicker">{pilot}</div>}
+            <h1 className="welcome-title">
+              The competition
+              <br />
+              <em>starts here.</em>
+            </h1>
+            <p className="welcome-line">Track your playing time. Compete with friends. Climb the leaderboard.</p>
+          </section>
+          <aside className="welcome-join">
+            <div className="display-qr">{qrImg}</div>
+            <div className="welcome-scan">Scan to join</div>
+            <div className="display-join-url">{joinUrl}</div>
+            {localWarning}
+          </aside>
+        </main>
+      ) : (
+        <main className="display-main display-scoreboard" key="board">
+          <section className="display-board" aria-live="polite">
+            {slides.map((slide, i) => (
+              <div key={slide} className={`display-slide ${i === current ? "is-active" : ""}`} aria-hidden={i !== current}>
+                <Slide slide={slide} data={data} />
+              </div>
+            ))}
+            {slides.length > 1 && (
+              <div className="display-progress" aria-hidden>
+                {slides.map((slide, i) => (
+                  <span
+                    key={`${slide}-${i === current ? slideIndex : "x"}`}
+                    className={i === current ? "is-active" : i < current ? "is-done" : ""}
+                    style={{ "--rotation": `${rotationMs}ms` } as CSSProperties}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
 
-        <aside className="display-join">
-          <div className="display-qr">{qr ? <img src={qr} alt={`QR code to join: ${displayUrl(appUrl)}`} /> : <div className="display-qr-placeholder" />}</div>
-          <div className="display-join-text">
-            <div className="display-join-kicker">Scan to join</div>
-            <p className="display-join-line">No app download. Track your play, climb the board.</p>
-            <div className="display-join-url">{displayUrl(appUrl)}</div>
-            {isLocalUrl(appUrl) && <div className="display-join-warning">Test address: set the public app URL in Admin → Settings.</div>}
-          </div>
-        </aside>
-      </main>
+          <aside className="display-join">
+            <div className="display-qr">{qrImg}</div>
+            <div className="display-join-text">
+              <div className="display-join-kicker">Scan to join</div>
+              <div className="display-join-url">{joinUrl}</div>
+              {localWarning}
+            </div>
+          </aside>
+        </main>
+      )}
 
       <footer className="display-foot">
         <span>Morrisville Rewards · Beta — a local PingPod Morrisville pilot</span>
@@ -249,71 +332,64 @@ export default function Display() {
 
 // ── Slides ─────────────────────────────────────────────────────────────
 function Slide({ slide, data }: { slide: DisplaySlide; data: DisplayData }) {
-  const scope = data.scope;
+  const week = weekRange(data.week_start);
   switch (slide) {
     case "minutes":
       return (
-        <SlideFrame title="Most minutes" subtitle={`This week · ${weekOf(data.week_start)}`} scope={scope}>
+        <SlideFrame title="Most minutes" subtitle="Total playing time this week" when={week}>
           <PlayerRows
             rows={data.minutes}
             value={(r) => formatNumber(r.value)}
             unit="min"
             meta={(r) => (r.sessions ? `${r.sessions} ${r.sessions === 1 ? "session" : "sessions"}` : null)}
-            empty={
-              <SlideEmpty
-                title="No minutes logged yet this week."
-                text="Scan to be first."
-              />
-            }
           />
         </SlideFrame>
       );
     case "streaks":
       return (
-        <SlideFrame title="Longest streaks" subtitle="Weeks in a row with at least one session" scope={scope}>
+        <SlideFrame title="Longest streaks" subtitle="Consecutive active weeks">
           <PlayerRows
             rows={data.streaks}
             value={(r) => String(r.value)}
             unit={(r) => (r.value === 1 ? "week" : "weeks")}
-            meta={(r) => (r.secondary && r.secondary > r.value ? `Best ${r.secondary}` : null)}
-            empty={<SlideEmpty title="No streaks running yet." text="Play once a week to start one." />}
+            meta={(r) => (r.secondary && r.secondary > r.value ? `Best ${r.secondary} weeks` : null)}
           />
         </SlideFrame>
       );
     case "longest":
       return (
-        <SlideFrame title="Longest session" subtitle={`One session, this week · ${weekOf(data.week_start)}`} scope={scope}>
+        <SlideFrame title="Longest session" subtitle="Longest single session this week" when={week}>
           <PlayerRows
             rows={data.longest}
             value={(r) => formatNumber(r.value)}
             unit="min"
-            empty={<SlideEmpty title="No sessions yet this week." text="Scan, tap Start playing, and set the mark." />}
+            meta={(r) => (r.detail && /^\d{4}-\d{2}-\d{2}$/.test(r.detail) ? weekdayFmt.format(atNoon(r.detail)) : null)}
           />
         </SlideFrame>
       );
     case "crews":
       return (
-        <SlideFrame title="Top crews" subtitle="Combined minutes this week" scope={scope}>
+        <SlideFrame title="Top crews" subtitle="Combined crew minutes this week" when={week}>
           <CrewRows rows={data.crews} />
         </SlideFrame>
       );
     case "highlights":
       return (
-        <SlideFrame title="This week" subtitle={`At PingPod Morrisville · ${weekOf(data.week_start)}`} scope={scope}>
+        <SlideFrame title="This week" subtitle="At PingPod Morrisville" when={week}>
           <Highlights data={data} />
         </SlideFrame>
       );
   }
 }
 
-function SlideFrame({ title, subtitle, scope, children }: { title: string; subtitle: string; scope: Scope; children: ReactNode }) {
+function SlideFrame({ title, subtitle, when, children }: { title: string; subtitle: string; when?: string; children: ReactNode }) {
   return (
     <div className="slide">
       <div className="slide-head">
         <h1 className="slide-title">{title}</h1>
         <div className="slide-sub">
           <span>{subtitle}</span>
-          <span className={`slide-scope slide-scope-${scope}`}>{SCOPE_LABEL[scope]}</span>
+          {when && <span className="slide-when">{when}</span>}
         </div>
       </div>
       <div className="slide-body">{children}</div>
@@ -321,17 +397,7 @@ function SlideFrame({ title, subtitle, scope, children }: { title: string; subti
   );
 }
 
-function SlideEmpty({ title, text }: { title: string; text: string }) {
-  return (
-    <div className="slide-empty">
-      <PingPodMark height={40} />
-      <strong>{title}</strong>
-      <span>{text}</span>
-    </div>
-  );
-}
-
-/** Grid rows: podium places a little taller; at least `minSlots` tracks so 1–2 rows don't balloon. */
+/** Grid rows for longer lists: podium places a little taller; at least `minSlots` tracks so rows don't balloon. */
 function rowTemplate(count: number, minSlots: number): string {
   const slots = Math.max(count, minSlots);
   return Array.from({ length: slots }, (_, i) => (i < 3 && i < count ? "minmax(0, 1.18fr)" : "minmax(0, 1fr)")).join(" ");
@@ -350,22 +416,35 @@ function initials(name: string): string {
   );
 }
 
+/** Short lists (1–4 rows) get tall rows plus one invitation row instead of a half-empty board. */
+const FEW = 4;
+
+function NextUp({ crews = false }: { crews?: boolean }) {
+  return (
+    <li className="row row-next" aria-hidden>
+      <span className="row-next-text">{crews ? "Your crew could be next" : "Your name could be next"}</span>
+      <span className="row-next-cta">Scan to join</span>
+    </li>
+  );
+}
+
 function PlayerRows({
   rows,
   value,
   unit,
   meta,
-  empty,
 }: {
   rows: DisplayPlayer[];
   value: (r: DisplayPlayer) => string;
   unit: string | ((r: DisplayPlayer) => string);
   meta?: (r: DisplayPlayer) => string | null;
-  empty: ReactNode;
 }) {
-  if (!rows.length) return <>{empty}</>;
+  const few = rows.length <= FEW;
   return (
-    <ol className="rows rows-players" style={{ gridTemplateRows: rowTemplate(Math.min(rows.length, 8), 6) }}>
+    <ol
+      className={`rows rows-players ${few ? "rows-few" : ""}`}
+      style={few ? undefined : { gridTemplateRows: rowTemplate(Math.min(rows.length, 8), 6) }}
+    >
       {rows.slice(0, 8).map((r) => {
         const extra = meta?.(r);
         return (
@@ -385,14 +464,18 @@ function PlayerRows({
           </li>
         );
       })}
+      {few && <NextUp />}
     </ol>
   );
 }
 
 function CrewRows({ rows }: { rows: DisplayCrew[] }) {
-  if (!rows.length) return <SlideEmpty title="No crews on the board yet." text="Start a crew with friends in the app." />;
+  const few = rows.length <= FEW;
   return (
-    <ol className="rows rows-crews" style={{ gridTemplateRows: rowTemplate(Math.min(rows.length, 6), 5) }}>
+    <ol
+      className={`rows rows-crews ${few ? "rows-few" : ""}`}
+      style={few ? undefined : { gridTemplateRows: rowTemplate(Math.min(rows.length, 6), 5) }}
+    >
       {rows.slice(0, 6).map((c) => (
         <li key={`${c.rank}-${c.name}`} className={`row ${c.rank <= 3 ? `row-top row-${c.rank}` : ""}`}>
           <span className="row-rank num">{c.rank}</span>
@@ -408,41 +491,51 @@ function CrewRows({ rows }: { rows: DisplayCrew[] }) {
           </span>
         </li>
       ))}
+      {few && <NextUp crews />}
     </ol>
   );
 }
 
 function Highlights({ data }: { data: DisplayData }) {
   const h = data.highlights;
-  if (!h.players && !h.sessions) {
-    return <SlideEmpty title="The week is just getting started." text="Scan the code, play, and get on the board." />;
-  }
+  const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
   // Row 1: four counts. Row 2: who's leading (only the ones that exist), sharing the width evenly.
   const counts = [
-    { label: "Players this week", value: formatNumber(h.players) },
-    { label: "Minutes played", value: formatNumber(h.minutes), accent: true },
-    { label: "Sessions", value: formatNumber(h.sessions) },
-    { label: "New players", value: formatNumber(h.new_players) },
+    { label: "Players this week", value: formatNumber(h.players), unit: plural(h.players, "player", "players") },
+    { label: "Total playing time", value: formatNumber(h.minutes), unit: "min", accent: true },
+    { label: "Sessions played", value: formatNumber(h.sessions), unit: plural(h.sessions, "session", "sessions") },
+    { label: "New this week", value: formatNumber(h.new_players), unit: plural(h.new_players, "player", "players") },
   ];
-  const leaders: { label: string; value: string; detail: string }[] = [];
-  if (h.longest) leaders.push({ label: "Longest session", value: `${formatNumber(h.longest.minutes)} min`, detail: h.longest.display_name });
+  const leaders: { label: string; value: string; unit: string; detail: string }[] = [];
+  if (h.longest) leaders.push({ label: "Longest session", value: formatNumber(h.longest.minutes), unit: "min", detail: h.longest.display_name });
   if (h.most_sessions)
-    leaders.push({ label: "Most sessions", value: formatNumber(h.most_sessions.sessions), detail: h.most_sessions.display_name });
-  if (h.top_crew) leaders.push({ label: "Top crew", value: `${formatNumber(h.top_crew.minutes)} min`, detail: h.top_crew.name });
+    leaders.push({
+      label: "Most sessions",
+      value: formatNumber(h.most_sessions.sessions),
+      unit: plural(h.most_sessions.sessions, "session", "sessions"),
+      detail: h.most_sessions.display_name,
+    });
+  if (h.top_crew) leaders.push({ label: "Top crew", value: formatNumber(h.top_crew.minutes), unit: "min", detail: h.top_crew.name });
   const leaderSpan = leaders.length ? 12 / leaders.length : 12;
   return (
-    <div className="tiles">
+    <div className={`tiles ${leaders.length ? "" : "tiles-one-row"}`}>
       {counts.map((t) => (
         <div key={t.label} className={`tile ${t.accent ? "tile-accent" : ""}`} style={{ gridColumn: "span 3" }}>
           <span className="tile-label">{t.label}</span>
-          <span className="tile-value num">{t.value}</span>
+          <span className="tile-figure">
+            <span className="tile-value num">{t.value}</span>
+            <span className="tile-unit">{t.unit}</span>
+          </span>
         </div>
       ))}
       {leaders.map((t) => (
         <div key={t.label} className="tile tile-leader" style={{ gridColumn: `span ${leaderSpan}` }}>
           <span className="tile-label">{t.label}</span>
           <span className="tile-detail">{t.detail}</span>
-          <span className="tile-value num">{t.value}</span>
+          <span className="tile-figure">
+            <span className="tile-value num">{t.value}</span>
+            <span className="tile-unit">{t.unit}</span>
+          </span>
         </div>
       ))}
     </div>

@@ -105,11 +105,11 @@ export default function Poster() {
             <SignHeader />
             <div className="poster-headline">
               <h2>
-                Track your play.
+                The competition
                 <br />
-                <em>Climb the board.</em>
+                <em>starts here.</em>
               </h2>
-              <p>Log your table time, see where you rank this week, and team up with friends.</p>
+              <p>Track your playing time. Compete with friends. Climb the leaderboard.</p>
             </div>
             <div className="poster-qr">
               {qr && <img src={qr} alt={`QR code: ${shown}`} />}
@@ -164,9 +164,9 @@ function TableCard({ qr, url }: { qr: string; url: string }) {
       <div className="card-text">
         <SignHeader compact />
         <h2>
-          Track your play.
+          The competition
           <br />
-          <em>Climb the board.</em>
+          <em>starts here.</em>
         </h2>
         <ol className="card-steps">
           {STEPS.map((s, i) => (

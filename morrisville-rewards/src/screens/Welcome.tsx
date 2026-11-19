@@ -62,15 +62,13 @@ export default function Welcome({ inviteCode }: { inviteCode: string | null }) {
       </div>
 
       <main className="welcome-main">
-        <div className="stack">
+        <div className="hero">
           <h1 className="hero-title">
             Track your play.
             <br />
             <em>Climb the board.</em>
           </h1>
-          <p className="hero-sub">
-            Log your table time at PingPod Morrisville, see where you rank this week, and compete with your crew.
-          </p>
+          <p className="hero-sub">Log your table time at PingPod Morrisville and climb the weekly leaderboard.</p>
         </div>
 
         {invite && (
@@ -116,14 +114,19 @@ export default function Welcome({ inviteCode }: { inviteCode: string | null }) {
               placeholder={mode === "create" ? "At least 6 characters" : "Your password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              hint={mode === "create" ? "Not your PingPod booking password." : undefined}
               required
             />
             <IconButton type="button" label={show ? "Hide password" : "Show password"} onClick={() => setShow((s) => !s)}>
               {show ? <EyeOff size={20} /> : <Eye size={20} />}
             </IconButton>
           </div>
-          {mode === "create" && (
-            <p className="small-print">Make a new password just for Morrisville Rewards — not your PingPod booking password.</p>
+          {mode === "signin" && (
+            <div className="auth-row">
+              <button type="button" className="link-btn" onClick={() => setForgot(true)}>
+                Forgot password?
+              </button>
+            </div>
           )}
           {error && <InlineError>{error}</InlineError>}
           {notice && (
@@ -134,22 +137,15 @@ export default function Welcome({ inviteCode }: { inviteCode: string | null }) {
           <Button type="submit" variant="primary" size="lg" block loading={busy} disabled={!email || !password}>
             {mode === "create" ? "Create account" : "Sign in"}
           </Button>
-          {mode === "signin" && (
-            <Button type="button" variant="ghost" onClick={() => setForgot(true)}>
-              Forgot password?
-            </Button>
-          )}
         </form>
       </main>
 
       <footer className="welcome-foot">
-        A local pilot at PingPod Morrisville. Not the official PingPod app or booking system.
-        <br />
-        Your email stays private — leaderboards show nicknames only.
+        A local PingPod Morrisville pilot · not the PingPod booking app
         {api.mode === "demo" && (
           <>
             <br />
-            <strong>Demo mode:</strong> not connected to the live database. Data stays in this browser.
+            <strong>Demo mode</strong> — data stays in this browser.
           </>
         )}
       </footer>

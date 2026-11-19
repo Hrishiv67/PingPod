@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   ArrowLeft,
   ChartColumn,
-  ClipboardCheck,
+  ChevronRight,
+  ClipboardList,
+  Ellipsis,
   Gauge,
   Gift,
   Inbox,
@@ -19,39 +21,52 @@ import type { Me } from "../lib/types";
 import { Logo } from "../components/Logo";
 import { Button, Chip, Field, InlineError } from "../components/ui";
 import { Link, navigate } from "../lib/router";
-import Review from "./Review";
+import Sessions from "./Sessions";
 import Players from "./Players";
 import Crews from "./Crews";
 import Spindex from "./Spindex";
 import Requests from "./Requests";
 import Rewards from "./Rewards";
 import SettingsTab from "./SettingsTab";
-import Analytics from "./Analytics";
+import Stats from "./Stats";
 import Audit from "./Audit";
 import Staff from "./Staff";
 import "./admin.css";
 
-type Tab = "review" | "players" | "crews" | "spindex" | "requests" | "rewards" | "settings" | "analytics" | "audit" | "staff";
+type Primary = "sessions" | "players" | "crews" | "stats" | "settings" | "more";
+type Extra = "requests" | "spindex" | "rewards" | "staff" | "activity";
+type Tab = Primary | Extra;
 
-const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
-  { id: "review", label: "Review", icon: <ClipboardCheck size={18} /> },
+const PRIMARY: { id: Primary; label: string; icon: ReactNode }[] = [
+  { id: "sessions", label: "Sessions", icon: <ClipboardList size={18} /> },
   { id: "players", label: "Players", icon: <Users size={18} /> },
   { id: "crews", label: "Crews", icon: <UsersRound size={18} /> },
-  { id: "spindex", label: "SPINDEX", icon: <Gauge size={18} /> },
-  { id: "requests", label: "Requests", icon: <Inbox size={18} /> },
-  { id: "rewards", label: "Rewards", icon: <Gift size={18} /> },
+  { id: "stats", label: "Stats", icon: <ChartColumn size={18} /> },
   { id: "settings", label: "Settings", icon: <SettingsIcon size={18} /> },
-  { id: "analytics", label: "Analytics", icon: <ChartColumn size={18} /> },
-  { id: "audit", label: "Audit log", icon: <ScrollText size={18} /> },
-  { id: "staff", label: "Staff", icon: <ShieldCheck size={18} /> },
+  { id: "more", label: "More", icon: <Ellipsis size={18} /> },
 ];
 
+const EXTRAS: { id: Extra; label: string; text: string; icon: ReactNode }[] = [
+  { id: "requests", label: "Player requests", text: "Corrections and privacy questions from players", icon: <Inbox size={20} /> },
+  { id: "spindex", label: "SPINDEX ratings", text: "Check ratings players add to their profile", icon: <Gauge size={20} /> },
+  { id: "rewards", label: "Rewards", text: "Prizes stay off until Joe approves the terms", icon: <Gift size={20} /> },
+  { id: "staff", label: "Staff", text: "Who can open this dashboard", icon: <ShieldCheck size={20} /> },
+  { id: "activity", label: "Activity log", text: "Every change staff have made", icon: <ScrollText size={20} /> },
+];
+
+// Old links (?tab=review, ?tab=analytics, ?tab=audit) keep working.
+const ALIASES: Record<string, Tab> = { review: "sessions", analytics: "stats", audit: "activity" };
+const ALL: Tab[] = [...PRIMARY.map((p) => p.id), ...EXTRAS.map((e) => e.id)];
+
 function readTab(): Tab {
-  const t = new URLSearchParams(window.location.search).get("tab");
-  return TABS.some((x) => x.id === t) ? (t as Tab) : "review";
+  const raw = new URLSearchParams(window.location.search).get("tab") ?? "";
+  const t = ALIASES[raw] ?? raw;
+  return ALL.includes(t as Tab) ? (t as Tab) : "sessions";
 }
 
-type Counts = { review: number; requests: number; spindex: number };
+const isExtra = (t: Tab): t is Extra => EXTRAS.some((e) => e.id === t);
+
+type Counts = { requests: number; spindex: number };
 
 export default function AdminApp({
   me,
@@ -68,21 +83,21 @@ export default function AdminApp({
 
 function Dashboard({ me, onSignOut, refreshMe }: { me: Me; onSignOut: () => void; refreshMe: () => Promise<void> }) {
   const [tab, setTabState] = useState<Tab>(readTab);
-  const [counts, setCounts] = useState<Counts | null>(null);
-  const [reviewSearch, setReviewSearch] = useState<{ q: string; n: number } | null>(null);
+  const [counts, setCounts] = useState<Counts>({ requests: 0, spindex: 0 });
+  const [sessionSearch, setSessionSearch] = useState<{ q: string; n: number } | null>(null);
   const isOwner = me.admin_role === "owner";
   const myId = me.profile?.id ?? "";
 
   const setTab = useCallback((t: Tab) => {
     setTabState(t);
-    window.history.replaceState(null, "", t === "review" ? "/admin" : `/admin?tab=${t}`);
+    window.history.replaceState(null, "", t === "sessions" ? "/admin" : `/admin?tab=${t}`);
     window.scrollTo({ top: 0 });
   }, []);
 
   const loadCounts = useCallback(async () => {
     try {
       const a = await api.admin.analytics();
-      setCounts({ review: a.sessions.pending, requests: a.open_requests, spindex: a.spindex.self_reported });
+      setCounts({ requests: a.open_requests, spindex: a.spindex.self_reported });
     } catch {
       /* badges are optional */
     }
@@ -107,7 +122,9 @@ function Dashboard({ me, onSignOut, refreshMe }: { me: Me; onSignOut: () => void
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
-  const badge = (id: Tab) => (counts ? (id === "review" ? counts.review : id === "requests" ? counts.requests : id === "spindex" ? counts.spindex : 0) : 0);
+  const extraCount = (id: Extra) => (id === "requests" ? counts.requests : id === "spindex" ? counts.spindex : 0);
+  const moreCount = counts.requests + counts.spindex;
+  const activeNav: Primary = isExtra(tab) ? "more" : tab;
   const onChanged = () => void loadCounts();
 
   return (
@@ -136,52 +153,76 @@ function Dashboard({ me, onSignOut, refreshMe }: { me: Me; onSignOut: () => void
 
       <div className="adm-body">
         <nav className="adm-nav" aria-label="Staff sections">
-          {TABS.map((t) => {
-            const n = badge(t.id);
-            return (
-              <button
-                key={t.id}
-                className={tab === t.id ? "on" : ""}
-                aria-current={tab === t.id ? "page" : undefined}
-                onClick={() => setTab(t.id)}
-              >
-                {t.icon}
-                <span>{t.label}</span>
-                {n > 0 && (
-                  <span className="adm-badge" aria-label={`${n} waiting`}>
-                    {n > 99 ? "99+" : n}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+          {PRIMARY.map((t) => (
+            <button
+              key={t.id}
+              className={activeNav === t.id ? "on" : ""}
+              aria-current={activeNav === t.id ? "page" : undefined}
+              onClick={() => setTab(t.id)}
+            >
+              {t.icon}
+              <span>{t.label}</span>
+              {t.id === "more" && moreCount > 0 && (
+                <span className="adm-badge" aria-label={`${moreCount} need attention`}>
+                  {moreCount > 99 ? "99+" : moreCount}
+                </span>
+              )}
+            </button>
+          ))}
         </nav>
 
         <main className="adm-main">
-          {tab === "review" && (
-            <Review key={reviewSearch?.n ?? 0} settings={me.settings} initialSearch={reviewSearch?.q} onChanged={onChanged} />
+          {isExtra(tab) && (
+            <button className="adm-crumb" onClick={() => setTab("more")}>
+              <ArrowLeft size={16} aria-hidden /> More
+            </button>
+          )}
+          {tab === "sessions" && (
+            <Sessions key={sessionSearch?.n ?? 0} settings={me.settings} initialSearch={sessionSearch?.q} onChanged={onChanged} />
           )}
           {tab === "players" && <Players isOwner={isOwner} myId={myId} onChanged={onChanged} />}
           {tab === "crews" && <Crews onChanged={onChanged} />}
-          {tab === "spindex" && <Spindex myId={myId} onChanged={onChanged} />}
+          {tab === "stats" && <Stats />}
+          {tab === "settings" && <SettingsTab isOwner={isOwner} fallback={me.settings} onSaved={refreshMe} />}
+          {tab === "more" && (
+            <section className="adm-section">
+              <div className="adm-section-head">
+                <h1>More</h1>
+              </div>
+              <ul className="adm-rows adm-menu">
+                {EXTRAS.map((e) => {
+                  const n = extraCount(e.id);
+                  return (
+                    <li key={e.id}>
+                      <button className="adm-menu-item" onClick={() => setTab(e.id)}>
+                        <span className="adm-menu-icon">{e.icon}</span>
+                        <span className="adm-menu-text">
+                          <strong>{e.label}</strong>
+                          <span>{e.text}</span>
+                        </span>
+                        {n > 0 && <span className="adm-badge">{n > 99 ? "99+" : n}</span>}
+                        <ChevronRight size={18} className="adm-menu-chevron" aria-hidden />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
           {tab === "requests" && (
             <Requests
               isOwner={isOwner}
               onChanged={onChanged}
               onOpenSession={(q) => {
-                setReviewSearch((r) => ({ q, n: (r?.n ?? 0) + 1 }));
-                setTab("review");
+                setSessionSearch((r) => ({ q, n: (r?.n ?? 0) + 1 }));
+                setTab("sessions");
               }}
             />
           )}
+          {tab === "spindex" && <Spindex myId={myId} onChanged={onChanged} />}
           {tab === "rewards" && <Rewards isOwner={isOwner} rewardsVisible={me.settings.rewards_enabled} />}
-          {tab === "settings" && <SettingsTab isOwner={isOwner} fallback={me.settings} onSaved={refreshMe} />}
-          {tab === "analytics" && <Analytics />}
-          {tab === "audit" && <Audit />}
           {tab === "staff" && <Staff isOwner={isOwner} myId={myId} />}
-          <p className="adm-footnote">
-            Morrisville Rewards · Beta staff tools. Never sign in as staff on the front-desk iPad — the board at /display needs no login.
-          </p>
+          {tab === "activity" && <Audit />}
         </main>
       </div>
     </div>
@@ -210,12 +251,8 @@ function StaffAccess({ me, refreshMe, onSignOut }: { me: Me; refreshMe: () => Pr
         </div>
         <h1>Staff access</h1>
         <p>
-          This area is for PingPod Morrisville staff. You're signed in as <b>{me.profile?.display_name ?? "a player"}</b>, which is a
-          regular player account.
-        </p>
-        <p className="adm-muted">
-          If you're the pilot owner and were given a one-time staff code, enter it below. Other staff are added by an owner from
-          the Players list.
+          You're signed in as <b>{me.profile?.display_name ?? "a player"}</b>. Enter your one-time staff code to open the staff
+          tools. Other staff are added by an owner.
         </p>
         <form
           className="stack"

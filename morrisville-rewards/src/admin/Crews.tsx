@@ -3,11 +3,11 @@ import { UsersRound } from "lucide-react";
 import { api, errorText } from "../lib/api";
 import type { AdminCrew } from "../lib/types";
 import { Avatar, Button, Chip, EmptyState, InlineError, Sheet, Skeleton, Toggle, useToast } from "../components/ui";
-import { formatDateTime, formatNumber } from "../lib/time";
-import { ActionSheet, SectionHead, pluralize, useLoad } from "./shared";
+import { formatDay, formatNumber } from "../lib/time";
+import { ActionSheet, SectionHead, useLoad } from "./shared";
 
 type SheetState =
-  | { kind: "rename" | "hide" | "archive"; c: AdminCrew }
+  | { kind: "manage" | "rename" | "hide" | "archive"; c: AdminCrew }
   | { kind: "transfer" | "remove"; c: AdminCrew }
   | null;
 
@@ -15,7 +15,6 @@ export default function Crews({ onChanged }: { onChanged: () => void }) {
   const { data, error, loading, reload } = useLoad(() => api.admin.crews(), []);
   const [showArchived, setShowArchived] = useState(false);
   const [sheet, setSheet] = useState<SheetState>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
   const toast = useToast();
   const crews = (data ?? []).filter((c) => showArchived || !c.archived_at);
   const archivedCount = (data ?? []).filter((c) => c.archived_at).length;
@@ -27,23 +26,20 @@ export default function Crews({ onChanged }: { onChanged: () => void }) {
   };
 
   async function unhide(c: AdminCrew) {
-    setBusyId(c.id);
     try {
       await api.admin.moderateCrew(c.id, "unhide");
-      done(`${c.name} is visible again`);
+      done(`${c.name} is back on the leaderboards`);
     } catch (err) {
       toast(errorText(err), "bad");
-    } finally {
-      setBusyId(null);
     }
   }
 
   return (
     <section className="adm-section">
-      <SectionHead title="Crews" sub="Crew totals only count play while each person was a member." />
+      <SectionHead title="Crews" sub="Crew totals count each member's play from when they joined." />
       {archivedCount > 0 && (
         <div className="adm-toolbar">
-          <Toggle checked={showArchived} onChange={setShowArchived} label={`Show archived crews (${archivedCount})`} />
+          <Toggle checked={showArchived} onChange={setShowArchived} label={`Show closed crews (${archivedCount})`} />
         </div>
       )}
       {loading && !data ? (
@@ -53,82 +49,79 @@ export default function Crews({ onChanged }: { onChanged: () => void }) {
       ) : !crews.length ? (
         <EmptyState icon={<UsersRound />} title="No crews yet" text="Crews appear here when players create them." />
       ) : (
-        <ul className="adm-list">
+        <ul className="adm-rows">
           {crews.map((c) => (
-            <li key={c.id} className={`adm-card ${c.archived_at ? "adm-card-muted" : ""}`}>
-              <div className="adm-card-top">
-                <div className="adm-card-title">
+            <li key={c.id} className={`adm-row ${c.archived_at ? "adm-row-dim" : ""}`}>
+              <div className="adm-row-main">
+                <div className="adm-row-title">
                   <strong>{c.name}</strong>
-                  <span>
-                    {pluralize(c.members.length, "member")}
-                    {c.past_members > 0 ? ` · ${c.past_members} left` : ""} · created {formatDateTime(c.created_at)}
-                  </span>
-                </div>
-                <div className="adm-chip-col">
-                  {c.archived_at && <Chip>Archived</Chip>}
+                  {c.archived_at && <Chip>Closed</Chip>}
                   {c.hidden_by_admin && <Chip tone="bad">Hidden</Chip>}
                 </div>
+                <span className="adm-row-meta">
+                  {c.members.length ? c.members.map((m) => (m.user_id === c.owner_id ? `${m.display_name} (owner)` : m.display_name)).join(", ") : "No members"}
+                </span>
+                <span className="adm-row-meta">
+                  Code <span className="adm-code">{c.invite_code}</span> · started {formatDay(c.created_at.slice(0, 10))}
+                  {c.past_members > 0 ? ` · ${c.past_members} left` : ""}
+                </span>
+                {c.hidden_by_admin && c.hidden_reason && <span className="adm-row-note">Hidden: {c.hidden_reason}</span>}
               </div>
-              <dl className="adm-stats adm-stats-3">
-                <div>
-                  <dt>Owner</dt>
-                  <dd>{c.owner_name ?? "—"}</dd>
-                </div>
-                <div>
-                  <dt>Invite code</dt>
-                  <dd className="num adm-code">{c.invite_code}</dd>
-                </div>
-                <div>
-                  <dt>Verified this week</dt>
-                  <dd className="num">{c.week_verified_minutes == null ? "—" : `${formatNumber(c.week_verified_minutes)} min`}</dd>
-                </div>
-              </dl>
-              {c.members.length > 0 && (
-                <ul className="adm-members">
-                  {c.members.map((m) => (
-                    <li key={m.user_id}>
-                      <Avatar name={m.display_name} size={24} />
-                      <span>{m.display_name}</span>
-                      {m.user_id === c.owner_id && <Chip tone="pink">Owner</Chip>}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {c.hidden_by_admin && c.hidden_reason && <p className="adm-small adm-warn-text">Hidden: {c.hidden_reason}</p>}
-              {!c.archived_at && (
-                <div className="adm-actions">
-                  <Button size="sm" onClick={() => setSheet({ kind: "rename", c })}>
-                    Rename
+              <span className="adm-row-value num">
+                {c.week_verified_minutes == null ? "—" : formatNumber(c.week_verified_minutes)}
+                <small>min this week</small>
+              </span>
+              <div className="adm-row-actions">
+                {!c.archived_at && (
+                  <Button size="sm" onClick={() => setSheet({ kind: "manage", c })}>
+                    Manage
                   </Button>
-                  {c.hidden_by_admin ? (
-                    <Button size="sm" loading={busyId === c.id} onClick={() => void unhide(c)}>
-                      Unhide
-                    </Button>
-                  ) : (
-                    <Button size="sm" onClick={() => setSheet({ kind: "hide", c })}>
-                      Hide
-                    </Button>
-                  )}
-                  {c.members.length > 1 && (
-                    <Button size="sm" variant="ghost" onClick={() => setSheet({ kind: "transfer", c })}>
-                      Transfer ownership
-                    </Button>
-                  )}
-                  {c.members.length > 0 && (
-                    <Button size="sm" variant="ghost" onClick={() => setSheet({ kind: "remove", c })}>
-                      Remove member
-                    </Button>
-                  )}
-                  <Button size="sm" variant="danger" onClick={() => setSheet({ kind: "archive", c })}>
-                    Archive
-                  </Button>
-                </div>
-              )}
+                )}
+              </div>
             </li>
           ))}
         </ul>
       )}
 
+      {sheet?.kind === "manage" && (
+        <Sheet title={sheet.c.name} onClose={() => setSheet(null)}>
+          <div className="adm-manage">
+            <Button size="lg" block onClick={() => setSheet({ kind: "rename", c: sheet.c })}>
+              Rename crew
+            </Button>
+            {sheet.c.hidden_by_admin ? (
+              <Button
+                size="lg"
+                block
+                onClick={() => {
+                  const c = sheet.c;
+                  setSheet(null);
+                  void unhide(c);
+                }}
+              >
+                Show on leaderboards again
+              </Button>
+            ) : (
+              <Button size="lg" block onClick={() => setSheet({ kind: "hide", c: sheet.c })}>
+                Hide from leaderboards
+              </Button>
+            )}
+            {sheet.c.members.length > 1 && (
+              <Button size="lg" block variant="ghost" onClick={() => setSheet({ kind: "transfer", c: sheet.c })}>
+                Change owner
+              </Button>
+            )}
+            {sheet.c.members.length > 0 && (
+              <Button size="lg" block variant="ghost" onClick={() => setSheet({ kind: "remove", c: sheet.c })}>
+                Remove a member
+              </Button>
+            )}
+            <Button size="lg" block variant="danger" onClick={() => setSheet({ kind: "archive", c: sheet.c })}>
+              Close crew
+            </Button>
+          </div>
+        </Sheet>
+      )}
       {sheet?.kind === "rename" && (
         <ActionSheet
           title="Rename crew"
@@ -143,27 +136,27 @@ export default function Crews({ onChanged }: { onChanged: () => void }) {
       )}
       {sheet?.kind === "hide" && (
         <ActionSheet
-          title="Hide crew"
+          title="Hide from leaderboards"
           description={<p>{sheet.c.name} disappears from the crew board and the iPad. Members can still see their crew.</p>}
           confirmLabel="Hide crew"
           text={{ label: "Reason", required: false, placeholder: "e.g. Inappropriate name" }}
           onSubmit={async (_m, reason) => {
             await api.admin.moderateCrew(sheet.c.id, "hide", null, reason);
-            done(`${sheet.c.name} is hidden`);
+            done(`${sheet.c.name} is hidden from leaderboards`);
           }}
           onClose={() => setSheet(null)}
         />
       )}
       {sheet?.kind === "archive" && (
         <ActionSheet
-          title="Archive crew"
+          title="Close crew?"
           danger
-          description={<p>Everyone is removed from {sheet.c.name} and it leaves every board. Membership history is kept.</p>}
-          confirmLabel="Archive crew"
+          description={<p>Everyone leaves {sheet.c.name} and it disappears from every board. Past minutes stay in the history.</p>}
+          confirmLabel="Close crew"
           text={{ label: "Reason", required: false, placeholder: "e.g. Duplicate crew" }}
           onSubmit={async (_m, reason) => {
             await api.admin.moderateCrew(sheet.c.id, "archive", null, reason);
-            done(`${sheet.c.name} archived`);
+            done(`${sheet.c.name} closed`);
           }}
           onClose={() => setSheet(null)}
         />
@@ -198,7 +191,7 @@ function MemberSheet({
   const [error, setError] = useState("");
   const name = choices.find((m) => m.user_id === picked)?.display_name ?? "";
   return (
-    <Sheet title={mode === "transfer" ? "Transfer ownership" : "Remove member"} onClose={onClose}>
+    <Sheet title={mode === "transfer" ? "Change owner" : "Remove a member"} onClose={onClose}>
       <p className="sheet-text">
         {mode === "transfer"
           ? `Choose the new owner of ${crew.name}.`

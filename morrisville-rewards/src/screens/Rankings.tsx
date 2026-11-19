@@ -80,7 +80,6 @@ export default function Rankings() {
     <div className="page">
       <div className="page-title">
         <h1>Leaderboard</h1>
-        <p>PingPod Morrisville · weeks start Monday</p>
       </div>
 
       <div className="board-controls">
@@ -108,7 +107,7 @@ export default function Rankings() {
             <Info size={15} aria-hidden />
             <span>
               {board === "spindex"
-                ? "Players add their own SPINDEX on their profile — we don't calculate or import it. Ratings staff have checked are marked Verified."
+                ? "Ratings players add on their profile. Staff-checked ones say Verified."
                 : "Weeks in a row with at least one session."}
             </span>
           </p>
@@ -119,7 +118,7 @@ export default function Rankings() {
         <div className="panel inline-note">
           <EyeOff size={16} aria-hidden />
           <span>
-            You're hidden from public leaderboards, so you won't appear here.{" "}
+            You're hidden from public boards.{" "}
             <Link to="/me" className="link-btn" style={{ padding: 0, minHeight: 0 }}>
               Privacy settings
             </Link>
@@ -168,7 +167,6 @@ function PlayerBoard({ rows, board }: { rows: LeaderRow[]; board: BoardKey }) {
     );
   const top = rows.filter((r) => r.rank <= 3);
   const rest = rows.filter((r) => r.rank > 3);
-  const lastShown = rows.filter((r) => !r.is_me || r.rank <= 50).slice(-1)[0]?.rank ?? 0;
   return (
     <>
       <div className="podium" aria-label="Top three">
@@ -215,8 +213,6 @@ function PlayerBoard({ rows, board }: { rows: LeaderRow[]; board: BoardKey }) {
           })}
         </div>
       )}
-      {rows.length > 0 && lastShown >= 50 && <p className="small-print">Showing the top 50.</p>}
-      <p className="small-print">Ties go to whoever reached the total first.</p>
     </>
   );
 }
@@ -259,9 +255,6 @@ function CrewBoard({ rows, minSize }: { rows: CrewRow[]; minSize: number }) {
           </div>
         ))}
       </div>
-      <p className="small-print">
-        Crew totals count each member's play from when they joined. "Min each" is the average per current member.
-      </p>
     </>
   );
 }

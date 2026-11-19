@@ -98,7 +98,7 @@ function NoCrew({ onChanged }: { onChanged: () => Promise<void> }) {
       <div className="page-title">
         <h1>Crews</h1>
         <p>
-          Team up with {me.settings.crew_min_size}–{me.settings.crew_max_size} friends. Every member's minutes add to the crew total.
+          Team up with {me.settings.crew_min_size}–{me.settings.crew_max_size} friends and add your minutes together.
         </p>
       </div>
 
@@ -147,7 +147,6 @@ function NoCrew({ onChanged }: { onChanged: () => Promise<void> }) {
             placeholder="e.g. Net Ninjas"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            hint="3–24 characters. You can rename it later."
           />
           <Button type="submit" variant="secondary" size="lg" block loading={busy === "create"} disabled={name.trim().length < 3}>
             Create crew
@@ -162,7 +161,7 @@ function NoCrew({ onChanged }: { onChanged: () => Promise<void> }) {
         {top === null ? (
           <Skeleton count={3} height={60} />
         ) : top.length === 0 ? (
-          <div className="panel small-print">No crews have ranked yet this week. Yours could be first.</div>
+          <div className="list empty-row">No crews on the board yet this week.</div>
         ) : (
           <div className="list">
             {top.map((c) => (
@@ -233,28 +232,34 @@ function CrewView({ crew, onChanged }: { crew: MyCrew; onChanged: () => Promise<
         </div>
         <h1>{crew.name}</h1>
         {crew.hidden_by_admin && <Chip tone="warn">Hidden from public boards by staff</Chip>}
-        <div className="crew-kpis">
-          <div className="stat">
+        <div className="stat-strip three">
+          <div className="stat-cell">
             <span className="stat-label">Rank</span>
-            <span className="stat-value num">{crew.rank ? `#${crew.rank}` : "—"}</span>
-            <span className="stat-sub">{crew.rank ? `of ${crew.crews_ranked}` : "Not ranked"}</span>
+            <span className={`stat-value num ${crew.rank ? "pink" : ""}`}>
+              {crew.rank ? `#${crew.rank}` : "—"}
+              {crew.rank ? <small>of {crew.crews_ranked}</small> : null}
+            </span>
           </div>
-          <div className="stat">
+          <div className="stat-cell">
             <span className="stat-label">This week</span>
-            <span className="stat-value num">{formatNumber(crew.total_minutes)}</span>
-            <span className="stat-sub">minutes</span>
+            <span className="stat-value num">
+              {formatNumber(crew.total_minutes)}
+              <small>min</small>
+            </span>
           </div>
-          <div className="stat">
+          <div className="stat-cell">
             <span className="stat-label">Per member</span>
-            <span className="stat-value num">{formatNumber(avg)}</span>
-            <span className="stat-sub">minutes</span>
+            <span className="stat-value num">
+              {formatNumber(avg)}
+              <small>min</small>
+            </span>
           </div>
         </div>
         {needed > 0 && (
           <div className="invite-banner">
             <Users size={20} aria-hidden />
             <span>
-              Add {needed} more {needed === 1 ? "player" : "players"} to appear on the crew leaderboard.
+              Add {needed} more {needed === 1 ? "player" : "players"} to get on the crew leaderboard.
             </span>
           </div>
         )}
@@ -274,14 +279,14 @@ function CrewView({ crew, onChanged }: { crew: MyCrew; onChanged: () => Promise<
           Share invite link
         </Button>
         <span className="small-print">
-          {crew.members.length}/{crew.max_members} members · friends can open the link or type the code on the Crew tab.
+          {crew.members.length} of {crew.max_members} spots filled
         </span>
       </section>
 
       <section className="section">
         <div className="section-head">
           <h2>Members</h2>
-          <span className="small-print">Minutes this week</span>
+          <span className="small-print">This week</span>
         </div>
         <div className="list">
           {[...crew.members]
@@ -309,7 +314,6 @@ function CrewView({ crew, onChanged }: { crew: MyCrew; onChanged: () => Promise<
               </div>
             ))}
         </div>
-        <p className="small-print">Only play from after someone joined counts toward the crew.</p>
       </section>
 
       <Button variant="ghost" onClick={() => setLeaving(true)}>
@@ -381,7 +385,7 @@ function ManageSheet({ crew, onClose, onChanged }: { crew: MyCrew; onClose: () =
       </form>
       <div className="stack-sm">
         <span className="label">Invite code</span>
-        <p className="small-print">Make a new code if the old one was shared too widely. Current members stay in.</p>
+        <p className="small-print">The old code stops working. Members stay in.</p>
         <Button variant="secondary" block icon={<RefreshCw size={16} />} loading={busy === "code"} onClick={() => void run("code")}>
           Make a new invite code
         </Button>

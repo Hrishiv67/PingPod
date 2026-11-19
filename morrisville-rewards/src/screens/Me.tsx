@@ -69,35 +69,50 @@ export default function MeScreen() {
             {me.crew && <Chip>{me.crew.name}</Chip>}
           </div>
         </div>
+        <Button variant="secondary" size="sm" className="profile-edit" onClick={() => setEditing(true)}>
+          Edit
+        </Button>
       </section>
-      <Button variant="secondary" onClick={() => setEditing(true)}>
-        Edit nickname & color
-      </Button>
 
-      <section className="mini-stats" aria-label="Your totals">
-        <div className="mini-stat">
-          <div className="num">{formatNumber(s.total_verified + s.total_pending)}</div>
-          <span>Total min</span>
+      <section className="stat-strip six" aria-label="Your totals">
+        <div className="stat-cell">
+          <span className="stat-label">Total</span>
+          <span className="stat-value num">
+            {formatNumber(s.total_verified + s.total_pending)}
+            <small>min</small>
+          </span>
         </div>
-        <div className="mini-stat">
-          <div className="num">{formatNumber(s.week_verified + s.week_pending)}</div>
-          <span>This week</span>
+        <div className="stat-cell">
+          <span className="stat-label">This week</span>
+          <span className="stat-value num">
+            {formatNumber(s.week_verified + s.week_pending)}
+            <small>min</small>
+          </span>
         </div>
-        <div className="mini-stat">
-          <div className="num">{s.sessions}</div>
-          <span>Sessions</span>
+        <div className="stat-cell">
+          <span className="stat-label">Sessions</span>
+          <span className="stat-value num">{s.sessions}</span>
         </div>
-        <div className="mini-stat">
-          <div className="num">{s.longest_session}</div>
-          <span>Longest (min)</span>
+        <div className="stat-cell">
+          <span className="stat-label">Longest</span>
+          <span className="stat-value num">
+            {s.longest_session}
+            <small>min</small>
+          </span>
         </div>
-        <div className="mini-stat">
-          <div className="num">{s.current_streak}</div>
-          <span>Week streak</span>
+        <div className="stat-cell">
+          <span className="stat-label">Streak</span>
+          <span className="stat-value num">
+            {s.current_streak}
+            <small>{s.current_streak === 1 ? "wk" : "wks"}</small>
+          </span>
         </div>
-        <div className="mini-stat">
-          <div className="num">{s.longest_streak}</div>
-          <span>Best streak</span>
+        <div className="stat-cell">
+          <span className="stat-label">Best streak</span>
+          <span className="stat-value num">
+            {s.longest_streak}
+            <small>{s.longest_streak === 1 ? "wk" : "wks"}</small>
+          </span>
         </div>
       </section>
 
@@ -116,17 +131,16 @@ export default function MeScreen() {
             disabled={saving !== ""}
             onChange={(v) => void setPrivacy({ show_on_leaderboard: v })}
             label="Show me on leaderboards"
-            description="Your nickname and stats in the app and on the in-store screen. Your own history stays visible to you either way."
+            description="Your nickname and stats in the app and on the in-store screen. Your email is never shown."
           />
           <Toggle
             checked={p.show_spindex}
             disabled={saving !== ""}
             onChange={(v) => void setPrivacy({ show_spindex: v })}
             label="Show my SPINDEX rating"
-            description="On the SPINDEX leaderboard (only if you've added one)."
+            description="On the SPINDEX board, if you've added one."
           />
         </div>
-        <p className="small-print">Your email is never shown to other players or on the display.</p>
       </section>
 
       <section className="section">
@@ -162,11 +176,7 @@ export default function MeScreen() {
       </section>
 
       <footer className="app-foot">
-        <span>Morrisville Rewards · Beta</span>
-        <span>
-          A four-week pilot run by PingPod Morrisville. It's separate from the official PingPod app and booking system.
-          Minutes are logged by players.
-        </span>
+        Morrisville Rewards · Beta — a four-week PingPod Morrisville pilot, separate from the PingPod app and booking.
       </footer>
 
       {editing && <EditProfileSheet onClose={() => setEditing(false)} />}
@@ -263,7 +273,7 @@ function Achievements({ version }: { version: number }) {
               </span>
               <span className="badge-text">
                 <strong>{a.title}</strong>
-                <span>{a.earned_at ? `Earned ${formatDay(a.earned_at.slice(0, 10))}` : a.description}</span>
+                <span>{a.earned_at ? `Earned ${new Date(a.earned_at).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" })}` : a.description}</span>
                 {!a.earned_at && a.target > 1 && (
                   <>
                     <ProgressBar value={a.progress} max={a.target} label={a.title} />
@@ -277,7 +287,6 @@ function Achievements({ version }: { version: number }) {
           ))}
         </div>
       )}
-      <p className="small-print">Milestones come from your sessions automatically.</p>
     </section>
   );
 }
@@ -312,8 +321,8 @@ function Spindex() {
             </div>
             <p className="small-print">
               {claim.status === "verified"
-                ? "PingPod staff checked this rating. Updating it will make it self-reported again until staff re-check."
-                : "You entered this number. Show your SPINDEX at the front desk if you'd like staff to verify it."}
+                ? "Checked by PingPod staff. A new number goes back to self-reported."
+                : "Want it verified? Show your SPINDEX at the front desk."}
             </p>
             <div className="row-2">
               <Button variant="secondary" onClick={() => setOpen(true)}>
@@ -326,19 +335,13 @@ function Spindex() {
           </>
         ) : (
           <>
-            <p>
-              Have a SPINDEX rating? Add it to your profile. It shows up on the separate SPINDEX board — it never affects
-              minutes or streaks.
-            </p>
+            <p>Have a SPINDEX rating? Add it — it goes on the separate SPINDEX board.</p>
             <Button variant="secondary" onClick={() => setOpen(true)}>
               Add my SPINDEX
             </Button>
           </>
         )}
-        <p className="small-print">
-          This app isn't connected to SPINDEX or PodPlay and never asks for those passwords. Ratings you enter are labeled
-          self-reported.
-        </p>
+        <p className="small-print">Not connected to SPINDEX or PodPlay — ratings you enter show as self-reported.</p>
       </div>
       {open && (
         <Sheet title="Your SPINDEX" onClose={() => setOpen(false)}>
@@ -416,8 +419,8 @@ function History({ version }: { version: number }) {
   const load = useCallback(() => {
     setError("");
     void api
-      .mySessions(limit + 1)
-      .then(setRows)
+      .mySessions(limit + 6)
+      .then((all) => setRows(all.filter((s) => s.status !== "cancelled")))
       .catch((err) => setError(errorText(err)));
   }, [limit]);
   useEffect(load, [load, version]);
@@ -431,7 +434,7 @@ function History({ version }: { version: number }) {
       ) : !rows ? (
         <Skeleton count={3} height={64} />
       ) : rows.length === 0 ? (
-        <div className="panel small-print">Your sessions will show up here.</div>
+        <div className="list empty-row">No sessions yet.</div>
       ) : (
         <>
           <div className="list">

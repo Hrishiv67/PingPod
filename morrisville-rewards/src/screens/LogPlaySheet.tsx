@@ -53,7 +53,7 @@ export default function LogPlaySheet({
   }
 
   return (
-    <Sheet title="Log past play" onClose={onClose}>
+    <Sheet title="Log past session" onClose={onClose}>
       <div className="stack-sm">
         <span className="label">When did you play?</span>
         <div className="pick-row" role="radiogroup" aria-label="Day">
@@ -72,13 +72,11 @@ export default function LogPlaySheet({
           value={day}
           onChange={(e) => setDay(e.target.value || today)}
         />
-        <span className="small-print">
-          {formatDay(day)} · up to {settings.backdate_days} days back
-        </span>
+        <span className="small-print">{formatDay(day)}</span>
       </div>
 
       <div className="stack-sm">
-        <span className="label">How long?</span>
+        <span className="label">How many minutes?</span>
         <div className="pick-row" role="radiogroup" aria-label="Duration">
           {QUICK.map((m) => (
             <button
@@ -114,7 +112,6 @@ export default function LogPlaySheet({
             autoFocus
           />
         )}
-        <span className="small-print">Minutes of play</span>
       </div>
 
       <div className="stack-sm">

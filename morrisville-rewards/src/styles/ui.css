@@ -21,8 +21,20 @@
   transform: scale(0.98);
 }
 .btn:disabled {
-  opacity: 0.45;
   cursor: not-allowed;
+}
+/* Disabled (not loading): a clearly neutral button, never a muddy brand color. */
+.btn:disabled:not([aria-busy]) {
+  background: var(--surface-2);
+  border-color: var(--line);
+  color: var(--muted);
+}
+.btn-ghost:disabled:not([aria-busy]) {
+  background: transparent;
+  border-color: transparent;
+}
+.btn[aria-busy] {
+  opacity: 0.85;
 }
 .btn-sm {
   min-height: 40px;
@@ -35,13 +47,13 @@
   font-size: 17px;
 }
 .btn-xl {
-  min-height: 64px;
+  min-height: 62px;
   font-family: var(--font-display);
   font-size: 24px;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  border-radius: 16px;
+  border-radius: 14px;
 }
 .btn-block {
   width: 100%;

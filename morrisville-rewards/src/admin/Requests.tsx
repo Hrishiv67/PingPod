@@ -51,7 +51,7 @@ export default function Requests({
 
   return (
     <section className="adm-section">
-      <SectionHead title="Requests" sub="Corrections, privacy questions and deletion requests from players." />
+      <SectionHead title="Player requests" sub="Corrections, privacy questions and deletion requests." />
       <div className="adm-toolbar">
         <FilterChips<Filter>
           label="Request status"
@@ -60,7 +60,7 @@ export default function Requests({
           options={[
             { value: "open", label: "Open" },
             { value: "resolved", label: "Resolved" },
-            { value: "dismissed", label: "Dismissed" },
+            { value: "dismissed", label: "Closed" },
             { value: "all", label: "All" },
           ]}
         />
@@ -82,7 +82,7 @@ export default function Requests({
                 </div>
                 <div className="adm-chip-col">
                   <Chip tone={r.kind === "deletion" ? "bad" : r.kind === "correction" ? "warn" : "neutral"}>{KIND_LABEL[r.kind]}</Chip>
-                  {r.status !== "open" && <Chip tone={r.status === "resolved" ? "ok" : "neutral"}>{r.status === "resolved" ? "Resolved" : "Dismissed"}</Chip>}
+                  {r.status !== "open" && <Chip tone={r.status === "resolved" ? "ok" : "neutral"}>{r.status === "resolved" ? "Resolved" : "Closed"}</Chip>}
                 </div>
               </div>
               <p className="adm-message">{r.message}</p>
@@ -95,7 +95,7 @@ export default function Requests({
                   <StatusChip status={r.session.status} short />
                   {r.display_name && (
                     <Button size="sm" variant="ghost" onClick={() => onOpenSession(r.display_name!)}>
-                      Open in Review
+                      Open in Sessions
                     </Button>
                   )}
                 </div>
@@ -113,7 +113,7 @@ export default function Requests({
                       Resolve
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => setSheet({ kind: "dismissed", r })}>
-                      Dismiss
+                      Close
                     </Button>
                   </>
                 ) : (
@@ -129,9 +129,9 @@ export default function Requests({
 
       {sheet && (
         <ActionSheet
-          title={sheet.kind === "resolved" ? "Resolve request" : "Dismiss request"}
+          title={sheet.kind === "resolved" ? "Resolve request" : "Close request"}
           description={<p>The player sees your reply with their request.</p>}
-          confirmLabel={sheet.kind === "resolved" ? "Mark resolved" : "Dismiss"}
+          confirmLabel={sheet.kind === "resolved" ? "Mark resolved" : "Close request"}
           text={{
             label: "Reply to the player",
             required: false,

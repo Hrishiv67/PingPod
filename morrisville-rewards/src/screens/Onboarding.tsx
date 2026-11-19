@@ -30,7 +30,7 @@ export function ColorPicker({ value, onChange, name }: { value: AvatarColor; onC
           className="color-pick"
           onClick={() => onChange(c)}
         >
-          <Avatar name={name || "You"} color={c} size={42} />
+          <Avatar name={name || "You"} color={c} size={34} />
         </button>
       ))}
     </div>
@@ -79,13 +79,8 @@ export default function Onboarding() {
       </div>
       <main className="welcome-main">
         <div className="stack-sm">
-          <div className="eyebrow" style={{ color: "var(--pink)" }}>
-            One last thing
-          </div>
-          <h1 className="hero-title" style={{ fontSize: "clamp(40px, 12vw, 56px)" }}>
-            Pick your nickname
-          </h1>
-          <p className="hero-sub">This is what other players see. Your email stays private.</p>
+          <h1 className="hero-title">Pick your nickname</h1>
+          <p className="hero-sub">Other players see this. Your email stays private.</p>
         </div>
         <form className="auth-form" onSubmit={submit} noValidate>
           <Field
@@ -98,7 +93,6 @@ export default function Onboarding() {
             onChange={(e) => setName(e.target.value)}
             onBlur={() => setTouched(true)}
             error={touched && name ? problem : undefined}
-            hint="2–20 characters"
           />
           <div className="stack-sm">
             <span className="label">Avatar color</span>
@@ -109,7 +103,7 @@ export default function Onboarding() {
               checked={visible}
               onChange={setVisible}
               label="Show me on the leaderboard"
-              description="Your nickname and minutes appear in the app and on the screen at the front desk. Change this anytime."
+              description="Shown in the app and on the in-store screen."
             />
           </div>
           {error && <InlineError>{error}</InlineError>}

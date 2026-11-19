@@ -15,7 +15,7 @@ export default function ResetPassword() {
         <Logo size="md" />
       </div>
       <main className="welcome-main">
-        <h1 className="hero-title" style={{ fontSize: "clamp(40px, 12vw, 56px)" }}>
+        <h1 className="hero-title">
           New password
         </h1>
         <form

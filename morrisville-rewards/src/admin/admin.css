@@ -266,20 +266,24 @@
 }
 
 /* Cards */
+/* Remaining lists (SPINDEX, requests, rewards, staff) share the single-list look of .adm-rows. */
 .adm-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 10px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.adm-list > li + li {
+  border-top: 1px solid var(--line);
 }
 .adm-card {
   display: grid;
   gap: 10px;
   padding: 14px;
-  border-radius: var(--r);
-  background: var(--surface);
-  border: 1px solid var(--line);
   min-width: 0;
 }
 .adm-card-muted {
@@ -503,19 +507,24 @@
 /* Settings */
 .adm-group {
   margin: 0;
-  padding: 16px;
-  border-radius: var(--r);
-  border: 1px solid var(--line);
-  background: var(--surface);
+  padding: 14px 0 0;
+  border: 0;
+  border-top: 1px solid var(--line);
   min-width: 0;
 }
 .adm-group > legend {
-  padding: 0 6px;
+  float: left;
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 0;
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 20px;
   text-transform: uppercase;
   letter-spacing: 0.02em;
+}
+.adm-group > legend + * {
+  clear: both;
 }
 .adm-two,
 .adm-grid-fields {
@@ -598,7 +607,7 @@
 }
 @media (min-width: 760px) {
   .adm-kpis {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 .adm-kpi {
@@ -818,4 +827,269 @@
   border-radius: 16px;
   background: var(--pink-soft);
   color: var(--pink);
+}
+
+/* ── Compact rows (sessions, players, crews, exports, More menu) ───── */
+.adm-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.adm-rows > li + li {
+  border-top: 1px solid var(--line);
+}
+.adm-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "main value"
+    "actions actions";
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 14px;
+}
+.adm-row-main {
+  grid-area: main;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.adm-row-with-avatar {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  column-gap: 10px;
+}
+.adm-row-text {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.adm-row-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.adm-row-title strong {
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+.adm-row-meta {
+  font-size: 14px;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.adm-row-note {
+  font-size: 14px;
+  color: var(--muted);
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+.adm-row-value {
+  grid-area: value;
+  align-self: start;
+  font-size: 26px;
+  line-height: 1;
+  text-align: right;
+  white-space: nowrap;
+}
+.adm-row-value small {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.adm-row-actions {
+  grid-area: actions;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.adm-row-actions:empty {
+  display: none;
+}
+.adm-row-own {
+  font-size: 13px;
+  color: var(--muted);
+}
+.adm-row-dim .adm-row-main,
+.adm-row-dim .adm-row-value {
+  opacity: 0.6;
+}
+.adm-remove {
+  color: var(--bad);
+}
+.adm-row-export {
+  grid-template-areas: "main actions";
+}
+@media (min-width: 700px) {
+  .adm-row {
+    grid-template-columns: minmax(0, 1fr) 96px auto;
+    grid-template-areas: "main value actions";
+    padding: 10px 16px;
+  }
+  .adm-row-value {
+    align-self: center;
+  }
+  .adm-row-actions {
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+  }
+  .adm-row-export {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "main actions";
+  }
+}
+
+/* People playing right now */
+.adm-live {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.adm-live-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--pink);
+}
+
+/* More menu */
+.adm-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  margin: -4px 0 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--pink);
+  font-weight: 700;
+  font-size: 15px;
+}
+.adm-menu-item {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+.adm-menu-item:hover {
+  background: var(--surface-2);
+}
+.adm-menu-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--surface-3);
+  color: var(--text);
+}
+.adm-menu-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.adm-menu-text strong {
+  font-size: 16px;
+}
+.adm-menu-text span {
+  font-size: 14px;
+  color: var(--text-2);
+}
+.adm-menu-chevron {
+  color: var(--muted);
+}
+
+/* Manage sheets */
+.adm-manage {
+  display: grid;
+  gap: 8px;
+}
+
+/* Stats footnote */
+.adm-fine {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Settings: advanced disclosure */
+.adm-advanced {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.adm-advanced > summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 20px;
+  text-transform: uppercase;
+  list-style: none;
+}
+.adm-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+.adm-advanced > summary::after {
+  content: "+";
+  margin-left: 8px;
+  color: var(--muted);
+}
+.adm-advanced[open] > summary::after {
+  content: "–";
+}
+.adm-advanced > .stack {
+  padding-top: 8px;
+}
+
+/* Phone: six equal tabs, no side-scrolling */
+@media (max-width: 899px) {
+  .adm-nav {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 2px;
+    padding: 6px 8px;
+    overflow: visible;
+  }
+  .adm-nav button {
+    position: relative;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    min-height: 52px;
+    padding: 4px 2px;
+    font-size: 11.5px;
+  }
+  .adm-nav .adm-badge {
+    position: absolute;
+    top: 2px;
+    right: calc(50% - 22px);
+    min-width: 18px;
+    height: 18px;
+    line-height: 18px;
+    font-size: 11px;
+  }
 }

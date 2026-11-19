@@ -4,7 +4,7 @@ import { api } from "../lib/api";
 import type { AdminSpindex } from "../lib/types";
 import { Avatar, Button, Chip, ConfirmSheet, EmptyState, InlineError, Skeleton, useToast } from "../components/ui";
 import { formatDateTime } from "../lib/time";
-import { ActionSheet, FilterChips, Note, SectionHead, useLoad } from "./shared";
+import { ActionSheet, FilterChips, SectionHead, useLoad } from "./shared";
 
 type Filter = "unverified" | "verified" | "rejected" | "all";
 type SheetState = { kind: "verify" | "reject" | "unverify"; r: AdminSpindex } | null;
@@ -23,11 +23,10 @@ export default function Spindex({ myId, onChanged }: { myId: string; onChanged: 
 
   return (
     <section className="adm-section">
-      <SectionHead title="SPINDEX" sub="Ratings players add themselves. They show as Self-reported until staff verify them." />
-      <Note tone="pink">
-        Only verify after you've seen proof in person — for example the player shows their rating in the official SPINDEX app.
-        This app isn't connected to SPINDEX, PodPlay or PingPod accounts and never calculates ratings.
-      </Note>
+      <SectionHead
+        title="SPINDEX ratings"
+        sub="Players add these themselves. Verify one only after they show you the rating in the SPINDEX app."
+      />
       <div className="adm-toolbar">
         <FilterChips<Filter>
           label="Rating status"
@@ -36,7 +35,7 @@ export default function Spindex({ myId, onChanged }: { myId: string; onChanged: 
           options={[
             { value: "unverified", label: "Self-reported" },
             { value: "verified", label: "Verified" },
-            { value: "rejected", label: "Rejected" },
+            { value: "rejected", label: "Declined" },
             { value: "all", label: "All" },
           ]}
         />
@@ -69,7 +68,7 @@ export default function Spindex({ myId, onChanged }: { myId: string; onChanged: 
                   {r.status === "verified" ? (
                     <Chip tone="ok">Verified by staff</Chip>
                   ) : r.status === "rejected" ? (
-                    <Chip tone="bad">Rejected</Chip>
+                    <Chip tone="bad">Declined</Chip>
                   ) : r.status === "superseded" ? (
                     <Chip>Replaced</Chip>
                   ) : (
@@ -92,7 +91,7 @@ export default function Spindex({ myId, onChanged }: { myId: string; onChanged: 
                       Verify
                     </Button>
                     <Button size="sm" variant="danger" onClick={() => setSheet({ kind: "reject", r })}>
-                      Reject
+                      Decline
                     </Button>
                   </div>
                 ) : r.status === "verified" ? (
@@ -117,7 +116,7 @@ export default function Spindex({ myId, onChanged }: { myId: string; onChanged: 
             label: "How did you verify?",
             required: true,
             placeholder: "e.g. Saw SPINDEX app at front desk 11/20",
-            hint: "Saved with the rating and in the audit log.",
+            hint: "Saved with the rating and in the activity log.",
           }}
           onSubmit={async (_m, source) => {
             await api.admin.reviewSpindex(sheet.r.id, "verify", source);
@@ -128,10 +127,10 @@ export default function Spindex({ myId, onChanged }: { myId: string; onChanged: 
       )}
       {sheet?.kind === "reject" && (
         <ActionSheet
-          title="Reject rating"
+          title="Decline rating"
           danger
           description={<p>The rating comes off {sheet.r.display_name}'s profile and every board. They can add a new one.</p>}
-          confirmLabel="Reject"
+          confirmLabel="Decline"
           text={{ label: "Note", required: false, placeholder: "e.g. Couldn't confirm; asked them to show the app next visit" }}
           onSubmit={async (_m, note) => {
             await api.admin.reviewSpindex(sheet.r.id, "reject", note);
