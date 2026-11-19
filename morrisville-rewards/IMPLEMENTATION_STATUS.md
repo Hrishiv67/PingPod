@@ -29,7 +29,7 @@ _Last updated: 2026-11-19 · branch `morrisville-rewards-starter` · app in `mor
 | iPhone layout (SE → Pro Max): safe areas, no horizontal scroll, ≥40 px targets | Done | Playwright walkthrough at iPhone SE + 15 Pro Max |
 | Demo mode with labeled sample players | Done | 11 demo-rule unit tests |
 
-Latest results: `npm test` 22/22 pass · `npm run build` clean · `tsc` clean · live browser E2E all checks passed before the trust-players change. The live API suite is being re-run for the trust-players model; see the latest commit message for its result.
+Latest results (2026-11-19): `npm test` 22/22 pass · `tsc` clean · `npm run build` clean (no warnings) · live API suite 17/17 pass · rollback-only SQL time-logic test 18/18 pass · live browser E2E (2 phones + staff + iPad) passed · iPhone SE / 15 Pro Max walkthrough with no overflow or errors · production smoke test of `/`, `/join/*`, `/display`, `/poster` passed. Test accounts were removed afterwards; the live database starts empty.
 
 ## Needs live configuration (owner action)
 
