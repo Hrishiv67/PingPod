@@ -10,7 +10,7 @@ All rules — timer limits, manual-log validation, crews, rankings, achievements
 privacy — live in Postgres functions in Supabase (see [API.md](API.md)). The web app is a thin
 client over those functions; a SwiftUI app can be the same. Results:
 
-- One account works in both apps (same email + password).
+- One account works in both apps (same email; players never need a password).
 - A session started on the web shows as running in the iOS app (and vice versa).
 - Both apps see identical leaderboards. You can't accidentally implement a different rule.
 
@@ -75,28 +75,77 @@ Date-only columns (`played_on`, `week_start`, `pilot_start`) are modeled as `Str
 (`"2026-11-19"`) to avoid ambiguous parsing. Use the Morrisville calendar
 (`TimeZone(identifier: "America/New_York")`) when you format them.
 
-## 3. Auth (email + password)
+## 3. Sign-in (just an email)
 
-Sessions persist in the Keychain automatically; a returning player is already signed in.
+Players only type their email. The app derives a password from it and uses the normal Supabase
+email + password sign-in, exactly like the website (`src/lib/emailKey.ts`). The key must match the
+web app byte for byte, or the same person ends up with two different accounts.
 
 ```swift
-let auth = Backend.client.auth
+import CryptoKit
 
-// New player
-try await auth.signUp(email: email, password: password)   // min 6 characters
-// Returning player
-try await auth.signIn(email: email, password: password)
-// Restore on launch (nil = show the welcome screen)
-let session = try? await auth.session
-// Listen for sign-in / sign-out
-for await (event, session) in auth.authStateChanges { /* update UI */ }
+enum EmailKey {
+    static let salt = "|pingpod-morrisville-email-only-v1"
+
+    static func normalize(_ email: String) -> String {
+        email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    /// "Pp!" + first 40 hex chars of SHA-256(normalized email + salt) + "9"
+    static func key(for email: String) -> String {
+        let digest = SHA256.hash(data: Data((normalize(email) + salt).utf8))
+        let hex = digest.map { String(format: "%02x", $0) }.joined()
+        return "Pp!" + hex.prefix(40) + "9"
+    }
+}
+
+enum EnterResult { case signedIn, needsPassword }
+
+/// Signs in, or creates the account if it's new. `.needsPassword` = an older account (or a staff
+/// account) that has its own password: ask for it once, then call `finishWithPassword`.
+func enter(email raw: String) async throws -> EnterResult {
+    let auth = Backend.client.auth
+    let email = EmailKey.normalize(raw)
+    let key = EmailKey.key(for: email)
+    do {
+        try await auth.signIn(email: email, password: key)
+        return .signedIn
+    } catch {
+        guard "\(error)".localizedCaseInsensitiveContains("invalid login credentials") else { throw error }
+    }
+    do {
+        try await auth.signUp(email: email, password: key)   // "Confirm email" is OFF → signed in
+        return .signedIn
+    } catch {
+        if "\(error)".localizedCaseInsensitiveContains("already registered") { return .needsPassword }
+        throw error
+    }
+}
+
+/// One-time password sign-in for older accounts; players then switch to email-only.
+func finishWithPassword(email raw: String, password: String) async throws {
+    let auth = Backend.client.auth
+    let email = EmailKey.normalize(raw)
+    try await auth.signIn(email: email, password: password)
+    let me: MeResponse = try await Backend.client.rpc("get_me").execute().value
+    if me.adminRole == nil && me.staffNeedsPassword != true {
+        try await auth.update(user: UserAttributes(password: EmailKey.key(for: email)))
+    }
+}
+
+// Restore on launch (nil = show the welcome screen); sessions persist in the Keychain.
+let session = try? await Backend.client.auth.session
 // Sign out
-try await auth.signOut()
-// Forgot password (needs SMTP configured in Supabase; see SETUP.md)
-try await auth.resetPasswordForEmail(email, redirectTo: URL(string: "https://pingpod-morrisville-rewards.vercel.app/me"))
-// Change password while signed in
-try await auth.update(user: UserAttributes(password: newPassword))
+try await Backend.client.auth.signOut()
 ```
+
+Write the welcome screen as one email field and a **Continue** button, with "No password needed"
+under it. Only show a password field after `.needsPassword`.
+
+Staff: a staff or owner role only works once the account has a real password (the database checks
+this). `get_me` returns `admin_role = nil` and `staff_needs_password = true` until then. Staff tools
+can stay on the website (`/admin`); if you add them to the app, set the password with
+`auth.update(user: UserAttributes(password:))` first.
 
 After sign-in call `get_me`. If `profile == nil`, show the nickname screen (`save_profile`).
 Never ask for — or label anything as — the player's official PingPod password; this is a separate
@@ -138,7 +187,7 @@ struct PlaySession: Codable, Identifiable {
 struct Stats: Codable {
     let weekVerified, weekPending, monthVerified, monthPending: Int
     let totalVerified, totalPending, sessions, pendingSessions, longestSession: Int
-    let currentStreak, longestStreak: Int
+    let currentStreak, longestStreak: Int   // days in a row (alive through today if played yesterday)
     let rankWeekVerified, rankWeekCommunity: Int?
     let rankedWeekVerified, rankedWeekCommunity: Int
     // Sessions count immediately (no approval step), so *Pending is normally 0.
@@ -175,7 +224,8 @@ struct SpindexClaim: Codable {
 struct MeResponse: Codable {
     let serverNow: Date
     let profile: Profile?            // nil → ask for a nickname
-    let adminRole: String?           // owner | staff | nil
+    let adminRole: String?           // owner | staff | nil (nil until a staff account has a password)
+    let staffNeedsPassword: Bool?    // on the staff list but still email-only
     let activeSession: PlaySession?
     let crew: CrewSummary?
     let spindex: SpindexClaim?
@@ -189,7 +239,7 @@ struct LeaderboardRow: Codable, Identifiable {
     let userId: UUID
     let displayName: String
     let avatarColor: String
-    let value: Int                   // minutes, current streak (weeks), longest minutes, or rating
+    let value: Int                   // minutes, current streak (days), longest minutes, or rating
     let secondary: Int?              // streaks: longest streak
     let sessions: Int?
     let detail: String?              // longest: date · spindex: "verified" / "self_reported"

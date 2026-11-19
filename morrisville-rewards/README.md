@@ -8,13 +8,13 @@ It's a local four-week pilot. It isn't the official PingPod app, booking system 
 
 ## What players can do
 
-- Create an account with email + password (separate from their PingPod login), pick a nickname and avatar color, and choose whether they appear on public boards.
+- Sign in with just an email: no password and no confirmation email (separate from their PingPod login). Pick a nickname and avatar color, and choose whether they appear on public boards.
 - **Start playing** → server-timed session that survives refreshes, locked phones and lost signal. They get a check-in prompt at 90 minutes, and timers stop on their own at 3 hours.
 - **Log past play**: date (last 7 days), 30/60/90/120 or custom minutes, optional note.
 - Time counts immediately: the pilot trusts players' own logs. Staff can fix or remove obvious mistakes.
-- Leaderboards: minutes (week / month / all time), weekly streaks, longest session, crews (total + per member), and a separate **self-reported SPINDEX** board.
+- Leaderboards: minutes (week / month / all time), a **SPINDEX** board right after it (self-reported unless staff verify), crews (total + per member), daily streaks and longest session.
 - Crews of 2–8: create, share an invite link or code, see each member's minutes, transfer ownership, leave. Crew totals count play from when each person joined.
-- Profile: totals, milestones with progress, SPINDEX (labeled self-reported unless staff verify it), history with "request a correction", privacy toggles, password change, sign out, delete account.
+- Profile: totals, milestones with progress, SPINDEX (labeled self-reported unless staff verify it), history with "request a correction", privacy toggles, sign out, delete account.
 
 ## Project layout
 

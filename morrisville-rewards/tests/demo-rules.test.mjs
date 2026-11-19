@@ -15,6 +15,39 @@ async function signedInWithProfile(name = "Demo Player") {
 
 beforeEach(() => resetDemo());
 
+test("email-only sign-in creates the account, then signs straight back in", async () => {
+  await assert.rejects(api.enterWithEmail("not-an-email"), /doesn't look right/);
+  assert.equal(await api.enterWithEmail("  New.Player@Example.com "), "in");
+  assert.equal((await api.getUser())?.email, "new.player@example.com");
+  await api.signOut();
+  assert.equal(await api.enterWithEmail("new.player@example.com"), "in");
+  assert.ok(await api.getUser());
+});
+
+test("an older password account is asked for its password once, then works email-only", async () => {
+  await api.signUp("old@example.com", "secret1");
+  await api.signOut();
+  assert.equal(await api.enterWithEmail("old@example.com"), "password");
+  assert.equal(await api.getUser(), null);
+  await api.signIn("old@example.com", "secret1");
+  await api.useEmailOnly();
+  await api.signOut();
+  assert.equal(await api.enterWithEmail("old@example.com"), "in");
+});
+
+test("streaks count days in a row and survive until a full day is missed", async () => {
+  await signedInWithProfile();
+  for (const d of [-3, -2, -1]) await api.logSession({ played_on: addDays(today, d), minutes: 30, client_request_id: rid() });
+  let me = await api.getMe();
+  assert.equal(me.stats.current_streak, 3, "played through yesterday: still alive today");
+  assert.equal(me.stats.longest_streak, 3);
+  await api.logSession({ played_on: today, minutes: 30, client_request_id: rid() });
+  me = await api.getMe();
+  assert.equal(me.stats.current_streak, 4);
+  const streak3 = (await api.achievements()).find((a) => a.code === "streak_3");
+  assert.ok(streak3?.earned_at, "three-day streak earned");
+});
+
 test("sign up validates and signs in; sign in checks the password", async () => {
   await assert.rejects(api.signUp("not-an-email", "secret1"), /doesn't look right/);
   await assert.rejects(api.signUp("a@example.com", "123"), /at least 6 characters/);
@@ -146,11 +179,11 @@ test("SPINDEX is range-checked and always self-reported in demo", async () => {
   assert.equal(community.find((r) => r.is_me)?.detail, "self_reported");
 });
 
-test("achievements: ten codes with progress", async () => {
+test("achievements: eleven codes with progress", async () => {
   await signedInWithProfile();
   await api.logSession({ played_on: today, minutes: 75, client_request_id: rid() });
   const list = await api.achievements();
-  assert.equal(list.length, 10);
+  assert.equal(list.length, 11);
   const byCode = Object.fromEntries(list.map((a) => [a.code, a]));
   assert.ok(byCode.first_session.earned_at);
   assert.ok(byCode.first_hour.earned_at);

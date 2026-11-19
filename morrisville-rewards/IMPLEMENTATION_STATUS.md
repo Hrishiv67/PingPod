@@ -15,11 +15,11 @@ _Last updated: 2026-11-19 · branch `morrisville-rewards-starter` · app in `mor
 | Area | Status | How it was tested |
 | --- | --- | --- |
 | Schema, RLS, permissions, rate limits, audit log | Done | Live API suite (RLS, denied writes, anon limits); Supabase security advisor |
-| Email + password accounts, persistent login, sign out, password change, delete account | Done | Live browser E2E (sign in, reload, sign out persists); API suite (deletion) |
+| Email-only sign-in (no password, no confirmation email; older password accounts asked once, then switched), persistent login, sign out, delete account; staff keep a real password enforced in the database | Done | Live browser E2E (sign in, reload, sign out persists); API suite (deletion) |
 | Nickname onboarding, avatar color, leaderboard opt-in, privacy toggles | Done | Browser E2E + API suite (case-insensitive uniqueness, blocked words) |
 | Server-timed sessions: start/finish/cancel, one active, idempotent retries, offline finish queue, 90-min check-in, 3-hour auto-stop | Done | API suite; rollback SQL time-logic test (DST, clamping, auto-close); browser E2E (timer restored after reload, 54-min finish) |
 | Log past play (7-day backdate, 5–180 min, duplicate + daily-cap checks) | Done | API suite; browser E2E (duplicate rejected with message) |
-| Leaderboards: minutes (week/month/all), streaks, longest session, SPINDEX, crews; deterministic tie-breaks | Done | API suite; browser E2E (two devices see the same board) |
+| Leaderboards: minutes (week/month/all), SPINDEX (second tab), crews, daily streaks, longest session; deterministic tie-breaks | Done | API suite; browser E2E (two devices see the same board) |
 | Crews: create, invite link/code, join, leave, rename, transfer, remove, new code; membership-history attribution | Done | Browser E2E (2 phones, combined 114 min); API suite; SQL boundary tests |
 | Milestones (10, derived from activity) | Done | API suite; demo tests |
 | SPINDEX: self-reported by default, staff can verify with a note; never computed or imported | Done | API suite; browser E2E ("Self-reported SPINDEX" label) |
@@ -32,10 +32,10 @@ _Last updated: 2026-11-19 · branch `morrisville-rewards-starter` · app in `mor
 Latest results (2026-11-19): `npm test` 22/22 pass · `tsc` clean · `npm run build` clean (no warnings) · live API suite 17/17 pass · rollback-only SQL time-logic test 18/18 pass · live browser E2E (2 phones + staff + iPad) passed · iPhone SE / 15 Pro Max walkthrough with no overflow or errors · production smoke test of `/`, `/join/*`, `/display`, `/poster` passed. Test accounts were removed afterwards; the live database starts empty.
 
 ## UX refinement pass (2026-11-19)
-- Welcome: smaller headline, form above the fold on small iPhones, clear disabled buttons, visible "Forgot password?".
+- Welcome: one email field and **Continue** ("No password needed"). Streaks are daily (days in a row; 3- and 7-day milestones).
 - Home: Start playing / Log past session first, one compact stats strip, recent sessions; the active timer has its own focused view.
 - Less repeated grey text on Rankings, Crew and Me.
-- iPad `/display`: back to the original layout (large QR panel beside the board) by request. Six boards rotate: most minutes, longest streaks, longest session, crew rankings, highest SPINDEX (new; verified ratings marked) and this week. Category-specific labels and units, pilot dates in the header, an invitation row under short lists, and each empty board shows its own message.
+- iPad `/display`: back to the original layout (large QR panel beside the board) by request. Six boards rotate: most minutes, highest SPINDEX (second, by request; verified ratings marked), crew rankings, daily streaks, longest session and this week. Category-specific labels and units, pilot dates in the header, an invitation row under short lists, and each empty board shows its own message.
 - `/admin`: Sessions · Players · Crews · Stats · Settings, with the rest under More; plain labels; staff notes are optional.
 - Tested: demo walkthrough at iPhone SE/14/Pro Max/desktop, display states at iPad portrait/landscape/TV, admin against mocked data, and a live two-phone + iPad run on the real database (test accounts deleted afterwards). Not yet tested: admin against live data, physical devices.
 

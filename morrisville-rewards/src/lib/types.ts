@@ -107,6 +107,8 @@ export interface Me {
   server_now: string;
   profile: Profile | null;
   admin_role?: StaffRole | null;
+  /** On the staff list but still signing in with just an email: staff tools need a password first. */
+  staff_needs_password?: boolean;
   active_session?: PlaySession | null;
   crew?: CrewSummary | null;
   spindex?: SpindexClaim | null;

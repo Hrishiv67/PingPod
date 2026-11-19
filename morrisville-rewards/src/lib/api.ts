@@ -27,6 +27,7 @@ import type {
   SupportRequest,
 } from "./types";
 import { demoApi } from "./demo";
+import { emailKey, normalizeEmail } from "./emailKey";
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
@@ -69,7 +70,7 @@ export class AppError extends Error {
 const OFFLINE_PATTERN = /failed to fetch|load failed|networkerror|network request failed|fetch failed|timed? ?out/i;
 
 const AUTH_MESSAGES: [RegExp, string][] = [
-  [/invalid login credentials/i, "That email and password don't match. Try again, or reset your password."],
+  [/invalid login credentials/i, "That password doesn't match this email. Try again, or ask the front desk."],
   [/already registered|already been registered|user already exists/i, "There's already an account with that email. Sign in instead."],
   [/email not confirmed/i, "Confirm your email first — check your inbox for the link."],
   [/error sending (confirmation|recovery)? ?email|sending email/i, "We couldn't send the email right now. Please ask the front desk for help."],
@@ -138,6 +139,10 @@ export interface Api {
   onAuthChange(cb: (event: AuthEvent, user: AuthUser | null) => void): () => void;
   signUp(email: string, password: string): Promise<{ needsConfirmation: boolean }>;
   signIn(email: string, password: string): Promise<void>;
+  /** Email-only sign-in: signs in or creates the account. "password" = this email already has its own password. */
+  enterWithEmail(email: string): Promise<"in" | "password">;
+  /** After a one-time password sign-in, switch a player account to email-only sign-in. */
+  useEmailOnly(): Promise<void>;
   signOut(): Promise<void>;
   sendPasswordReset(email: string): Promise<void>;
   updatePassword(password: string): Promise<void>;
@@ -250,6 +255,42 @@ const live: Api = {
   async signIn(email, password) {
     try {
       const { error } = await need(supabase).auth.signInWithPassword({ email: email.trim(), password });
+      if (error) throw error;
+    } catch (err) {
+      throw toAppError(err);
+    }
+  },
+  async enterWithEmail(email) {
+    const e = normalizeEmail(email);
+    try {
+      const sb = need(supabase);
+      const key = await emailKey(e);
+      const { error } = await sb.auth.signInWithPassword({ email: e, password: key });
+      if (!error) return "in";
+      if (!/invalid login credentials/i.test(error.message)) throw error;
+      const { data, error: upError } = await sb.auth.signUp({
+        email: e,
+        password: key,
+        options: { emailRedirectTo: `${window.location.origin}/` },
+      });
+      if (upError) {
+        if (/already registered|already been registered|user already exists/i.test(upError.message)) return "password";
+        throw upError;
+      }
+      // Supabase hides "already registered" behind an empty identities list when confirmation is on.
+      if (data.user && data.user.identities && data.user.identities.length === 0) return "password";
+      if (!data.session) throw new AppError("Check your inbox for a link to finish signing up, then come back.");
+      return "in";
+    } catch (err) {
+      throw toAppError(err);
+    }
+  },
+  async useEmailOnly() {
+    try {
+      const sb = need(supabase);
+      const { data } = await sb.auth.getUser();
+      if (!data.user?.email) return;
+      const { error } = await sb.auth.updateUser({ password: await emailKey(data.user.email) });
       if (error) throw error;
     } catch (err) {
       throw toAppError(err);

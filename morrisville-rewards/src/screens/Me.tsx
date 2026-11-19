@@ -105,14 +105,14 @@ export default function MeScreen() {
           <span className="stat-label">Streak</span>
           <span className="stat-value num">
             {s.current_streak}
-            <small>{s.current_streak === 1 ? "wk" : "wks"}</small>
+            <small>{s.current_streak === 1 ? "day" : "days"}</small>
           </span>
         </div>
         <div className="stat-cell">
           <span className="stat-label">Best streak</span>
           <span className="stat-value num">
             {s.longest_streak}
-            <small>{s.longest_streak === 1 ? "wk" : "wks"}</small>
+            <small>{s.longest_streak === 1 ? "day" : "days"}</small>
           </span>
         </div>
       </section>
@@ -149,7 +149,7 @@ export default function MeScreen() {
           <h2>Account</h2>
         </div>
         <div className="list settings-list">
-          {me.admin_role && (
+          {(me.admin_role || me.staff_needs_password) && (
             <Link to="/admin" className="settings-link">
               <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
                 <ShieldCheck size={18} style={{ color: "var(--pink)" }} /> Staff dashboard
@@ -157,12 +157,14 @@ export default function MeScreen() {
               <ChevronRight size={18} />
             </Link>
           )}
-          <button className="settings-link" onClick={() => setPw(true)}>
-            <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <KeyRound size={18} /> Change password
-            </span>
-            <ChevronRight size={18} />
-          </button>
+          {me.admin_role && (
+            <button className="settings-link" onClick={() => setPw(true)}>
+              <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <KeyRound size={18} /> Change staff password
+              </span>
+              <ChevronRight size={18} />
+            </button>
+          )}
           <button className="settings-link" onClick={() => void signOut()}>
             <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
               <LogOut size={18} /> Sign out
@@ -571,12 +573,12 @@ function PasswordSheet({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   return (
-    <Sheet title="Change password" onClose={onClose}>
+    <Sheet title="Change staff password" onClose={onClose}>
       <form
         className="stack"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (pw.length < 6) return setError("Use at least 6 characters.");
+          if (pw.length < 8) return setError("Use at least 8 characters.");
           setBusy(true);
           setError("");
           try {
@@ -589,7 +591,7 @@ function PasswordSheet({ onClose }: { onClose: () => void }) {
           }
         }}
       >
-        <Field label="New password" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} hint="At least 6 characters" />
+        <Field label="New password" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} hint="At least 8 characters. Staff accounts sign in with email and password." />
         {error && <InlineError>{error}</InlineError>}
         <Button type="submit" variant="primary" size="lg" block loading={busy}>
           Save password

@@ -17,7 +17,10 @@ Open https://supabase.com/dashboard/project/apojuerjhvyzjmpanqih
    - **Confirm email: OFF** — required. With it on, Supabase tries to email every new player a
      confirmation link; the built-in mailer only delivers to your own Supabase team, so sign-ups
      fail. Off = players are signed in immediately after creating an account.
-   - Minimum password length: **6** (the app checks the same).
+   - Minimum password length: **6** (the app checks the same). Players never see a password: the
+     app signs them in with just their email (see "Sign-in" in `docs/API.md`). Staff set a real one.
+   - Leave password strength requirements and "leaked password protection" off; they would block
+     the email-derived passwords.
    - Leave "Allow new users to sign up" ON.
 2. **Authentication → URL Configuration**
    - Site URL: `https://pingpod-morrisville-rewards.vercel.app`
@@ -29,8 +32,8 @@ Open https://supabase.com/dashboard/project/apojuerjhvyzjmpanqih
      App passwords). Not the normal Gmail password.
    - Sender email: same Gmail address · Sender name: `PingPod Morrisville Rewards`
    - Gmail allows roughly 500 messages/day — plenty for the pilot.
-   Without SMTP everything works except password-reset emails; staff can't reset passwords, so a
-   player who forgets theirs would create a new account.
+   Without SMTP everything works except password-reset emails, which only staff ever need now
+   (players have no password).
 
 Rate limits: Supabase limits sign-ups/sign-ins per IP address. Everyone on the venue Wi-Fi shares one
 IP; the defaults (about 30 per 5 minutes) are fine for normal traffic. If a busy event triggers

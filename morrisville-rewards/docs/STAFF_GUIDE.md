@@ -11,8 +11,9 @@ handle bookings, door entry or payments, and it never asks for anyone's PingPod 
 ## What customers do
 
 1. Scan the QR code at the front desk or on a table. The app opens in Safari — no download.
-2. First visit: enter an email and create a password, then pick a public nickname and choose
-   whether to appear on the leaderboards.
+2. First visit: type an email and tap **Continue** (no password, no confirmation email), then pick
+   a public nickname and choose whether to appear on the leaderboards. Next time, the same email
+   gets them straight back in, on any phone.
 3. Tap **Start playing** when they begin and **Finish** when they're done. The timer keeps running
    if they lock the phone or close Safari; reopening the app shows it again.
 4. Forgot to start the timer? **Log past play**: pick the day (up to 7 days back) and 30 / 60 / 90 /
@@ -24,6 +25,11 @@ handle bookings, door entry or payments, and it never asks for anyone's PingPod 
 Returning customers stay signed in, so they just open the app and tap Start playing.
 
 ## Becoming staff
+
+- Players sign in with just their email, so anyone who knows an email can open that player's
+  account. That's fine for a leaderboard, but not for staff tools: **staff accounts need their own
+  password** (8+ characters). The staff screen asks for it when you unlock it, and after that you
+  sign in with email + password. Until a staff password is set, the database keeps staff tools shut.
 
 - The first owner opens **/admin** while signed in and enters the one-time staff code they were
   given privately. Codes work once.
@@ -102,7 +108,7 @@ that person's sessions and ratings).
 5. **Never sign in as staff on the iPad.** The board needs no login and shows only public nicknames,
    their stats and crew names.
 
-It rotates through most minutes this week, current streaks, top crews and weekly highlights, and
+It rotates through most minutes this week, highest SPINDEX, crew rankings, daily streaks, longest session and weekly highlights, and
 refreshes itself within seconds when anyone finishes or logs a session. The small "Updated" time in the corner shows freshness;
 if the internet drops it says the data may be out of date instead of pretending to be live.
 
@@ -121,7 +127,7 @@ address set in Settings, so it never points to a test address. Reprint if that a
 | Logging past sessions → How far back | 7 days | How far back players can log |
 | Logging past sessions → Longest session | 180 min | Longest single session a player can log |
 | Crews → Largest crew / Members needed | 8 / 2 | Size limit, and members needed to appear on the board |
-| iPad display → Seconds per screen, Screens to show | 15 s, all 6 screens (minutes, streaks, longest session, crew rankings, highest SPINDEX, this week) | Rotation on the front-desk board |
+| iPad display → Seconds per screen, Screens to show | 15 s, all 6 screens (minutes, highest SPINDEX, crew rankings, daily streaks, longest session, this week) | Rotation on the front-desk board |
 | Rewards → Show rewards to players | Off | Master switch for prizes |
 | **Advanced** (tap to open) | — | QR address, venue name, shortest session (5 min), daily limit (300 min), which leaderboards players see |
 

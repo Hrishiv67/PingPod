@@ -24,6 +24,7 @@ import type {
   SupportRequest,
 } from "./types";
 import { VENUE_TZ, addDays, venueDate, weekStart } from "./time.ts";
+import { emailKey, normalizeEmail } from "./emailKey.ts";
 
 const STORAGE_KEY = "pingpod-morrisville-demo-v2";
 const AUTH_EVENT = "pingpod-demo-auth";
@@ -49,8 +50,8 @@ const DEFAULT_SETTINGS: Settings = {
   default_board_scope: "community",
   display_scope: "community",
   display_rotation_seconds: 15,
-  display_slides: ["minutes", "streaks", "longest", "crews", "spindex", "highlights"],
-  boards_enabled: ["minutes", "streaks", "longest", "spindex", "crews"],
+  display_slides: ["minutes", "spindex", "crews", "streaks", "longest", "highlights"],
+  boards_enabled: ["minutes", "spindex", "crews", "streaks", "longest"],
   rewards_enabled: false,
 };
 const settings = (): Settings => ({
@@ -375,27 +376,31 @@ const cmpTime = (a: string | null, b: string | null) =>
   a === b ? 0 : a === null ? 1 : b === null ? -1 : Date.parse(a) - Date.parse(b);
 
 function streakInfo(days: string[], today = venueDate()) {
-  const weeks = [...new Set(days.map(weekStart))].sort();
+  // Daily streaks: days in a row with a counted session. Alive if the last day is today or yesterday.
+  const unique = [...new Set(days)].sort();
   const runs: { len: number; last: string }[] = [];
   let run = 0;
   let prev: string | null = null;
-  let thirdWeek: string | null = null;
-  for (const w of weeks) {
-    if (prev && addDays(prev, 7) === w) run += 1;
+  let thirdDay: string | null = null;
+  let seventhDay: string | null = null;
+  for (const d of unique) {
+    if (prev && addDays(prev, 1) === d) run += 1;
     else {
       if (prev) runs.push({ len: run, last: prev });
       run = 1;
     }
-    if (run === 3 && !thirdWeek) thirdWeek = w;
-    prev = w;
+    if (run === 3 && !thirdDay) thirdDay = d;
+    if (run === 7 && !seventhDay) seventhDay = d;
+    prev = d;
   }
   if (prev) runs.push({ len: run, last: prev });
-  const lastWeek = addDays(weekStart(today), -7);
+  const yesterday = addDays(today, -1);
   return {
-    cur: Math.max(0, ...runs.filter((r) => r.last >= lastWeek).map((r) => r.len)),
+    cur: Math.max(0, ...runs.filter((r) => r.last >= yesterday).map((r) => r.len)),
     longest: Math.max(0, ...runs.map((r) => r.len)),
-    weeks: weeks.length,
-    thirdWeek,
+    days: unique.length,
+    thirdDay,
+    seventhDay,
   };
 }
 
@@ -432,7 +437,7 @@ function board(s: Stored, metric: Metric, period: Period, scope: Scope): Ranked[
       const info = streakInfo(q.map((x) => x.played_on));
       if (info.cur <= 0) continue;
       const mins = q.reduce((a, x) => a + x.minutes, 0);
-      rows.push({ rank: 0, user_id: p.id, display_name: p.name, avatar_color: p.color, value: info.cur, secondary: info.longest, sessions: info.weeks, detail: null, tie: [], extra: [mins] });
+      rows.push({ rank: 0, user_id: p.id, display_name: p.name, avatar_color: p.color, value: info.cur, secondary: info.longest, sessions: info.days, detail: null, tie: [], extra: [mins] });
     }
     rows.sort((a, b) => b.value - a.value || (b.secondary ?? 0) - (a.secondary ?? 0) || b.extra[0] - a.extra[0] || byName(a.display_name, b.display_name) || a.user_id.localeCompare(b.user_id));
   } else if (metric === "spindex") {
@@ -629,8 +634,10 @@ function achievementsFor(s: Stored): Achievement[] {
     row("minutes_600", "600 club", "Reach 600 total minutes.", 600, Math.min(total, 600), reached[600]),
     row("minutes_1200", "Twenty hours", "Reach 1,200 total minutes.", 1200, Math.min(total, 1200), reached[1200]),
     row("long_session", "Long rally", "Play one session of 2 hours or more.", 120, Math.min(longest, 120), longAt),
-    row("streak_3", "Three-week streak", "Play at least once in three weeks in a row.", 3, Math.min(streak.longest, 3),
-      streak.thirdWeek ? venueDayStartIso(streak.thirdWeek) : null),
+    row("streak_3", "Three-day streak", "Play three days in a row.", 3, Math.min(streak.longest, 3),
+      streak.thirdDay ? venueDayStartIso(streak.thirdDay) : null),
+    row("streak_7", "Seven-day streak", "Play seven days in a row.", 7, Math.min(streak.longest, 7),
+      streak.seventhDay ? venueDayStartIso(streak.seventhDay) : null),
     row("crew_joined", "Crew up", "Create or join a crew.", 1, crewAt ? 1 : 0, crewAt),
     row("regular", "Regular", "Play on 5 different days.", 5, Math.min(days.length, 5), days[4] ?? null),
     row("weekly_top5", "Top five", "Finish a week in the top five for minutes.", 1, top5Week ? 1 : 0,
@@ -773,6 +780,30 @@ export const demoApi: Api = {
     s.signedIn = true;
     save(s);
     emitAuth("SIGNED_IN", authUser(s));
+  },
+  async enterWithEmail(email) {
+    await delay();
+    const e = normalizeEmail(email ?? "");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) fail("That email address doesn't look right.");
+    const key = await emailKey(e);
+    let s = load();
+    if (s.account && s.account.email === e) {
+      if (s.account.pw !== hashPw(key)) return "password";
+    } else {
+      // One demo account per browser: a different email starts a fresh demo.
+      if (s.account) s = fresh();
+      s.account = { id: `demo-${uuid()}`, email: e, pw: hashPw(key) };
+    }
+    s.signedIn = true;
+    save(s);
+    emitAuth("SIGNED_IN", authUser(s));
+    return "in";
+  },
+  async useEmailOnly() {
+    const s = load();
+    requireUser(s);
+    s.account!.pw = hashPw(await emailKey(s.account!.email));
+    save(s);
   },
   async signOut() {
     const s = load();

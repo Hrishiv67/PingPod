@@ -261,7 +261,7 @@ function StatStrip() {
         <span className="stat-label">Streak</span>
         <span className="stat-value num">
           {s.current_streak}
-          <small>{s.current_streak === 1 ? "wk" : "wks"}</small>
+          <small>{s.current_streak === 1 ? "day" : "days"}</small>
         </span>
       </Link>
       <Link to="/crew" className="stat-cell">

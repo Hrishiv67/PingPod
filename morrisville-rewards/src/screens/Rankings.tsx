@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { EyeOff, Info, Trophy, Users } from "lucide-react";
+import { ChevronRight, EyeOff, Info, Trophy, Users } from "lucide-react";
 import { api, errorText } from "../lib/api";
 import { Link } from "../lib/router";
 import { formatDay, formatNumber } from "../lib/time";
@@ -15,7 +15,7 @@ const BOARD_LABEL: Record<BoardKey, string> = {
   longest: "Longest",
   spindex: "SPINDEX",
 };
-const ORDER: BoardKey[] = ["minutes", "crews", "streaks", "longest", "spindex"];
+const ORDER: BoardKey[] = ["minutes", "spindex", "crews", "streaks", "longest"];
 const HAS_PERIOD: BoardKey[] = ["minutes", "crews", "longest"];
 
 export default function Rankings() {
@@ -109,7 +109,7 @@ export default function Rankings() {
             <span>
               {board === "spindex"
                 ? "Ratings players add on their profile. Staff-checked ones say Verified."
-                : "Weeks in a row with at least one session."}
+                : "Days in a row you've played. Miss a full day and it starts over."}
             </span>
           </p>
         )}
@@ -138,7 +138,7 @@ export default function Rankings() {
       ) : players === null ? (
         <LogoLoader label="Loading leaderboard" />
       ) : (
-        <PlayerBoard rows={players} board={board} />
+        <PlayerBoard rows={players} board={board} hasSpindex={Boolean(me.spindex)} />
       )}
     </div>
   );
@@ -149,8 +149,8 @@ function valueOf(board: BoardKey, r: LeaderRow): { value: string; unit: string; 
     case "streaks":
       return {
         value: String(r.value),
-        unit: r.value === 1 ? "week" : "weeks",
-        sub: r.secondary != null && r.secondary > r.value ? `Best ${r.secondary} weeks` : "",
+        unit: r.value === 1 ? "day" : "days",
+        sub: r.secondary != null && r.secondary > r.value ? `Best ${r.secondary} days` : "",
       };
     case "longest":
       return { value: formatNumber(r.value), unit: "min", sub: r.detail ? formatDay(r.detail) : "" };
@@ -161,19 +161,36 @@ function valueOf(board: BoardKey, r: LeaderRow): { value: string; unit: string; 
   }
 }
 
-function PlayerBoard({ rows, board }: { rows: LeaderRow[]; board: BoardKey }) {
+function AddSpindex() {
+  return (
+    <Link to="/me" className="panel spindex-prompt">
+      <span>
+        <strong>Add your SPINDEX</strong>
+        <span>Put your rating on this board. It takes a few seconds.</span>
+      </span>
+      <ChevronRight size={18} aria-hidden />
+    </Link>
+  );
+}
+
+function PlayerBoard({ rows, board, hasSpindex }: { rows: LeaderRow[]; board: BoardKey; hasSpindex: boolean }) {
+  const prompt = board === "spindex" && !hasSpindex ? <AddSpindex /> : null;
   if (!rows.length)
     return (
-      <EmptyState
-        icon={<Trophy size={24} />}
-        title="Nobody's on the board yet"
-        text={board === "spindex" ? "No ratings here yet. Add your SPINDEX on your profile." : "Log a session to be the first name up here."}
-      />
+      <>
+        {prompt}
+        <EmptyState
+          icon={<Trophy size={24} />}
+          title="Nobody's on the board yet"
+          text={board === "spindex" ? "Be the first rating on the SPINDEX board." : "Log a session to be the first name up here."}
+        />
+      </>
     );
   const top = rows.filter((r) => r.rank <= 3);
   const rest = rows.filter((r) => r.rank > 3);
   return (
     <>
+      {prompt}
       <div className="podium" aria-label="Top three">
         {[top[1], top[0], top[2]].map((r, i) =>
           r ? (

@@ -14,7 +14,7 @@ const POLL_MS = 30_000;
 const LIVE_WINDOW_MS = 90_000;
 const PING_DEBOUNCE_MS = 2_000;
 const IDLE_MS = 3_000;
-const KNOWN_SLIDES: DisplaySlide[] = ["minutes", "streaks", "longest", "crews", "spindex", "highlights"];
+const KNOWN_SLIDES: DisplaySlide[] = ["minutes", "spindex", "crews", "streaks", "longest", "highlights"];
 
 const SETTINGS_POLL_MS = 5 * 60_000;
 
@@ -177,10 +177,11 @@ export default function Display() {
   }, []);
 
   // Every board the admin turned on, always in the rotation; an empty board shows its own invitation.
+  // Always in this order (Highest SPINDEX right after Most minutes), whatever order the setting lists.
   const slides = useMemo<DisplaySlide[]>(() => {
-    const wanted = (data?.slides?.length ? data.slides : KNOWN_SLIDES).filter((s): s is DisplaySlide => KNOWN_SLIDES.includes(s));
-    const unique = wanted.filter((s, i) => wanted.indexOf(s) === i);
-    return unique.length ? unique : ["minutes"];
+    const wanted = data?.slides?.length ? data.slides : KNOWN_SLIDES;
+    const list = KNOWN_SLIDES.filter((s) => wanted.includes(s));
+    return list.length ? list : ["minutes"];
   }, [data?.slides]);
 
   const rotationMs = Math.min(60, Math.max(8, Number(data?.rotation_seconds) || 15)) * 1000;
@@ -325,13 +326,13 @@ function Slide({ slide, data, pilot }: { slide: DisplaySlide; data: DisplayData;
     }
     case "streaks":
       return (
-        <SlideFrame title="Longest streaks" subtitle="Weeks in a row with at least one session">
+        <SlideFrame title="Daily streaks" subtitle="Days in a row with at least one session">
           <PlayerRows
             rows={data.streaks}
             value={(r) => String(r.value)}
-            unit={(r) => plural(r.value, "week", "weeks")}
-            meta={(r) => (r.secondary && r.secondary > r.value ? `Best ever ${r.secondary} weeks` : null)}
-            empty={<SlideEmpty title="No streaks running yet." text="Play once a week to start one." />}
+            unit={(r) => plural(r.value, "day", "days")}
+            meta={(r) => (r.secondary && r.secondary > r.value ? `Best ever ${r.secondary} days` : null)}
+            empty={<SlideEmpty title="No streaks running yet." text="Play two days in a row to start one." />}
           />
         </SlideFrame>
       );

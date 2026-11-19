@@ -584,6 +584,31 @@ button.session-row:active {
   flex: none;
   margin-top: 2px;
 }
+.spindex-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-color: var(--pink-line);
+  color: var(--text);
+  text-decoration: none;
+}
+.spindex-prompt > span {
+  display: grid;
+  gap: 2px;
+}
+.spindex-prompt strong {
+  color: var(--pink);
+}
+.spindex-prompt span span {
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+.spindex-prompt svg {
+  flex: none;
+  color: var(--pink);
+}
 .podium {
   display: grid;
   grid-template-columns: 1fr 1.15fr 1fr;

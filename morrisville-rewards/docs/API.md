@@ -54,25 +54,43 @@ timer session — possible duplicate), `too_short` (timer stopped before the min
 | spindex | rating ↓, verified before self-reported, earlier claim ↑, nickname, id |
 | crews | minutes ↓, whoever reached it first ↑, crew name, id |
 
-Streak = consecutive Monday-start weeks with at least one counted session. The current streak stays
-alive through the current week if last week had play.
+Streak = consecutive days (Morrisville calendar) with at least one counted session. The current
+streak stays alive through today if the player played yesterday; it resets after a full missed day.
 
 Public boards exclude players with `show_on_leaderboard = false` or `hidden_by_admin = true`
 (SPINDEX also requires `show_spindex = true`). Crews appear once they have at least
 `crew_min_size` active members and are not hidden or archived.
 
+## Sign-in (email only)
+
+Players never choose a password. Clients derive one from the email and use Supabase's normal
+email + password sign-in:
+
+```
+key = "Pp!" + first 40 hex chars of SHA-256(lowercase(trim(email)) + "|pingpod-morrisville-email-only-v1") + "9"
+1. auth.signInWithPassword(email, key)      → signed in
+2. if "Invalid login credentials": auth.signUp(email, key) → new account, signed in
+3. if signUp says "already registered": the account has its own password (older account or staff).
+   Ask for it once, sign in with it, and for non-staff call auth.updateUser(password: key) so the
+   next sign-in is email-only.
+```
+
+Anyone who knows a player's email can open that player's account — an accepted trade-off for the
+pilot. Staff and owner roles only work once the account has a real password (checked in the
+database by `private.on_email_key`), so the derived key never opens staff tools.
+
 ## Player functions
 
 | Function | Args | Returns | Who |
 | --- | --- | --- | --- |
-| `get_me` | — | jsonb: `server_now`, `profile` (null until a nickname is chosen), `admin_role`, `active_session`, `crew` {id,name,invite_code,is_owner}, `spindex` {id,rating,status,source,verified_at,created_at}, `stats` (below), `settings` (pilot_settings row). Also closes the caller's abandoned timer. | player |
+| `get_me` | — | jsonb: `server_now`, `profile` (null until a nickname is chosen), `admin_role` (owner·staff·null; null until a staff account has its own password), `staff_needs_password` (on the staff list but still email-only), `active_session`, `crew` {id,name,invite_code,is_owner}, `spindex` {id,rating,status,source,verified_at,created_at}, `stats` (below), `settings` (pilot_settings row). Also closes the caller's abandoned timer. | player |
 | `save_profile` | `p_display_name`, `p_avatar_color`='pink' (pink·white·blue·green·orange·purple), `p_show_on_leaderboard`=true, `p_show_spindex`=true | `profiles` row | player |
 | `start_session` | `p_client_request_id` uuid? | `play_sessions` row (status `active`) | player with profile |
 | `checkin_session` | `p_id` | row (sets `last_checkin_at`) | owner of session |
 | `stop_session` | `p_id`, `p_ended_at` timestamptz? (accepted only if within the last 30 min, never future) | row (`approved`, or `cancelled` if under 5 min) | owner of session |
 | `cancel_session` | `p_id` | row (`cancelled`, 0 min) | owner of session |
 | `log_session` | `p_played_on` date, `p_minutes` int, `p_note` text?, `p_client_request_id` uuid? | row (`manual`, `approved`) | player with profile |
-| `get_my_achievements` | — | table: `code, title, description, target, progress, earned_at`. Codes: `first_session, first_hour, minutes_300, minutes_600, minutes_1200, long_session, streak_3, crew_joined, regular` (5 different days), `weekly_top5`. | player |
+| `get_my_achievements` | — | table: `code, title, description, target, progress, earned_at`. Codes: `first_session, first_hour, minutes_300, minutes_600, minutes_1200, long_session, streak_3` (3 days in a row), `streak_7` (7 days in a row), `crew_joined, regular` (5 different days), `weekly_top5`. | player |
 | `create_crew` | `p_name` (3–24 chars) | `crews` row | player with profile |
 | `preview_crew` | `p_code` | jsonb {name, members, max_members} or null | anon |
 | `join_crew` | `p_code` | `crews` row (same crew → returns it) | player with profile |
@@ -161,7 +179,7 @@ does not expose.
 | `auto_approve_timer` | false | boolean — no effect since migration 0009 (sessions always count) |
 | `default_board_scope`, `display_scope` | community | verified·community (see Scope above) |
 | `display_rotation_seconds` | 15 | 8–60 |
-| `display_slides` | minutes, streaks, longest, crews, spindex, highlights | subset of those (≥1) |
+| `display_slides` | minutes, spindex, crews, streaks, longest, highlights | subset of those (≥1); the iPad always shows them in this order |
 | `boards_enabled` | minutes, streaks, longest, spindex, crews | subset of those |
 | `rewards_enabled` | false | boolean (master switch for physical rewards) |
 

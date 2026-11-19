@@ -1981,3 +1981,170 @@ begin
 end $$;
 
 grant execute on function public.get_display_data() to anon, authenticated;
+
+-- ════════ 20261119001100_daily_streaks.sql ════════
+-- Streaks become daily: days in a row with at least one counted session (Morrisville calendar).
+-- A streak stays alive through today if the player played yesterday, so it only breaks after a
+-- full missed day. Milestones: 3 days and 7 days in a row.
+-- Also puts Highest SPINDEX second on the iPad rotation (right after Most minutes).
+
+-- Same signature as before so every caller keeps working. Column `weeks` now holds the number of
+-- distinct days played (it was distinct weeks); the streaks board shows it as "sessions".
+create or replace function private.streaks_all(p_statuses text[], p_user uuid default null)
+returns table (uid uuid, cur int, longest int, weeks int, mins int)
+language sql stable set search_path = '' as $$
+  with q as (
+    select s.user_id, s.played_on, s.minutes from public.play_sessions s
+     where s.status = any (p_statuses) and (p_user is null or s.user_id = p_user)),
+  dy as (select distinct q.user_id, q.played_on d from q),
+  isl as (select dy.user_id, dy.d, dy.d - (row_number() over (partition by dy.user_id order by dy.d))::int g from dy),
+  runs as (select isl.user_id, count(*)::int len, max(isl.d) last_d from isl group by isl.user_id, isl.g)
+  select r.user_id,
+         coalesce(max(r.len) filter (where r.last_d >= private.today() - 1), 0)::int,
+         max(r.len)::int,
+         (select count(*) from dy where dy.user_id = r.user_id)::int,
+         (select coalesce(sum(q.minutes), 0) from q where q.user_id = r.user_id)::int
+    from runs r group by r.user_id $$;
+
+create or replace function public.get_my_achievements()
+returns table (code text, title text, description text, target int, progress int, earned_at timestamptz)
+language plpgsql stable security definer set search_path = '' as $$
+#variable_conflict use_column
+declare v_uid uuid := private.require_user();
+  v_total int; v_sessions int; v_first timestamptz; v_longest int; v_long_at timestamptz;
+  v_t60 timestamptz; v_t300 timestamptz; v_t600 timestamptz; v_t1200 timestamptz;
+  v_streak int; v_streak3_day date; v_streak7_day date; v_crew_at timestamptz; v_days int; v_day5 timestamptz;
+  v_top5_day date;
+begin
+  select coalesce(sum(s.minutes), 0), count(*), min(s.ended_at), coalesce(max(s.minutes), 0), count(distinct s.played_on)
+    into v_total, v_sessions, v_first, v_longest, v_days
+    from public.play_sessions s where s.user_id = v_uid and s.status in ('approved', 'pending');
+  select min(c.ended_at) filter (where c.cum >= 60), min(c.ended_at) filter (where c.cum >= 300),
+         min(c.ended_at) filter (where c.cum >= 600), min(c.ended_at) filter (where c.cum >= 1200)
+    into v_t60, v_t300, v_t600, v_t1200
+    from (select s.ended_at, sum(s.minutes) over (order by s.ended_at, s.id) cum
+            from public.play_sessions s where s.user_id = v_uid and s.status in ('approved', 'pending')) c;
+  select min(s.ended_at) into v_long_at from public.play_sessions s
+   where s.user_id = v_uid and s.status in ('approved', 'pending') and s.minutes >= 120;
+  select d.first_end into v_day5 from (
+    select s.played_on, min(s.ended_at) first_end from public.play_sessions s
+     where s.user_id = v_uid and s.status in ('approved', 'pending') group by s.played_on
+     order by s.played_on offset 4 limit 1) d;
+  with dy as (select distinct s.played_on d from public.play_sessions s
+               where s.user_id = v_uid and s.status in ('approved', 'pending')),
+       isl as (select dy.d, dy.d - (row_number() over (order by dy.d))::int g from dy),
+       pos as (select isl.d, row_number() over (partition by isl.g order by isl.d) p,
+                      count(*) over (partition by isl.g) len from isl)
+  select max(pos.len)::int, min(pos.d) filter (where pos.p = 3), min(pos.d) filter (where pos.p = 7)
+    into v_streak, v_streak3_day, v_streak7_day from pos;
+  select min(m.joined_at) into v_crew_at from public.crew_memberships m where m.user_id = v_uid;
+  with weekly as (
+    select private.week_start(s.played_on) w, s.user_id u, sum(s.minutes) m
+      from public.play_sessions s join public.profiles p on p.id = s.user_id
+     where s.status in ('approved', 'pending') and not p.hidden_by_admin
+       and private.week_start(s.played_on) < private.week_start(private.today())
+     group by 1, 2),
+  ranked as (select weekly.w, weekly.u, rank() over (partition by weekly.w order by weekly.m desc) r from weekly)
+  select min(ranked.w) into v_top5_day from ranked where ranked.u = v_uid and ranked.r <= 5;
+  return query select * from (values
+    ('first_session', 'First session', 'Finish your first playing session.', 1, least(v_sessions, 1), v_first),
+    ('first_hour', 'First hour', 'Play 60 minutes in total.', 60, least(v_total, 60), v_t60),
+    ('minutes_300', '300 club', 'Reach 300 total minutes.', 300, least(v_total, 300), v_t300),
+    ('minutes_600', '600 club', 'Reach 600 total minutes.', 600, least(v_total, 600), v_t600),
+    ('minutes_1200', 'Twenty hours', 'Reach 1,200 total minutes.', 1200, least(v_total, 1200), v_t1200),
+    ('long_session', 'Long rally', 'Play one session of 2 hours or more.', 120, least(v_longest, 120), v_long_at),
+    ('streak_3', 'Three-day streak', 'Play three days in a row.', 3, least(coalesce(v_streak, 0), 3),
+       v_streak3_day::timestamp at time zone 'America/New_York'),
+    ('streak_7', 'Seven-day streak', 'Play seven days in a row.', 7, least(coalesce(v_streak, 0), 7),
+       v_streak7_day::timestamp at time zone 'America/New_York'),
+    ('crew_joined', 'Crew up', 'Create or join a crew.', 1, case when v_crew_at is null then 0 else 1 end, v_crew_at),
+    ('regular', 'Regular', 'Play on 5 different days.', 5, least(coalesce(v_days, 0), 5), v_day5),
+    ('weekly_top5', 'Top five', 'Finish a week in the top five for minutes.', 1,
+       case when v_top5_day is null then 0 else 1 end, (v_top5_day + 7)::timestamp at time zone 'America/New_York')
+  ) as t(code, title, description, target, progress, earned_at);
+end $$;
+
+revoke execute on all functions in schema private from public, anon, authenticated;
+revoke execute on function public.get_my_achievements() from public, anon;
+grant execute on function public.get_my_achievements() to authenticated;
+
+-- iPad rotation: Highest SPINDEX right after Most minutes.
+alter table public.pilot_settings
+  alter column display_slides set default '{minutes,spindex,crews,streaks,longest,highlights}';
+update public.pilot_settings
+   set display_slides = '{minutes,spindex,crews,streaks,longest,highlights}'
+ where id = 1 and display_slides @> '{minutes,spindex,crews,streaks,longest,highlights}';
+
+-- ════════ 20261119001200_staff_need_password.sql ════════
+-- Players now sign in with just their email: the app derives their password from the address
+-- (src/lib/emailKey.ts; the iOS app does the same). Staff tools must never open that way, so a staff
+-- or owner role only takes effect once the account has a password of its own. The check runs here,
+-- on the server, so it holds for every client.
+
+-- True when the account's password is still the email-derived key.
+create or replace function private.on_email_key(p uuid) returns boolean
+language sql stable set search_path = '' as $$
+  select coalesce((
+    select u.encrypted_password is not null and u.encrypted_password <> ''
+       and extensions.crypt(
+             'Pp!' || left(encode(extensions.digest(lower(trim(u.email)) || '|pingpod-morrisville-email-only-v1', 'sha256'), 'hex'), 40) || '9',
+             u.encrypted_password) = u.encrypted_password
+      from auth.users u where u.id = p), false) $$;
+
+create or replace function private.require_admin() returns uuid language plpgsql stable set search_path = '' as $$
+declare v uuid := private.require_user();
+begin
+  if not private.is_admin(v) then raise exception 'Staff access only.'; end if;
+  if private.on_email_key(v) then raise exception 'Set your staff password first: open the staff dashboard.'; end if;
+  return v;
+end $$;
+
+create or replace function private.require_owner() returns uuid language plpgsql stable set search_path = '' as $$
+declare v uuid := private.require_user();
+begin
+  if not exists (select 1 from private.admins where user_id = v and role = 'owner') then
+    raise exception 'Only the pilot owner can change this.';
+  end if;
+  if private.on_email_key(v) then raise exception 'Set your staff password first: open the staff dashboard.'; end if;
+  return v;
+end $$;
+
+-- get_me: admin_role is only reported once the staff password is set; staff_needs_password tells
+-- the app to ask for one. (The bcrypt check only runs for accounts that are in private.admins.)
+create or replace function public.get_me() returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v_uid uuid := private.require_user(); p public.profiles; a public.play_sessions; v_crew jsonb; v_spindex jsonb;
+        v_role text; v_needs_pw boolean := false;
+begin
+  perform private.close_stale_sessions(v_uid);
+  select role into v_role from private.admins where user_id = v_uid;
+  if v_role is not null and private.on_email_key(v_uid) then
+    v_role := null;
+    v_needs_pw := true;
+  end if;
+  select * into p from public.profiles where id = v_uid;
+  if not found then
+    return jsonb_build_object('server_now', clock_timestamp(), 'profile', null, 'admin_role', v_role,
+                              'staff_needs_password', v_needs_pw, 'settings', to_jsonb(private.settings()));
+  end if;
+  select * into a from public.play_sessions where user_id = v_uid and status = 'active';
+  select jsonb_build_object('id', c.id, 'name', c.name, 'invite_code', c.invite_code, 'is_owner', c.owner_id = v_uid)
+    into v_crew from public.crews c where c.id = private.active_crew(v_uid);
+  select jsonb_build_object('id', r.id, 'rating', r.rating, 'status', r.status, 'source', r.source,
+                            'verified_at', r.verified_at, 'created_at', r.created_at)
+    into v_spindex from public.spindex_ratings r
+   where r.user_id = v_uid and r.status in ('unverified', 'verified') order by r.created_at desc limit 1;
+  return jsonb_build_object(
+    'server_now', clock_timestamp(),
+    'profile', to_jsonb(p) - 'hidden_reason',
+    'admin_role', v_role,
+    'staff_needs_password', v_needs_pw,
+    'active_session', case when a.id is null then null else to_jsonb(a) end,
+    'crew', v_crew,
+    'spindex', v_spindex,
+    'stats', private.user_stats(v_uid),
+    'settings', to_jsonb(private.settings()));
+end $$;
+
+revoke execute on all functions in schema private from public, anon, authenticated;
+revoke execute on function public.get_me() from public, anon;
+grant execute on function public.get_me() to authenticated;

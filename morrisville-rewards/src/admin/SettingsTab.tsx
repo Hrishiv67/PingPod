@@ -30,19 +30,19 @@ const NUM_FIELDS: Record<NumKey, { label: string; unit: string; min: number; max
 
 const SLIDES: { value: DisplaySlide; label: string }[] = [
   { value: "minutes", label: "Most minutes this week" },
-  { value: "streaks", label: "Longest streaks" },
-  { value: "longest", label: "Longest session this week" },
-  { value: "crews", label: "Crew rankings" },
   { value: "spindex", label: "Highest SPINDEX" },
+  { value: "crews", label: "Crew rankings" },
+  { value: "streaks", label: "Daily streaks" },
+  { value: "longest", label: "Longest session this week" },
   { value: "highlights", label: "This week's highlights" },
 ];
 
 const BOARDS: { value: BoardKey; label: string }[] = [
   { value: "minutes", label: "Minutes" },
-  { value: "streaks", label: "Streaks" },
-  { value: "longest", label: "Longest session" },
   { value: "spindex", label: "SPINDEX" },
   { value: "crews", label: "Crews" },
+  { value: "streaks", label: "Daily streaks" },
+  { value: "longest", label: "Longest session" },
 ];
 
 type Draft = {

@@ -230,7 +230,9 @@ function Dashboard({ me, onSignOut, refreshMe }: { me: Me; onSignOut: () => void
 }
 
 function StaffAccess({ me, refreshMe, onSignOut }: { me: Me; refreshMe: () => Promise<void>; onSignOut: () => void }) {
+  const setup = Boolean(me.staff_needs_password);
   const [code, setCode] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   return (
@@ -249,20 +251,30 @@ function StaffAccess({ me, refreshMe, onSignOut }: { me: Me; refreshMe: () => Pr
         <div className="adm-gate-icon" aria-hidden>
           <KeyRound size={26} />
         </div>
-        <h1>Staff access</h1>
-        <p>
-          You're signed in as <b>{me.profile?.display_name ?? "a player"}</b>. Enter your one-time staff code to open the staff
-          tools. Other staff are added by an owner.
-        </p>
+        <h1>{setup ? "Set your staff password" : "Staff access"}</h1>
+        {setup ? (
+          <p>
+            You're on the staff list, <b>{me.profile?.display_name ?? "there"}</b>. Players sign in with just an email, so staff
+            accounts need a password before the staff tools open.
+          </p>
+        ) : (
+          <p>
+            You're signed in as <b>{me.profile?.display_name ?? "a player"}</b>. Enter your one-time staff code to open the staff
+            tools. Other staff are added by an owner.
+          </p>
+        )}
         <form
           className="stack"
           onSubmit={async (e) => {
             e.preventDefault();
-            if (!code.trim()) return;
+            if (!setup && !code.trim()) return;
+            if (password.length < 8) return setError("Choose a staff password of at least 8 characters.");
             setBusy(true);
             setError("");
             try {
-              await api.admin.claim(code.trim());
+              // Players sign in with just their email; staff accounts need a real password first.
+              await api.updatePassword(password);
+              if (!setup) await api.admin.claim(code.trim());
               await refreshMe();
             } catch (err) {
               setError(errorText(err));
@@ -271,19 +283,29 @@ function StaffAccess({ me, refreshMe, onSignOut }: { me: Me; refreshMe: () => Pr
             }
           }}
         >
+          {!setup && (
+            <Field
+              label="Staff code"
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              autoCapitalize="characters"
+              autoComplete="one-time-code"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder="XXXX-XXXX-XXXX"
+            />
+          )}
           <Field
-            label="Staff code"
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            autoCapitalize="characters"
-            autoComplete="one-time-code"
-            autoCorrect="off"
-            spellCheck={false}
-            placeholder="XXXX-XXXX-XXXX"
+            label="Staff password"
+            type="password"
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            hint="At least 8 characters. From now on you'll sign in with your email and this password."
           />
           {error && <InlineError>{error}</InlineError>}
-          <Button type="submit" variant="primary" size="lg" block loading={busy} disabled={!code.trim()}>
-            Unlock staff tools
+          <Button type="submit" variant="primary" size="lg" block loading={busy} disabled={(!setup && !code.trim()) || !password}>
+            {setup ? "Save password and open staff tools" : "Unlock staff tools"}
           </Button>
           <Button type="button" variant="ghost" size="lg" block onClick={() => navigate("/")}>
             Back to the app
