@@ -27,48 +27,48 @@ Returning customers stay signed in, so they just open the app and tap Start play
 
 - The first owner opens **/admin** while signed in and enters the one-time staff code they were
   given privately. Codes work once.
-- Owners add other people in **Admin → Staff**: the person must sign up as a customer first; then
-  search for their nickname and choose **Staff** (session fixes and moderation) or **Owner** (also
-  settings, rewards, staff and account deletions).
+- Owners add other people from **Admin → Players**: the person signs up as a customer first, then
+  find them, tap **Manage**, and choose **Make staff** (session fixes and moderation) or **Make owner**
+  (also settings, rewards, staff and account deletions). **Admin → More → Staff** lists everyone
+  with access.
 - Staff access is stored on the server. Nobody can give themselves access by editing their profile.
 
 ## Fixing session mistakes (occasional, not a daily job)
 
-Sessions count the moment a player finishes a timer or logs past play. **Admin → Review** is a list
-of recent sessions so you can spot and fix anything that looks wrong — you don't need to approve
-anything.
+Sessions count the moment a player finishes a timer or logs past play. **Admin → Sessions** lists
+recent sessions so you can spot and fix anything that looks wrong — there's nothing to approve.
 
-| Action | When | Reason needed? |
+| Button | When | |
 | --- | --- | --- |
-| **Adjust minutes** | The number is off (e.g. a forgotten timer) | Yes |
-| **Reject** | Didn't happen, duplicate, or clearly wrong — removes it from all totals | Yes |
-| **Reopen** | Undo a reject or adjustment | Yes |
+| **Fix minutes** | The number is off (e.g. a forgotten timer) | Optional note |
+| **Remove** | Didn't happen, duplicate, or clearly wrong — stops counting everywhere | Optional note (the player sees it) |
+| **Restore** | Undo a removal (under the **Removed** filter) | — |
 
+- Use the **Flagged** filter to see only sessions worth a second look.
+- "N people playing now" at the top shows who has a timer running.
 - You can't change your own sessions — ask another staff member.
-- Every change is recorded in **Admin → Audit log** with who did it, when, and the reason.
+- Every change is recorded in **Admin → More → Activity log** with who did it and when.
 
-Flags worth a glance:
+Flags (shown as yellow labels):
 
-| Flag (as shown in Admin) | Meaning | Suggested action |
+| Flag | Meaning | Suggested action |
 | --- | --- | --- |
-| **Timer ran to the 3-hour limit** | The timer was left running and stopped itself at 3 hours | If you know roughly how long they really played, adjust it |
-| **Hit max length** | The player stopped it at or after the 3-hour cap | Adjust if it looks wrong, or ask them |
-| **Also has a timer session that day** | A logged entry on a day that already has a timer session | Possible duplicate — reject one if it is |
-| **too_short** | Timer stopped under 5 minutes | Already not counted; nothing to do |
-
-Players with removed (rejected) time show a count next to their name.
+| **Timer ran to the 3-hour limit** | The timer was left running and stopped itself | If you know roughly how long they really played, fix the minutes |
+| **Hit max length** | The player stopped it at or after the 3-hour cap | Fix if it looks wrong, or ask them |
+| **Also has a timer session that day** | A logged entry on a day that already has a timer session | Possible duplicate — remove one if it is |
 
 ## Leaderboards
 
 Leaderboards (in the app and on the iPad) show every player's logged minutes, except sessions staff
-have rejected. There's no separate "verified" board. Minutes are self-logged, so treat the rankings
+have removed. There's no separate "verified" board. Minutes are self-logged, so treat the rankings
 as friendly competition rather than an audited record.
 
 ## Moderation
 
-- **Players**: search by nickname. You can **rename** an inappropriate nickname or **hide** a
-  player from public boards and the iPad (their own stats stay visible to them).
-- **Crews**: rename, hide, archive, change the owner, or remove a member.
+- **Players**: search by nickname or email, tap **Manage** → **Change nickname** or **Hide from
+  leaderboards** (hides them from public boards and the iPad; their own stats stay visible to them).
+- **Crews**: tap **Manage** → rename, hide from leaderboards, change owner, remove a member, or
+  **Close crew**.
 - A basic word filter blocks obvious offensive nicknames and crew names; anything else, rename
   or hide it.
 
@@ -78,17 +78,18 @@ Players can add their SPINDEX rating (0–3000). It shows as **Self-reported** e
 verify it. The app is not connected to SPINDEX, PodPlay or PingPod accounts and never calculates
 SPINDEX.
 
-To verify one (**Admin → SPINDEX**): only after you have seen proof in person (for example the
+To verify one (**Admin → More → SPINDEX ratings**): only after you have seen proof in person (for example the
 player shows their SPINDEX profile in the official app). Write how you checked
-("Saw SPINDEX app at front desk 11/20"). You can't verify your own rating. Reject anything you
+("Saw SPINDEX app at front desk 11/20"). You can't verify your own rating. Decline anything you
 can't confirm.
 
 ## Player requests
 
 Players can ask for a correction on a session, a privacy change, or account deletion
-(**Admin → Requests**). Fix what's needed (e.g. adjust the session), write a short reply, and mark it
-resolved. Players can also delete their own account from their profile at any time. Owners can
-delete an account on request from **Players** (a reason is required; this permanently removes
+(**Admin → More → Player requests**; the More tab shows a count when any are open). Fix what's
+needed (**Open in Sessions** jumps to that player's sessions), write a short reply, and tap
+**Resolve** (or **Close** if no action is needed). Players can also delete their own account from their profile at any time. Owners can
+delete an account on request from **Players → Manage → Delete account** (a reason is required; this permanently removes
 that person's sessions and ratings).
 
 ## The iPad scoreboard
@@ -112,41 +113,42 @@ address set in Settings, so it never points to a test address. Reprint if that a
 
 ## Settings (owners)
 
-| Setting | Default | What it does |
+| Section → setting | Default | What it does |
 | --- | --- | --- |
-| Max session length | 180 min | Timers stop and get flagged after this |
-| Check-in reminder | 90 min | "Still playing?" prompt on the player's phone |
-| Manual entry min / max | 5 / 180 min | Allowed range for logged sessions (also the shortest timer that counts) |
-| Backdating | 7 days | How far back players can log |
-| Daily cap | 300 min | Most minutes one player can record on one day |
-| Crew size | 2–8 | Crews need the minimum to appear on the board; can't exceed the maximum |
-| Display rotation | 15 s | Time per iPad screen |
-| Pilot start / end | — | Used for analytics |
-| Public app address | the Vercel URL | Used for the QR code |
+| Pilot dates → Starts / Ends | Nov 23 – Dec 20 | Shown on Stats and used for exports |
+| Timers → Stop timers after | 180 min | A timer left running stops here and gets flagged |
+| Timers → Ask "Still playing?" after | 90 min | Check-in prompt on the player's phone |
+| Logging past sessions → How far back | 7 days | How far back players can log |
+| Logging past sessions → Longest session | 180 min | Longest single session a player can log |
+| Crews → Largest crew / Members needed | 8 / 2 | Size limit, and members needed to appear on the board |
+| iPad display → Seconds per screen, Screens to show | 15 s, 4 screens | Rotation on the front-desk board |
+| Rewards → Show rewards to players | Off | Master switch for prizes |
+| **Advanced** (tap to open) | — | QR address, venue name, shortest session (5 min), daily limit (300 min), which leaderboards players see |
 
 ## Rewards
 
 Physical rewards (free time, merch, discounts) are **off**. Nothing is promised to customers.
-To add one later: create it in **Admin → Rewards**, then turn it on only after Joe approves the
+To add one later: create it in **Admin → More → Rewards**, then turn it on only after Joe approves the
 terms — the app requires an approval note (who approved, how it's fulfilled) before it can be
-enabled, and the master "Rewards" switch in Settings must also be on.
+enabled, and **Show rewards to players** in Settings must also be on.
 
-## Pilot analytics
+## Pilot stats
 
-**Admin → Analytics** shows:
+**Admin → Stats** shows six numbers:
 
-| Metric | Meaning |
+| Tile | Meaning |
 | --- | --- |
-| Registered players | Accounts with a nickname |
-| Players with a session | Logged at least one counted session |
-| Repeat players | Played on 2+ different days / in 2+ different weeks |
-| Sessions / minutes | Counted vs. rejected by staff; timer vs. logged later |
-| Active crews | Crews with enough members, and those with play this week |
-| Weekly table | Per week: active, returning and new players, sessions, minutes, crews with play |
+| Signed up | Accounts with a nickname, against the 20-player goal |
+| Played at least once | Players with at least one counted session, against the goal |
+| Came back | Played in 2 or more different weeks |
+| Sessions | Counted sessions, and how many used the live timer |
+| Minutes played | All counted minutes |
+| Active crews | Crews with enough members, against the 4-crew goal |
 
-**Export CSV** downloads weekly totals, per-player totals, or per-session rows. Exports use codes
-like `P3f9a12c0` instead of names or emails. Pilot goals such as 20+ players and 4+ active crews
-are targets to compare against — report the real numbers.
+Below that, **By week** shows players, returning players, new sign-ups, sessions, minutes and
+crews with play for each week. **Download CSV** gives a weekly summary, one row per player, or one
+row per session — with codes like `P3f9a12c0` instead of names or emails. Goals are targets to
+compare against; report the real numbers.
 
 ## Privacy commitments
 
