@@ -5,7 +5,8 @@ import { navigate } from "../lib/router";
 import { KEYS, store } from "../lib/storage";
 import type { CrewPreview } from "../lib/types";
 import { useApp } from "../state";
-import { Button, EmptyState, InlineError, Skeleton, useToast } from "../components/ui";
+import { Button, EmptyState, InlineError, useToast } from "../components/ui";
+import LogoLoader from "../components/LogoLoader";
 
 export default function JoinCrew({ code }: { code: string }) {
   const { me, refresh, bump } = useApp();
@@ -30,7 +31,7 @@ export default function JoinCrew({ code }: { code: string }) {
   if (preview === undefined)
     return (
       <div className="page">
-        <Skeleton count={2} height={120} />
+        <LogoLoader label="Loading invite" />
       </div>
     );
   if (!preview)

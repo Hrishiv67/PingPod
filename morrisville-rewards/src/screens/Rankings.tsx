@@ -5,7 +5,8 @@ import { Link } from "../lib/router";
 import { formatDay, formatNumber } from "../lib/time";
 import type { BoardKey, CrewRow, LeaderRow, Period, Scope } from "../lib/types";
 import { useApp } from "../state";
-import { Avatar, Chip, EmptyState, InlineError, Segmented, Skeleton } from "../components/ui";
+import { Avatar, Chip, EmptyState, InlineError, Segmented } from "../components/ui";
+import LogoLoader from "../components/LogoLoader";
 
 const BOARD_LABEL: Record<BoardKey, string> = {
   minutes: "Minutes",
@@ -130,12 +131,12 @@ export default function Rankings() {
         <InlineError onRetry={() => void load()}>{error}</InlineError>
       ) : board === "crews" ? (
         crews === null ? (
-          <Skeleton count={5} height={60} />
+          <LogoLoader label="Loading leaderboard" />
         ) : (
           <CrewBoard rows={crews} minSize={me.settings.crew_min_size} />
         )
       ) : players === null ? (
-        <Skeleton count={5} height={60} />
+        <LogoLoader label="Loading leaderboard" />
       ) : (
         <PlayerBoard rows={players} board={board} />
       )}

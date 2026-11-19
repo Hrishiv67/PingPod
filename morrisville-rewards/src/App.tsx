@@ -7,6 +7,7 @@ import type { Me, PlaySession } from "./lib/types";
 import { AppCtx, type AppState } from "./state";
 import { Logo, PingPodMark } from "./components/Logo";
 import Splash, { shouldShowSplash } from "./components/Splash";
+import LogoLoader from "./components/LogoLoader";
 import { Avatar, Button, InlineError, useOnline } from "./components/ui";
 import Welcome from "./screens/Welcome";
 import Onboarding from "./screens/Onboarding";
@@ -23,10 +24,7 @@ const AdminApp = lazy(() => import("./admin/AdminApp"));
 
 export function Boot({ label = "Loading" }: { label?: string }) {
   return (
-    <div className="boot" role="status">
-      <PingPodMark height={30} />
-      <span>{label}…</span>
-    </div>
+    <LogoLoader full size={34} label={`${label}…`} />
   );
 }
 

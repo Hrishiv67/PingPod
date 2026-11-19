@@ -920,7 +920,8 @@ button.session-row:active {
    Short and purposeful. Everything collapses to instant under
    prefers-reduced-motion (see tokens.css); the splash is skipped there. */
 
-/* Opening animation: table slides together, net rises, ball drops, wordmark lands. */
+/* Opening animation: the intact mark resolves from a soft blur, the ball pops once in place,
+   the wordmark sweeps in, then everything dissolves into the app. */
 .splash {
   position: fixed;
   inset: 0;
@@ -929,39 +930,24 @@ button.session-row:active {
   place-items: center;
   background: #000;
   cursor: pointer;
-  animation: splash-out 0.36s ease 1.26s forwards;
+  animation: splash-out 0.38s ease 1.26s forwards;
 }
 .splash-inner {
   display: grid;
   justify-items: center;
-  gap: 14px;
+  gap: 16px;
   transform: translateY(-4vh);
 }
 .splash-mark {
-  width: min(58vw, 230px);
+  width: min(56vw, 220px);
   height: auto;
   overflow: visible;
+  animation: splash-mark-in 0.62s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
-.splash-mark path,
-.splash-mark circle {
+.splash-ball {
   transform-box: fill-box;
   transform-origin: center;
-}
-.sp-left {
-  animation: sp-left 0.5s cubic-bezier(0.2, 0.9, 0.25, 1) both;
-}
-.sp-right {
-  animation: sp-right 0.5s cubic-bezier(0.2, 0.9, 0.25, 1) both;
-}
-.sp-net {
-  transform-origin: bottom center;
-  animation: sp-net 0.34s cubic-bezier(0.3, 1.5, 0.5, 1) 0.3s both;
-}
-.sp-wedge {
-  animation: sp-wedge 0.34s cubic-bezier(0.2, 0.9, 0.25, 1) 0.38s both;
-}
-.sp-ball {
-  animation: sp-ball 0.62s cubic-bezier(0.35, 0, 0.45, 1) 0.46s both;
+  animation: splash-ball-pop 0.42s cubic-bezier(0.3, 1.6, 0.5, 1) 0.5s both;
 }
 .splash-word {
   font-family: var(--font-display);
@@ -970,7 +956,7 @@ button.session-row:active {
   line-height: 1;
   letter-spacing: 0.08em;
   color: #fff;
-  animation: sp-word 0.5s cubic-bezier(0.2, 0.9, 0.25, 1) 0.74s both;
+  animation: splash-wipe 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) 0.56s both;
 }
 .splash-sub {
   margin-top: -6px;
@@ -980,62 +966,38 @@ button.session-row:active {
   letter-spacing: 0.32em;
   text-transform: uppercase;
   color: var(--pink);
-  animation: sp-fade 0.4s ease 0.96s both;
+  animation: splash-fade 0.4s ease 0.86s both;
 }
-@keyframes sp-left {
+@keyframes splash-mark-in {
   from {
     opacity: 0;
-    transform: translateX(-48px) skewX(-10deg);
+    transform: scale(0.9);
+    filter: blur(10px);
   }
-}
-@keyframes sp-right {
-  from {
-    opacity: 0;
-    transform: translateX(48px) skewX(-10deg);
-  }
-}
-@keyframes sp-net {
-  from {
-    opacity: 0;
-    transform: scaleY(0);
-  }
-}
-@keyframes sp-wedge {
-  from {
-    opacity: 0;
-    transform: translate(-14px, 10px);
-  }
-}
-@keyframes sp-ball {
-  0% {
-    opacity: 0;
-    transform: translateY(-80px);
-  }
-  42% {
+  to {
     opacity: 1;
-    transform: translateY(0);
-  }
-  62% {
-    transform: translateY(-18px);
-  }
-  80% {
-    transform: translateY(0);
-  }
-  90% {
-    transform: translateY(-5px);
-  }
-  100% {
-    transform: translateY(0);
+    transform: none;
+    filter: blur(0);
   }
 }
-@keyframes sp-word {
+@keyframes splash-ball-pop {
+  45% {
+    transform: scale(1.3);
+  }
+}
+@keyframes splash-wipe {
   from {
     opacity: 0;
-    letter-spacing: 0.34em;
-    transform: translateY(8px);
+    clip-path: inset(0 100% 0 0);
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+    transform: none;
   }
 }
-@keyframes sp-fade {
+@keyframes splash-fade {
   from {
     opacity: 0;
     transform: translateY(4px);
@@ -1045,7 +1007,51 @@ button.session-row:active {
   to {
     opacity: 0;
     visibility: hidden;
-    transform: scale(1.04);
+  }
+}
+
+/* Loading: a dim PingPod mark with a soft light sweeping across it. Appears after a short
+   delay so quick loads don't flash. */
+.logo-loader {
+  display: grid;
+  place-items: center;
+  padding: 56px 0;
+  animation: loader-in 0.25s ease 0.12s backwards;
+}
+.logo-loader-full {
+  min-height: 100dvh;
+  padding: 0;
+}
+.logo-loader-mark {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  color: #fff;
+}
+.logo-loader-mark > svg {
+  opacity: 0.18;
+}
+.logo-loader-shine {
+  position: absolute;
+  inset: 0;
+  opacity: 0.85;
+  clip-path: inset(0 100% 0 0);
+  animation: loader-sweep 1.5s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+@keyframes loader-sweep {
+  0% {
+    clip-path: inset(0 100% 0 0);
+  }
+  50% {
+    clip-path: inset(0 0 0 0);
+  }
+  100% {
+    clip-path: inset(0 0 0 100%);
+  }
+}
+@keyframes loader-in {
+  from {
+    opacity: 0;
   }
 }
 

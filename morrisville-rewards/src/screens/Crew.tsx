@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import LogoLoader from "../components/LogoLoader";
 import { Copy, Crown, MoreHorizontal, RefreshCw, Share2, Users } from "lucide-react";
 import { api, errorText } from "../lib/api";
 import { formatNumber } from "../lib/time";
@@ -55,7 +56,7 @@ export default function Crew() {
   if (crew === undefined)
     return (
       <div className="page">
-        <Skeleton count={4} height={88} />
+        <LogoLoader label="Loading crew" />
       </div>
     );
   return crew ? <CrewView crew={crew} onChanged={changed} /> : <NoCrew onChanged={changed} />;

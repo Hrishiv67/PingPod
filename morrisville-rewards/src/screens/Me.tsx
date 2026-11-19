@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import LogoLoader from "../components/LogoLoader";
 import { Award, ChevronRight, KeyRound, LogOut, ShieldCheck, Trash2 } from "lucide-react";
 import { api, errorText } from "../lib/api";
 import { Link } from "../lib/router";
@@ -263,7 +264,7 @@ function Achievements({ version }: { version: number }) {
       {error ? (
         <InlineError onRetry={load}>{error}</InlineError>
       ) : !items ? (
-        <Skeleton count={2} height={80} />
+        <LogoLoader label="Loading milestones" />
       ) : (
         <div className="badges">
           {[...items].sort(BADGE_ORDER).map((a) => (
