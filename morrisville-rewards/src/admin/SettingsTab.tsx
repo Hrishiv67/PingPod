@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, errorText } from "../lib/api";
 import type { BoardKey, DisplaySlide, Scope, Settings } from "../lib/types";
-import { Button, InlineError, Skeleton, Toggle, useToast } from "../components/ui";
+import { Button, InlineError, Toggle, useToast } from "../components/ui";
+import LogoLoader from "../components/LogoLoader";
 import { formatDateTime } from "../lib/time";
 import { Note, OwnerOnly, SectionHead } from "./shared";
 
@@ -137,7 +138,7 @@ export default function SettingsTab({
       })
     : [];
 
-  if (!draft || !base) return <section className="adm-section"><SectionHead title="Settings" /><Skeleton height={64} count={6} /></section>;
+  if (!draft || !base) return <section className="adm-section"><SectionHead title="Settings" /><LogoLoader label="Loading settings" /></section>;
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => (d ? { ...d, [k]: v } : d));
   const toggleIn = <T extends string>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);

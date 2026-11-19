@@ -24,6 +24,12 @@ handle bookings, door entry or payments, and it never asks for anyone's PingPod 
 
 Returning customers stay signed in, so they just open the app and tap Start playing.
 
+## Photos, bios and crew mottos
+
+Players can add a profile photo (shown on the leaderboard, crew pages and the iPad) and a short bio;
+crew owners can pick a crew color, emblem and motto. If anything is inappropriate: **Players → Manage →
+Remove photo / Clear bio**, or **Crews → Manage → Clear motto**. Every change is in the activity log.
+
 ## Becoming staff
 
 - Players sign in with just their email, so anyone who knows an email can open that player's

@@ -6,7 +6,8 @@ import { KEYS, newRequestId, store, type PendingStop } from "../lib/storage";
 import { elapsedMs, formatClock, formatDuration, formatTime, relativeDay } from "../lib/time";
 import type { PlaySession, Reward } from "../lib/types";
 import { useApp } from "../state";
-import { Button, ConfirmSheet, InlineError, Sheet, Skeleton, StatusChip, useToast } from "../components/ui";
+import { Button, ConfirmSheet, InlineError, Sheet, StatusChip, useToast } from "../components/ui";
+import LogoLoader from "../components/LogoLoader";
 import LogPlaySheet from "./LogPlaySheet";
 import CountUp from "../components/CountUp";
 
@@ -298,7 +299,7 @@ function RecentSessions({ version }: { version: number }) {
       {error ? (
         <InlineError onRetry={load}>{error}</InlineError>
       ) : !rows ? (
-        <Skeleton count={2} height={64} />
+        <LogoLoader label="Loading sessions" />
       ) : rows.length === 0 ? (
         <div className="list empty-row">No sessions yet.</div>
       ) : (

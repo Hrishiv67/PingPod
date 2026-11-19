@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import QRCode from "qrcode";
 import { Maximize, Minimize, RefreshCw } from "lucide-react";
-import { api, errorText } from "../lib/api";
+import { api, avatarUrl, errorText } from "../lib/api";
+import { emblemIcon } from "../components/CrewBadge";
+import LogoLoader from "../components/LogoLoader";
 import type { DisplayCrew, DisplayData, DisplayPlayer, DisplaySlide, Settings } from "../lib/types";
 import { Logo, PingPodMark } from "../components/Logo";
 import { addDays, formatNumber, formatTime, timeAgo, venueDate } from "../lib/time";
@@ -202,7 +204,7 @@ export default function Display() {
   if (!data) {
     return (
       <div className="display display-connecting">
-        <PingPodMark height={56} />
+        <LogoLoader size={56} label="Loading the leaderboard" />
         <h1>{loading ? "Loading the leaderboard…" : "Connecting to the leaderboard…"}</h1>
         {!loading && (
           <>
@@ -419,6 +421,25 @@ function initials(name: string): string {
   );
 }
 
+function RowAvatar({ row }: { row: DisplayPlayer }) {
+  const [broken, setBroken] = useState(false);
+  const src = broken ? null : avatarUrl(row.avatar_path);
+  return (
+    <span className={`row-avatar avatar avatar-${row.avatar_color || "pink"} ${src ? "has-photo" : ""}`} aria-hidden>
+      {src ? <img src={src} alt="" onError={() => setBroken(true)} /> : initials(row.display_name)}
+    </span>
+  );
+}
+
+function CrewEmblem({ crew }: { crew: DisplayCrew }) {
+  const Icon = emblemIcon(crew.emblem);
+  return (
+    <span className={`row-emblem avatar-${crew.color ?? "pink"}`} aria-hidden>
+      <Icon strokeWidth={2.4} />
+    </span>
+  );
+}
+
 /** One quiet invitation row under a short list, instead of a half-empty board. */
 function NextUp({ crews = false, index }: { crews?: boolean; index: number }) {
   return (
@@ -460,9 +481,7 @@ function PlayerRows({
             style={{ "--i": i } as CSSProperties}
           >
             <span className="row-rank num">{r.rank}</span>
-            <span className={`row-avatar avatar avatar-${r.avatar_color || "pink"}`} aria-hidden>
-              {initials(r.display_name)}
-            </span>
+            <RowAvatar row={r} />
             <span className="row-name">
               <span className="row-name-line">
                 <span className="row-name-text">{r.display_name}</span>
@@ -491,10 +510,11 @@ function CrewRows({ rows }: { rows: DisplayCrew[] }) {
       {shown.map((c, i) => (
         <li key={`${c.rank}-${c.name}`} className={`row ${c.rank <= 3 ? `row-top row-${c.rank}` : ""}`} style={{ "--i": i } as CSSProperties}>
           <span className="row-rank num">{c.rank}</span>
+          <CrewEmblem crew={c} />
           <span className="row-name">
             <span className="row-name-text">{c.name}</span>
             <span className="row-meta">
-              {c.members} {plural(c.members, "player", "players")} · {formatNumber(c.avg_minutes)} min each
+              {c.motto || `${c.members} ${plural(c.members, "player", "players")} · ${formatNumber(c.avg_minutes)} min each`}
             </span>
           </span>
           <span className="row-value">

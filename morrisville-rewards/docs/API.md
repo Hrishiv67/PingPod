@@ -112,6 +112,23 @@ rank_week_verified, rank_week_community, ranked_week_verified, ranked_week_commu
 streaks count pending + approved; ranks are null when not ranked or opted out). With no approval
 step, `*_pending` values are normally 0 — clients can show `*_verified + *_pending` as one total.
 
+### Profiles, photos, crew look
+
+| Function | Args | Returns | Who |
+| --- | --- | --- | --- |
+| `save_bio` | `p_bio` text (≤140, null clears) | `profiles` row | player with profile |
+| `set_avatar` | `p_path` text — `<user id>/<name>.jpg` already uploaded to the public `avatars` bucket; null removes | `profiles` row | player with profile |
+| `get_player_card` | `p_user_id` | jsonb: `user_id, display_name, avatar_color, avatar_path, bio, member_since, is_me, crew{name,color,emblem,motto}, week_minutes, total_minutes, sessions, current_streak, longest_streak, rank_week, spindex{rating,verified}` (players hidden from boards are only visible to crewmates) | player |
+| `set_crew_style` | `p_color` (avatar colors), `p_motto` (≤60, optional), `p_emblem` users·flame·bolt·crown·target·rocket·star·shield | `crews` row | crew owner |
+| `remove_my_session` | `p_id` | row (`cancelled`, reason "Removed by player"; stops counting everywhere) | owner of session |
+
+Photos: upload with Supabase Storage to bucket `avatars`, path `<auth user id>/<anything>.jpg` (players can only
+write their own folder; max 512 KB; jpeg/png/webp), then call `set_avatar`. Public URL:
+`<project url>/storage/v1/object/public/avatars/<avatar_path>`. The web app resizes to a 320×320 JPEG first.
+`get_leaderboard`, `get_my_crew` members and `get_display_data` rows include `avatar_path`;
+`get_crew_leaderboard`, `preview_crew` and display `crews[]` include `color, emblem, motto`.
+Staff: `admin_moderate_player` actions `clear_photo`, `clear_bio`; `admin_moderate_crew` action `clear_motto`.
+
 ## Public boards (anon + player)
 
 | Function | Args | Returns |

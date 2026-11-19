@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import LogoLoader from "../components/LogoLoader";
-import { Award, ChevronRight, KeyRound, LogOut, ShieldCheck, Trash2 } from "lucide-react";
+import { Award, Camera, ChevronRight, KeyRound, LogOut, ShieldCheck, Trash2 } from "lucide-react";
 import { api, errorText } from "../lib/api";
 import { Link } from "../lib/router";
 import { formatDateTime, formatDay, formatDuration, formatNumber, formatTime } from "../lib/time";
@@ -15,7 +15,6 @@ import {
   InlineError,
   ProgressBar,
   Sheet,
-  Skeleton,
   StatusChip,
   Toggle,
   useToast,
@@ -56,9 +55,12 @@ export default function MeScreen() {
   return (
     <div className="page">
       <section className="profile-head">
-        <Avatar name={p.display_name} color={p.avatar_color} size={68} />
+        <button type="button" className="profile-photo" onClick={() => setEditing(true)} aria-label="Change photo">
+          <Avatar name={p.display_name} color={p.avatar_color} path={p.avatar_path} size={72} />
+        </button>
         <div style={{ minWidth: 0 }}>
           <h1>{p.display_name}</h1>
+          {p.bio && <p className="profile-bio">{p.bio}</p>}
           <div className="profile-chips">
             {p.hidden_by_admin ? (
               <Chip tone="warn">Hidden by staff</Chip>
@@ -67,7 +69,11 @@ export default function MeScreen() {
             ) : (
               <Chip>Private</Chip>
             )}
-            {me.crew && <Chip>{me.crew.name}</Chip>}
+            {me.crew && (
+              <Link to="/crew" className="chip chip-crew">
+                {me.crew.name}
+              </Link>
+            )}
           </div>
         </div>
         <Button variant="secondary" size="sm" className="profile-edit" onClick={() => setEditing(true)}>
@@ -195,11 +201,70 @@ function EditProfileSheet({ onClose }: { onClose: () => void }) {
   const p = me.profile!;
   const [name, setName] = useState(p.display_name);
   const [color, setColor] = useState<AvatarColor>(p.avatar_color);
+  const [bio, setBio] = useState(p.bio ?? "");
   const [busy, setBusy] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [error, setError] = useState("");
   const problem = nicknameProblem(name);
+
+  async function pickPhoto(file: File | undefined) {
+    if (!file) return;
+    setPhotoBusy(true);
+    setError("");
+    try {
+      await api.uploadAvatar(file);
+      await refresh();
+      bump();
+      toast("Photo updated.");
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+  async function dropPhoto() {
+    setPhotoBusy(true);
+    setError("");
+    try {
+      await api.removeAvatar();
+      await refresh();
+      bump();
+      toast("Photo removed.");
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
   return (
     <Sheet title="Edit profile" onClose={onClose}>
+      <div className="photo-edit">
+        <span className="photo-edit-avatar">
+          <Avatar name={name || p.display_name} color={color} path={p.avatar_path} size={88} />
+          {photoBusy && <span className="photo-edit-busy"><LogoLoader size={18} label="Saving photo" /></span>}
+        </span>
+        <div className="photo-edit-actions">
+          <label className={`btn btn-secondary btn-md ${photoBusy ? "is-disabled" : ""}`}>
+            <Camera size={16} aria-hidden /> {p.avatar_path ? "Change photo" : "Add a photo"}
+            <input
+              type="file"
+              accept="image/*"
+              hidden
+              disabled={photoBusy}
+              onChange={(e) => {
+                void pickPhoto(e.target.files?.[0]);
+                e.target.value = "";
+              }}
+            />
+          </label>
+          {p.avatar_path && (
+            <button type="button" className="link-btn" disabled={photoBusy} onClick={() => void dropPhoto()}>
+              Remove photo
+            </button>
+          )}
+        </div>
+      </div>
       <form
         className="stack"
         onSubmit={async (e) => {
@@ -214,6 +279,7 @@ function EditProfileSheet({ onClose }: { onClose: () => void }) {
               show_on_leaderboard: p.show_on_leaderboard,
               show_spindex: p.show_spindex,
             });
+            if (bio.trim() !== (p.bio ?? "")) await api.saveBio(bio);
             await refresh();
             bump();
             toast("Profile saved.");
@@ -226,7 +292,21 @@ function EditProfileSheet({ onClose }: { onClose: () => void }) {
       >
         <Field label="Nickname" maxLength={20} value={name} onChange={(e) => setName(e.target.value)} error={name && problem ? problem : undefined} />
         <div className="stack-sm">
-          <span className="label">Avatar color</span>
+          <label className="label" htmlFor="bio">
+            Bio
+          </label>
+          <textarea
+            id="bio"
+            className="input"
+            rows={2}
+            maxLength={140}
+            placeholder="Optional · e.g. Backhand loops, Tuesday nights"
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+          />
+        </div>
+        <div className="stack-sm">
+          <span className="label">Color</span>
           <ColorPicker value={color} onChange={setColor} name={name} />
         </div>
         {error && <InlineError>{error}</InlineError>}
@@ -435,7 +515,7 @@ function History({ version }: { version: number }) {
       {error ? (
         <InlineError onRetry={load}>{error}</InlineError>
       ) : !rows ? (
-        <Skeleton count={3} height={64} />
+        <LogoLoader label="Loading history" />
       ) : rows.length === 0 ? (
         <div className="list empty-row">No sessions yet.</div>
       ) : (
@@ -459,8 +539,9 @@ function History({ version }: { version: number }) {
 
 function SessionSheet({ s, onClose }: { s: PlaySession; onClose: () => void }) {
   const toast = useToast();
-  const { bump } = useApp();
+  const { bump, refresh } = useApp();
   const [asking, setAsking] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -526,10 +607,31 @@ function SessionSheet({ s, onClose }: { s: PlaySession; onClose: () => void }) {
         </form>
       ) : (
         s.status !== "cancelled" && (
-          <Button variant="secondary" block onClick={() => setAsking(true)}>
-            Request a correction
-          </Button>
+          <div className="stack-sm">
+            <Button variant="secondary" block onClick={() => setAsking(true)}>
+              Request a correction
+            </Button>
+            <button type="button" className="link-btn quiet" onClick={() => setRemoving(true)}>
+              Remove this session
+            </button>
+          </div>
         )
+      )}
+      {removing && (
+        <ConfirmSheet
+          title="Remove this session?"
+          body={<p>These {s.minutes} minutes stop counting on the leaderboard, your streak and your crew.</p>}
+          confirmLabel="Remove session"
+          danger
+          onClose={() => setRemoving(false)}
+          onConfirm={async () => {
+            await api.removeSession(s.id);
+            toast("Session removed.");
+            await refresh();
+            bump();
+            onClose();
+          }}
+        />
       )}
     </Sheet>
   );

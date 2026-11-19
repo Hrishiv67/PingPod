@@ -6,6 +6,7 @@ import type { AdminApi, Api, AuthEvent, AuthUser, LogInput, ProfileInput } from 
 import type {
   Achievement,
   AvatarColor,
+  CrewEmblem,
   CrewMember,
   CrewPreview,
   CrewRow,
@@ -16,6 +17,7 @@ import type {
   MyCrew,
   Period,
   PlaySession,
+  PlayerCard,
   Profile,
   Scope,
   Settings,
@@ -25,6 +27,7 @@ import type {
 } from "./types";
 import { VENUE_TZ, addDays, venueDate, weekStart } from "./time.ts";
 import { emailKey, normalizeEmail } from "./emailKey.ts";
+import { squareJpegDataUrl } from "./image.ts";
 
 const STORAGE_KEY = "pingpod-morrisville-demo-v2";
 const AUTH_EVENT = "pingpod-demo-auth";
@@ -75,7 +78,11 @@ interface StoredCrew {
   owner_id: string | null;
   archived_at: string | null;
   created_at: string;
+  color?: AvatarColor;
+  emblem?: CrewEmblem;
+  motto?: string | null;
 }
+const EMBLEMS: CrewEmblem[] = ["users", "flame", "bolt", "crown", "target", "rocket", "star", "shield"];
 interface StoredMembership {
   crew_id: string;
   user_id: string;
@@ -263,9 +270,9 @@ const SAMPLE_PLAYERS: SamplePlayer[] = [
   { id: "sample-taylor", name: "Sample · Taylor", color: "blue", weekly: [45, 0, 0, 0, 0, 0], perWeek: 1 },
 ];
 const SAMPLE_CREWS = [
-  { id: "sample-crew-1", name: "Sample · Spin Doctors", invite_code: "DEMO2027", members: ["sample-riley", "sample-jordan", "sample-casey"] },
-  { id: "sample-crew-2", name: "Sample · Net Gains", invite_code: "NETGAINS", members: ["sample-sam", "sample-alex"] },
-  { id: "sample-crew-3", name: "Sample · Topspin Club", invite_code: "TOPSPIN8", members: ["sample-morgan", "sample-taylor"] },
+  { id: "sample-crew-1", name: "Sample · Spin Doctors", invite_code: "DEMO2027", members: ["sample-riley", "sample-jordan", "sample-casey"], color: "blue" as AvatarColor, emblem: "bolt" as CrewEmblem, motto: "Spin it to win it" },
+  { id: "sample-crew-2", name: "Sample · Net Gains", invite_code: "NETGAINS", members: ["sample-sam", "sample-alex"], color: "green" as AvatarColor, emblem: "target" as CrewEmblem, motto: null },
+  { id: "sample-crew-3", name: "Sample · Topspin Club", invite_code: "TOPSPIN8", members: ["sample-morgan", "sample-taylor"], color: "orange" as AvatarColor, emblem: "flame" as CrewEmblem, motto: "Every Tuesday" },
 ];
 const SAMPLE_JOINED = () => iso(Date.now() - 120 * DAY);
 
@@ -325,6 +332,8 @@ interface BoardPlayer {
   id: string;
   name: string;
   color: AvatarColor;
+  avatar: string | null;
+  bio: string | null;
   public: boolean;
   showSpindex: boolean;
   sessions: PlaySession[];
@@ -338,6 +347,8 @@ function players(s: Stored): BoardPlayer[] {
     id: p.id,
     name: p.name,
     color: p.color,
+    avatar: null,
+    bio: null,
     public: true,
     showSpindex: true,
     sessions: samples.get(p.id) ?? [],
@@ -351,6 +362,8 @@ function players(s: Stored): BoardPlayer[] {
       id: s.account.id,
       name: s.profile.display_name,
       color: s.profile.avatar_color,
+      avatar: s.profile.avatar_path ?? null,
+      bio: s.profile.bio ?? null,
       public: s.profile.show_on_leaderboard && !s.profile.hidden_by_admin,
       showSpindex: s.profile.show_spindex,
       sessions: s.sessions,
@@ -453,7 +466,8 @@ function board(s: Stored, metric: Metric, period: Period, scope: Scope): Ranked[
   } else {
     fail("Unknown leaderboard.");
   }
-  rows = rows.map((r, i) => ({ ...r, rank: i + 1 }));
+  const photo = new Map(eligible.map((p) => [p.id, p.avatar]));
+  rows = rows.map((r, i) => ({ ...r, rank: i + 1, avatar_path: photo.get(r.user_id) ?? null }));
   return rows.map(({ tie: _tie, extra: _extra, ...r }) => r);
 }
 
@@ -466,6 +480,9 @@ interface CrewRecord {
   archived_at: string | null;
   created_at: string;
   sample: boolean;
+  color: AvatarColor;
+  emblem: CrewEmblem;
+  motto: string | null;
 }
 interface MembershipRecord {
   crew_id: string;
@@ -477,8 +494,8 @@ interface MembershipRecord {
 function crewRecords(s: Stored): CrewRecord[] {
   const joined = SAMPLE_JOINED();
   return [
-    ...SAMPLE_CREWS.map((c) => ({ id: c.id, name: c.name, invite_code: c.invite_code, owner_id: c.members[0], archived_at: null, created_at: joined, sample: true })),
-    ...s.crews.map((c) => ({ ...c, sample: false })),
+    ...SAMPLE_CREWS.map((c) => ({ id: c.id, name: c.name, invite_code: c.invite_code, owner_id: c.members[0], archived_at: null, created_at: joined, sample: true, color: c.color, emblem: c.emblem, motto: c.motto })),
+    ...s.crews.map((c) => ({ ...c, sample: false, color: c.color ?? ("pink" as AvatarColor), emblem: c.emblem ?? ("users" as CrewEmblem), motto: c.motto ?? null })),
   ];
 }
 
@@ -538,6 +555,9 @@ function crewBoard(s: Stored, period: Period, scope: Scope): CrewRanked[] {
       members,
       contributors: new Set(contrib.map((x) => x.user_id)).size,
       avg_minutes: Math.floor(minutes / members),
+      color: c.color,
+      emblem: c.emblem,
+      motto: c.motto,
       last,
     });
   }
@@ -851,6 +871,8 @@ export const demoApi: Api = {
       show_on_leaderboard: input.show_on_leaderboard ?? true,
       show_spindex: input.show_spindex ?? true,
       hidden_by_admin: false,
+      bio: s.profile?.bio ?? null,
+      avatar_path: s.profile?.avatar_path ?? null,
       created_at: s.profile?.created_at ?? now,
       updated_at: now,
     };
@@ -1045,6 +1067,99 @@ export const demoApi: Api = {
     emitAuth("SIGNED_OUT", null);
   },
 
+  async removeSession(id) {
+    await delay();
+    const s = load();
+    requireUser(s);
+    const x = s.sessions.find((r) => r.id === id);
+    if (!x) fail("Session not found.");
+    if (x!.status === "active") fail("Finish or cancel the running timer instead.");
+    if (x!.status !== "cancelled") {
+      x!.status = "cancelled";
+      x!.review_reason = "Removed by player";
+      x!.reviewed_at = iso(Date.now());
+      save(s);
+    }
+  },
+  async saveBio(bio) {
+    await delay();
+    const s = load();
+    requireProfile(s);
+    const v = clean(bio);
+    if (v && v.length > 140) fail("Keep your bio to 140 characters.");
+    if (v && hasBlockedTerm(v)) fail("Please keep your bio friendly.");
+    s.profile!.bio = v;
+    save(s);
+  },
+  async uploadAvatar(file) {
+    const s = load();
+    requireProfile(s);
+    let dataUrl: string;
+    try {
+      dataUrl = await squareJpegDataUrl(file);
+    } catch (err) {
+      return fail(err instanceof Error ? err.message : "That photo couldn't be used.");
+    }
+    s.profile!.avatar_path = dataUrl;
+    save(s);
+  },
+  async removeAvatar() {
+    await delay();
+    const s = load();
+    requireProfile(s);
+    s.profile!.avatar_path = null;
+    save(s);
+  },
+  async playerCard(userId): Promise<PlayerCard> {
+    await delay();
+    const s = load();
+    const uid = requireUser(s).id;
+    const p = players(s).find((x) => x.id === userId);
+    if (!p) fail("Player not found.");
+    const me = userId === uid;
+    const mine = activeCrew(s);
+    const theirs = crewRecords(s).find(
+      (c) => c.archived_at === null && memberships(s).some((m) => m.crew_id === c.id && m.user_id === userId && m.left_at === null),
+    );
+    if (!me && !p!.public && !(mine && theirs && mine.id === theirs.id)) fail("This player keeps their profile private.");
+    const q = p!.sessions.filter((x) => x.status === "approved" || x.status === "pending");
+    const wk = weekStart(venueDate());
+    const streak = streakInfo(q.map((x) => x.played_on));
+    const rank = board(s, "minutes", "week", DEFAULT_SETTINGS.default_board_scope).find((r) => r.user_id === userId)?.rank ?? null;
+    return {
+      user_id: p!.id,
+      display_name: p!.name,
+      avatar_color: p!.color,
+      avatar_path: p!.avatar,
+      bio: p!.bio,
+      member_since: p!.createdAt ?? SAMPLE_JOINED(),
+      is_me: me,
+      crew: theirs ? { name: theirs.name, color: theirs.color, emblem: theirs.emblem, motto: theirs.motto } : null,
+      week_minutes: q.filter((x) => x.played_on >= wk).reduce((a, x) => a + x.minutes, 0),
+      total_minutes: q.reduce((a, x) => a + x.minutes, 0),
+      sessions: q.length,
+      current_streak: streak.cur,
+      longest_streak: streak.longest,
+      rank_week: rank,
+      spindex: p!.spindex && p!.showSpindex ? { rating: p!.spindex.rating, verified: p!.spindex.status === "verified" } : null,
+    };
+  },
+  async setCrewStyle({ color, emblem, motto }) {
+    await delay();
+    const s = load();
+    requireProfile(s);
+    const own = requireCrewOwner(s);
+    if (!AVATARS.includes(color)) fail("Pick one of the crew colors.");
+    if (!EMBLEMS.includes(emblem)) fail("Pick one of the crew emblems.");
+    const v = clean(motto);
+    if (v && v.length > 60) fail("Keep the motto to 60 characters.");
+    if (v && hasBlockedTerm(v)) fail("Please choose a different motto.");
+    own.color = color;
+    own.emblem = emblem;
+    own.motto = v;
+    save(s);
+  },
+
   async myCrew(period, scope): Promise<MyCrew | null> {
     await delay();
     const s = load();
@@ -1064,7 +1179,8 @@ export const demoApi: Api = {
         const minutes = sessionsOf(s, m.user_id)
           .filter((x) => st.includes(x.status) && x.played_on >= start && inMembership(x.ended_at, m.joined_at, m.left_at))
           .reduce((a, x) => a + x.minutes, 0);
-        return { user_id: m.user_id, display_name: name, avatar_color: color, is_owner: m.user_id === crew.owner_id, is_me: m.user_id === uid, joined_at: m.joined_at, minutes };
+        const avatar_path = sp ? null : (s.profile?.avatar_path ?? null);
+        return { user_id: m.user_id, display_name: name, avatar_color: color, avatar_path, is_owner: m.user_id === crew.owner_id, is_me: m.user_id === uid, joined_at: m.joined_at, minutes };
       })
       .sort((a, b) => cmpTime(a.joined_at, b.joined_at));
     const ranked = crewBoard(s, period, scope);
@@ -1075,6 +1191,9 @@ export const demoApi: Api = {
       is_owner: crew.owner_id === uid,
       created_at: crew.created_at,
       hidden_by_admin: false,
+      color: crew.color,
+      emblem: crew.emblem,
+      motto: crew.motto,
       min_members: DEFAULT_SETTINGS.crew_min_size,
       max_members: DEFAULT_SETTINGS.crew_max_size,
       rank: ranked.find((r) => r.crew_id === crew.id)?.rank ?? null,
@@ -1090,6 +1209,9 @@ export const demoApi: Api = {
     if (!c) return null;
     return {
       name: c.name,
+      color: c.color,
+      emblem: c.emblem,
+      motto: c.motto,
       members: memberships(s).filter((m) => m.crew_id === c.id && m.left_at === null).length,
       max_members: DEFAULT_SETTINGS.crew_max_size,
     };
@@ -1215,18 +1337,18 @@ export const demoApi: Api = {
       public_app_url: hasWindow ? window.location.origin : cfg.public_app_url,
       venue_name: cfg.venue_name,
       week_start: wk,
-      minutes: minutes.slice(0, 8).map((r) => ({ rank: r.rank, display_name: r.display_name, avatar_color: r.avatar_color, value: r.value, sessions: r.sessions ?? 0 })),
-      longest: longest.slice(0, 8).map((r) => ({ rank: r.rank, display_name: r.display_name, avatar_color: r.avatar_color, value: r.value, detail: r.detail ?? undefined })),
+      minutes: minutes.slice(0, 8).map((r) => ({ rank: r.rank, display_name: r.display_name, avatar_color: r.avatar_color, avatar_path: r.avatar_path ?? null, value: r.value, sessions: r.sessions ?? 0 })),
+      longest: longest.slice(0, 8).map((r) => ({ rank: r.rank, display_name: r.display_name, avatar_color: r.avatar_color, avatar_path: r.avatar_path ?? null, value: r.value, detail: r.detail ?? undefined })),
       streaks: board(s, "streaks", "all", scope)
         .slice(0, 8)
-        .map((r) => ({ rank: r.rank, display_name: r.display_name, avatar_color: r.avatar_color, value: r.value, secondary: r.secondary ?? 0 })),
+        .map((r) => ({ rank: r.rank, display_name: r.display_name, avatar_color: r.avatar_color, avatar_path: r.avatar_path ?? null, value: r.value, secondary: r.secondary ?? 0 })),
       spindex: board(s, "spindex", "all", scope)
         .slice(0, 8)
-        .map((r) => ({ rank: r.rank, display_name: r.display_name, avatar_color: r.avatar_color, value: r.value, detail: r.detail ?? undefined })),
+        .map((r) => ({ rank: r.rank, display_name: r.display_name, avatar_color: r.avatar_color, avatar_path: r.avatar_path ?? null, value: r.value, detail: r.detail ?? undefined })),
       crews: crews
         .filter((c) => c.minutes > 0)
         .slice(0, 6)
-        .map((c) => ({ rank: c.rank, name: c.name, minutes: c.minutes, members: c.members, avg_minutes: c.avg_minutes })),
+        .map((c) => ({ rank: c.rank, name: c.name, minutes: c.minutes, members: c.members, avg_minutes: c.avg_minutes, color: c.color, emblem: c.emblem, motto: c.motto })),
       highlights: {
         players: new Set(weekSessions.map((x) => x.user_id)).size,
         minutes: weekSessions.reduce((a, x) => a + x.minutes, 0),

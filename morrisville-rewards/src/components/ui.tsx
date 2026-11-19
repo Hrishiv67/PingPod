@@ -12,6 +12,7 @@ import {
 } from "react";
 import { Check, CircleAlert, Loader2, X } from "lucide-react";
 import type { AvatarColor, SessionStatus } from "../lib/types";
+import { avatarUrl } from "../lib/api";
 
 // ── Buttons ───────────────────────────────────────────────────────────
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "light";
@@ -90,11 +91,16 @@ export function Avatar({
   name,
   color = "pink",
   size = 40,
+  path = null,
 }: {
   name: string;
   color?: AvatarColor | null;
   size?: number;
+  /** Profile photo path; falls back to initials on the avatar color. */
+  path?: string | null;
 }) {
+  const [broken, setBroken] = useState(false);
+  const src = broken ? null : avatarUrl(path);
   const initials = name
     .split(/[^A-Za-z0-9]+/)
     .filter(Boolean)
@@ -105,11 +111,11 @@ export function Avatar({
     .slice(0, 2);
   return (
     <span
-      className={`avatar avatar-${color ?? "pink"}`}
+      className={`avatar avatar-${color ?? "pink"} ${src ? "has-photo" : ""}`}
       style={{ width: size, height: size, fontSize: Math.round(size * 0.38) }}
       aria-hidden
     >
-      {initials || "?"}
+      {src ? <img src={src} alt="" loading="lazy" decoding="async" onError={() => setBroken(true)} /> : initials || "?"}
     </span>
   );
 }

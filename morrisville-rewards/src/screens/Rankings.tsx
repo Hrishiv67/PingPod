@@ -7,6 +7,8 @@ import type { BoardKey, CrewRow, LeaderRow, Period, Scope } from "../lib/types";
 import { useApp } from "../state";
 import { Avatar, Chip, EmptyState, InlineError, Segmented } from "../components/ui";
 import LogoLoader from "../components/LogoLoader";
+import CrewBadge from "../components/CrewBadge";
+import PlayerCardSheet from "../components/PlayerCardSheet";
 
 const BOARD_LABEL: Record<BoardKey, string> = {
   minutes: "Minutes",
@@ -174,6 +176,7 @@ function AddSpindex() {
 }
 
 function PlayerBoard({ rows, board, hasSpindex }: { rows: LeaderRow[]; board: BoardKey; hasSpindex: boolean }) {
+  const [open, setOpen] = useState<LeaderRow | null>(null);
   const prompt = board === "spindex" && !hasSpindex ? <AddSpindex /> : null;
   if (!rows.length)
     return (
@@ -194,13 +197,19 @@ function PlayerBoard({ rows, board, hasSpindex }: { rows: LeaderRow[]; board: Bo
       <div className="podium" aria-label="Top three">
         {[top[1], top[0], top[2]].map((r, i) =>
           r ? (
-            <div key={r.user_id} className={`podium-spot ${r.rank === 1 ? "first" : ""} ${r.is_me ? "me" : ""}`}>
+            <button
+              type="button"
+              key={r.user_id}
+              className={`podium-spot ${r.rank === 1 ? "first" : ""} ${r.is_me ? "me" : ""}`}
+              onClick={() => setOpen(r)}
+              aria-label={`${r.display_name}, rank ${r.rank}. Open profile`}
+            >
               <span className="podium-rank num">#{r.rank}</span>
-              <Avatar name={r.display_name} color={r.avatar_color} size={r.rank === 1 ? 52 : 44} />
+              <Avatar name={r.display_name} color={r.avatar_color} path={r.avatar_path} size={r.rank === 1 ? 56 : 46} />
               <span className="podium-name">{r.is_me ? "You" : r.display_name}</span>
               <span className="podium-value num">{valueOf(board, r).value}</span>
               <span className="podium-unit">{valueOf(board, r).unit}</span>
-            </div>
+            </button>
           ) : (
             <div key={`empty-${i}`} aria-hidden />
           ),
@@ -214,9 +223,9 @@ function PlayerBoard({ rows, board, hasSpindex }: { rows: LeaderRow[]; board: Bo
             return (
               <div key={r.user_id} role="listitem">
                 {gap && <div className="rank-gap">…</div>}
-                <div className={`rank-row ${r.is_me ? "me" : ""}`}>
+                <button type="button" className={`rank-row tappable ${r.is_me ? "me" : ""}`} onClick={() => setOpen(r)}>
                   <span className="rank-num num">{r.rank}</span>
-                  <Avatar name={r.display_name} color={r.avatar_color} size={36} />
+                  <Avatar name={r.display_name} color={r.avatar_color} path={r.avatar_path} size={38} />
                   <span className="rank-name">
                     <strong>
                       {r.display_name} {r.is_me && <span className="you-tag">YOU</span>}
@@ -229,12 +238,13 @@ function PlayerBoard({ rows, board, hasSpindex }: { rows: LeaderRow[]; board: Bo
                     {v.value}
                     <small>{v.unit}</small>
                   </span>
-                </div>
+                </button>
               </div>
             );
           })}
         </div>
       )}
+      {open && <PlayerCardSheet userId={open.user_id} name={open.display_name} onClose={() => setOpen(null)} />}
     </>
   );
 }
@@ -259,16 +269,12 @@ function CrewBoard({ rows, minSize }: { rows: CrewRow[]; minSize: number }) {
         {rows.map((c) => (
           <div key={c.crew_id} role="listitem" className={`rank-row ${c.is_mine ? "me" : ""}`}>
             <span className="rank-num num">{c.rank}</span>
-            <span className="crew-badge">
-              <Users size={18} />
-            </span>
+            <CrewBadge emblem={c.emblem} color={c.color} size={38} />
             <span className="rank-name">
               <strong>
                 {c.name} {c.is_mine && <span className="you-tag">YOUR CREW</span>}
               </strong>
-              <span>
-                {c.members} members · {formatNumber(c.avg_minutes)} min each
-              </span>
+              <span>{c.motto || `${c.members} members · ${formatNumber(c.avg_minutes)} min each`}</span>
             </span>
             <span className="rank-value num">
               {formatNumber(c.minutes)}

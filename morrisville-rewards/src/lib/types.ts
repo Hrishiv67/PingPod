@@ -7,6 +7,12 @@ export type Scope = "verified" | "community";
 export type Period = "week" | "month" | "all";
 export type Metric = "minutes" | "streaks" | "longest" | "spindex";
 export type AvatarColor = "pink" | "white" | "blue" | "green" | "orange" | "purple";
+export type CrewEmblem = "users" | "flame" | "bolt" | "crown" | "target" | "rocket" | "star" | "shield";
+export interface CrewStyle {
+  color?: AvatarColor;
+  emblem?: CrewEmblem;
+  motto?: string | null;
+}
 export type StaffRole = "owner" | "staff";
 
 export const AVATAR_COLORS: AvatarColor[] = ["pink", "white", "blue", "green", "orange", "purple"];
@@ -18,6 +24,9 @@ export interface Profile {
   show_on_leaderboard: boolean;
   show_spindex: boolean;
   hidden_by_admin: boolean;
+  bio?: string | null;
+  /** Path in the public "avatars" storage bucket; build the URL with avatarUrl(). */
+  avatar_path?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -126,9 +135,10 @@ export interface LeaderRow {
   sessions: number | null;
   detail: string | null;
   is_me: boolean;
+  avatar_path?: string | null;
 }
 
-export interface CrewRow {
+export interface CrewRow extends CrewStyle {
   rank: number;
   crew_id: string;
   name: string;
@@ -143,13 +153,14 @@ export interface CrewMember {
   user_id: string;
   display_name: string;
   avatar_color: AvatarColor;
+  avatar_path?: string | null;
   is_owner: boolean;
   is_me: boolean;
   joined_at: string;
   minutes: number;
 }
 
-export interface MyCrew {
+export interface MyCrew extends CrewStyle {
   id: string;
   name: string;
   invite_code: string;
@@ -164,10 +175,28 @@ export interface MyCrew {
   members: CrewMember[];
 }
 
-export interface CrewPreview {
+export interface CrewPreview extends CrewStyle {
   name: string;
   members: number;
   max_members: number;
+}
+
+export interface PlayerCard {
+  user_id: string;
+  display_name: string;
+  avatar_color: AvatarColor;
+  avatar_path: string | null;
+  bio: string | null;
+  member_since: string;
+  is_me: boolean;
+  crew: { name: string; color: AvatarColor; emblem: CrewEmblem; motto: string | null } | null;
+  week_minutes: number;
+  total_minutes: number;
+  sessions: number;
+  current_streak: number;
+  longest_streak: number;
+  rank_week: number | null;
+  spindex: { rating: number; verified: boolean } | null;
 }
 
 export interface Achievement {
@@ -205,13 +234,14 @@ export interface DisplayPlayer {
   rank: number;
   display_name: string;
   avatar_color: AvatarColor;
+  avatar_path?: string | null;
   value: number;
   sessions?: number;
   secondary?: number;
   detail?: string;
 }
 
-export interface DisplayCrew {
+export interface DisplayCrew extends CrewStyle {
   rank: number;
   name: string;
   minutes: number;
@@ -278,6 +308,8 @@ export interface AdminPlayer {
   created_at: string;
   last_sign_in_at: string | null;
   avatar_color: AvatarColor | null;
+  avatar_path?: string | null;
+  bio?: string | null;
   show_on_leaderboard: boolean | null;
   hidden_by_admin: boolean | null;
   hidden_reason: string | null;
@@ -289,7 +321,7 @@ export interface AdminPlayer {
   spindex: { rating: number; status: string } | null;
 }
 
-export interface AdminCrew {
+export interface AdminCrew extends CrewStyle {
   id: string;
   name: string;
   invite_code: string;

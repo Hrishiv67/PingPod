@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Inbox } from "lucide-react";
 import { api } from "../lib/api";
 import type { AdminRequest } from "../lib/types";
-import { Button, Chip, EmptyState, InlineError, Skeleton, StatusChip, useToast } from "../components/ui";
+import { Button, Chip, EmptyState, InlineError, StatusChip, useToast } from "../components/ui";
+import LogoLoader from "../components/LogoLoader";
 import { formatDateTime, formatDuration, relativeDay } from "../lib/time";
 import { ActionSheet, FilterChips, SectionHead, useLoad } from "./shared";
 
@@ -66,7 +67,7 @@ export default function Requests({
         />
       </div>
       {loading && !data ? (
-        <Skeleton height={120} count={3} />
+        <LogoLoader label="Loading requests" />
       ) : error ? (
         <InlineError onRetry={reload}>{error}</InlineError>
       ) : !data?.length ? (

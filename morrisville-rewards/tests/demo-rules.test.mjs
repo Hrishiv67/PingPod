@@ -199,3 +199,60 @@ test("delete account wipes the demo user", async () => {
   assert.equal(await api.getUser(), null);
   await assert.rejects(api.signIn("player@example.com", "secret1"), /don't match/);
 });
+
+test("bio: optional, 140 characters max, friendly", async () => {
+  await signedInWithProfile();
+  await api.saveBio("Backhand loops, Tuesday nights");
+  assert.equal((await api.getMe()).profile.bio, "Backhand loops, Tuesday nights");
+  await assert.rejects(api.saveBio("x".repeat(141)), /140 characters/);
+  await assert.rejects(api.saveBio("total shit player"), /friendly/);
+  await api.saveBio("   ");
+  assert.equal((await api.getMe()).profile.bio, null);
+});
+
+test("removing a session stops it counting everywhere", async () => {
+  await signedInWithProfile();
+  const s = await api.logSession({ played_on: today, minutes: 45, client_request_id: rid() });
+  assert.equal((await api.getMe()).stats.week_verified + (await api.getMe()).stats.week_pending, 45);
+  await api.removeSession(s.id);
+  const me = await api.getMe();
+  assert.equal(me.stats.week_verified + me.stats.week_pending, 0);
+  const board = await api.leaderboard("minutes", "week", "community");
+  assert.ok(!board.some((r) => r.is_me), "off the board");
+  await api.removeSession(s.id); // idempotent
+});
+
+test("crew look: owner picks color, emblem and motto; members can't", async () => {
+  await signedInWithProfile();
+  await api.createCrew("Look Testers");
+  await api.setCrewStyle({ color: "blue", emblem: "bolt", motto: "  Every Tuesday  " });
+  const crew = await api.myCrew("week", "community");
+  assert.equal(crew.color, "blue");
+  assert.equal(crew.emblem, "bolt");
+  assert.equal(crew.motto, "Every Tuesday");
+  await assert.rejects(api.setCrewStyle({ color: "gold", emblem: "bolt", motto: "" }), /crew colors/);
+  await assert.rejects(api.setCrewStyle({ color: "blue", emblem: "dragon", motto: "" }), /crew emblems/);
+  await assert.rejects(api.setCrewStyle({ color: "blue", emblem: "bolt", motto: "y".repeat(61) }), /60 characters/);
+  await api.leaveCrew();
+  await api.joinCrew("DEMO2027"); // a sample crew someone else owns
+  await assert.rejects(api.setCrewStyle({ color: "pink", emblem: "users", motto: "" }), /owner/i);
+});
+
+test("player card: public players open; stats come from their sessions", async () => {
+  await signedInWithProfile();
+  const top = (await api.leaderboard("minutes", "week", "community"))[0];
+  const card = await api.playerCard(top.user_id);
+  assert.equal(card.display_name, top.display_name);
+  assert.equal(card.week_minutes, top.value);
+  assert.equal(card.rank_week, top.rank);
+  assert.equal(card.is_me, false);
+  const mine = await api.playerCard((await api.getUser()).id);
+  assert.equal(mine.is_me, true);
+});
+
+test("saving the profile keeps the bio and photo", async () => {
+  await signedInWithProfile();
+  await api.saveBio("Lefty");
+  await api.saveProfile({ display_name: "Renamed Player", avatar_color: "blue", show_on_leaderboard: true, show_spindex: true });
+  assert.equal((await api.getMe()).profile.bio, "Lefty");
+});

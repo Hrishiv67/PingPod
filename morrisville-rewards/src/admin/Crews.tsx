@@ -2,7 +2,9 @@ import { useState } from "react";
 import { UsersRound } from "lucide-react";
 import { api, errorText } from "../lib/api";
 import type { AdminCrew } from "../lib/types";
-import { Avatar, Button, Chip, EmptyState, InlineError, Sheet, Skeleton, Toggle, useToast } from "../components/ui";
+import { Avatar, Button, Chip, EmptyState, InlineError, Sheet, Toggle, useToast } from "../components/ui";
+import CrewBadge from "../components/CrewBadge";
+import LogoLoader from "../components/LogoLoader";
 import { formatDay, formatNumber } from "../lib/time";
 import { ActionSheet, SectionHead, useLoad } from "./shared";
 
@@ -43,7 +45,7 @@ export default function Crews({ onChanged }: { onChanged: () => void }) {
         </div>
       )}
       {loading && !data ? (
-        <Skeleton height={140} count={3} />
+        <LogoLoader label="Loading crews" />
       ) : error ? (
         <InlineError onRetry={reload}>{error}</InlineError>
       ) : !crews.length ? (
@@ -54,6 +56,7 @@ export default function Crews({ onChanged }: { onChanged: () => void }) {
             <li key={c.id} className={`adm-row ${c.archived_at ? "adm-row-dim" : ""}`}>
               <div className="adm-row-main">
                 <div className="adm-row-title">
+                  <CrewBadge emblem={c.emblem} color={c.color} size={26} />
                   <strong>{c.name}</strong>
                   {c.archived_at && <Chip>Closed</Chip>}
                   {c.hidden_by_admin && <Chip tone="bad">Hidden</Chip>}
@@ -65,6 +68,7 @@ export default function Crews({ onChanged }: { onChanged: () => void }) {
                   Code <span className="adm-code">{c.invite_code}</span> · started {formatDay(c.created_at.slice(0, 10))}
                   {c.past_members > 0 ? ` · ${c.past_members} left` : ""}
                 </span>
+                {c.motto && <span className="adm-row-meta adm-bio">“{c.motto}”</span>}
                 {c.hidden_by_admin && c.hidden_reason && <span className="adm-row-note">Hidden: {c.hidden_reason}</span>}
               </div>
               <span className="adm-row-value num">
@@ -89,6 +93,24 @@ export default function Crews({ onChanged }: { onChanged: () => void }) {
             <Button size="lg" block onClick={() => setSheet({ kind: "rename", c: sheet.c })}>
               Rename crew
             </Button>
+            {sheet.c.motto && (
+              <Button
+                size="lg"
+                block
+                onClick={async () => {
+                  const c = sheet.c;
+                  setSheet(null);
+                  try {
+                    await api.admin.moderateCrew(c.id, "clear_motto");
+                    done(`Motto cleared for ${c.name}`);
+                  } catch (err) {
+                    toast(errorText(err), "bad");
+                  }
+                }}
+              >
+                Clear motto
+              </Button>
+            )}
             {sheet.c.hidden_by_admin ? (
               <Button
                 size="lg"

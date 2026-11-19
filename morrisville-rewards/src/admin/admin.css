@@ -1093,3 +1093,20 @@
     font-size: 11px;
   }
 }
+
+/* Goal next to a KPI (e.g. "goal 20"): a target, not a cap */
+.adm-kpi strong small.kpi-goal {
+  margin-left: 8px;
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+.adm-bio {
+  font-style: italic;
+  color: var(--text-2);
+}
+.adm-row-title .crew-badge {
+  border-radius: 7px;
+}

@@ -7,6 +7,7 @@ import type { CrewPreview } from "../lib/types";
 import { useApp } from "../state";
 import { Button, EmptyState, InlineError, useToast } from "../components/ui";
 import LogoLoader from "../components/LogoLoader";
+import CrewBadge from "../components/CrewBadge";
 
 export default function JoinCrew({ code }: { code: string }) {
   const { me, refresh, bump } = useApp();
@@ -58,10 +59,13 @@ export default function JoinCrew({ code }: { code: string }) {
         <div className="eyebrow" style={{ color: "var(--pink)" }}>
           Crew invite
         </div>
-        <h1>{preview.name}</h1>
-        <p>
-          {preview.members}/{preview.max_members} members
-        </p>
+        <div className="crew-title">
+          <CrewBadge emblem={preview.emblem} color={preview.color} size={56} />
+          <div style={{ minWidth: 0 }}>
+            <h1>{preview.name}</h1>
+            <p>{preview.motto || `${preview.members}/${preview.max_members} members`}</p>
+          </div>
+        </div>
       </div>
       {already ? (
         <div className="panel stack">

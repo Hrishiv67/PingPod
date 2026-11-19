@@ -228,7 +228,29 @@ html.display-mode body {
   overflow: hidden;
 }
 .rows-crews .row {
-  grid-template-columns: clamp(34px, 6vmin, 86px) minmax(0, 1fr) auto;
+  grid-template-columns: clamp(34px, 6vmin, 86px) auto minmax(0, 1fr) auto;
+}
+.row-emblem {
+  display: grid;
+  place-items: center;
+  width: clamp(32px, 5.6vmin, 76px);
+  height: clamp(32px, 5.6vmin, 76px);
+  border-radius: 28%;
+  color: #000;
+}
+.row-emblem svg {
+  width: 52%;
+  height: 52%;
+}
+.row-avatar.has-photo,
+.avatar.has-photo {
+  overflow: hidden;
+  background: var(--surface-3);
+}
+.row-avatar.has-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .row-rank {
   text-align: center;

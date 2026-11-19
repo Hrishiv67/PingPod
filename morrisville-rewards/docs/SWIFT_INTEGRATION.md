@@ -151,6 +151,8 @@ struct Profile: Codable, Identifiable {
     let showOnLeaderboard: Bool
     let showSpindex: Bool
     let hiddenByAdmin: Bool
+    let bio: String?
+    let avatarPath: String?          // photo path in the "avatars" bucket; see Backend.avatarURL
     let createdAt: Date
 }
 
@@ -234,6 +236,7 @@ struct LeaderboardRow: Codable, Identifiable {
     let sessions: Int?
     let detail: String?              // longest: date · spindex: "verified" / "self_reported"
     let isMe: Bool
+    let avatarPath: String?
 }
 
 struct CrewLeaderboardRow: Codable, Identifiable {
@@ -391,6 +394,25 @@ try await db.rpc("submit_request", params: RequestParams(
 // Delete account (App Store requires in-app deletion — this satisfies it)
 try await db.rpc("delete_my_account").execute()
 try await Backend.client.auth.signOut()
+```
+
+## Profile photos and crew look
+
+```swift
+extension Backend {
+    static func avatarURL(_ path: String?) -> URL? {
+        guard let path else { return nil }
+        return url.appendingPathComponent("storage/v1/object/public/avatars/\(path)")
+    }
+}
+
+// Upload: resize to a ~320×320 JPEG first, then store under your own user id and point the profile at it.
+let uid = try await Backend.client.auth.session.user.id.uuidString.lowercased()
+let path = "\(uid)/\(Int(Date().timeIntervalSince1970)).jpg"
+try await Backend.client.storage.from("avatars").upload(path, data: jpegData, options: FileOptions(contentType: "image/jpeg"))
+let _: Profile = try await db.rpc("set_avatar", params: ["p_path": path]).execute().value
+// Remove photo: set_avatar with p_path = nil. Bio: save_bio(p_bio). Tap a player: get_player_card(p_user_id).
+// Crew owner: set_crew_style(p_color, p_motto, p_emblem). Remove a session: remove_my_session(p_id).
 ```
 
 ## 6. Live updates

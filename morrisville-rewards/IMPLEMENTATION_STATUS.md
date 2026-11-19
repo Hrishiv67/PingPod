@@ -33,6 +33,10 @@ Latest results (2026-11-19): `npm test` 22/22 pass · `tsc` clean · `npm run bu
 
 ## UX refinement pass (2026-11-19)
 - Welcome: one email field and **Continue** ("No password needed"). Streaks are daily (days in a row; 3- and 7-day milestones).
+- Profiles: photo (resized on the phone, public `avatars` bucket, staff can remove) and a short bio; tap any player on the
+  leaderboard or in a crew for their profile card. Crews: owner picks color, emblem and motto (shown on boards and the iPad).
+  Players can remove one of their own sessions. A little more spacing, less repeated text, and the PingPod logo loader
+  wherever something loads. Live check: logging updates the iPad instantly; last week's minutes drop off the weekly board.
 - Home: Start playing / Log past session first, one compact stats strip, recent sessions; the active timer has its own focused view.
 - Less repeated grey text on Rankings, Crew and Me.
 - iPad `/display`: back to the original layout (large QR panel beside the board) by request. Six boards rotate: most minutes, highest SPINDEX (second, by request; verified ratings marked), crew rankings, daily streaks, longest session and this week. Category-specific labels and units, pilot dates in the header, an invitation row under short lists, and each empty board shows its own message.

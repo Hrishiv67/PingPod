@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { ClipboardList } from "lucide-react";
 import { api, type SessionAction } from "../lib/api";
 import type { AdminSession, Settings } from "../lib/types";
-import { Button, Chip, EmptyState, InlineError, Skeleton, useToast } from "../components/ui";
+import { Button, Chip, EmptyState, InlineError, useToast } from "../components/ui";
+import LogoLoader from "../components/LogoLoader";
 import { formatDuration, formatTime, relativeDay } from "../lib/time";
 import { ActionSheet, FilterChips, SearchBox, SectionHead, flagLabel, useDebounced, useLoad } from "./shared";
 
@@ -101,7 +102,7 @@ export default function Sessions({
       </div>
 
       {loading && !data ? (
-        <Skeleton height={72} count={5} />
+        <LogoLoader label="Loading sessions" />
       ) : error ? (
         <InlineError onRetry={reload}>{error}</InlineError>
       ) : !rows.length ? (

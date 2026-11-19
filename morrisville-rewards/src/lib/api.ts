@@ -9,6 +9,7 @@ import type {
   Analytics,
   AuditEntry,
   AvatarColor,
+  CrewEmblem,
   CrewPreview,
   CrewRow,
   DisplayData,
@@ -18,6 +19,7 @@ import type {
   MyCrew,
   Period,
   PlaySession,
+  PlayerCard,
   Profile,
   Reward,
   Scope,
@@ -28,9 +30,17 @@ import type {
 } from "./types";
 import { demoApi } from "./demo";
 import { emailKey, normalizeEmail } from "./emailKey";
+import { squareJpeg } from "./image";
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+
+/** Public URL for a profile photo path (demo mode stores the picture itself as a data URL). */
+export function avatarUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  if (path.startsWith("data:") || path.startsWith("https://")) return path;
+  return url ? `${url.replace(/\/$/, "")}/storage/v1/object/public/avatars/${path}` : null;
+}
 
 export const isConfigured = Boolean(url && key);
 
@@ -159,6 +169,13 @@ export interface Api {
   submitSpindex(rating: number, note?: string): Promise<void>;
   removeSpindex(): Promise<void>;
   deleteAccount(): Promise<void>;
+  /** Removes one of your own finished sessions; it stops counting everywhere. */
+  removeSession(id: string): Promise<void>;
+  saveBio(bio: string): Promise<void>;
+  /** Resizes the picture on the phone (square, small JPEG), uploads it and sets it as your photo. */
+  uploadAvatar(file: Blob): Promise<void>;
+  removeAvatar(): Promise<void>;
+  playerCard(userId: string): Promise<PlayerCard>;
 
   myCrew(period: Period, scope: Scope): Promise<MyCrew | null>;
   previewCrew(code: string): Promise<CrewPreview | null>;
@@ -169,6 +186,7 @@ export interface Api {
   regenerateCrewCode(): Promise<void>;
   transferCrew(userId: string): Promise<void>;
   removeCrewMember(userId: string): Promise<void>;
+  setCrewStyle(style: { color: AvatarColor; emblem: CrewEmblem; motto: string }): Promise<void>;
 
   leaderboard(metric: Metric, period: Period, scope: Scope, limit?: number): Promise<LeaderRow[]>;
   crewLeaderboard(period: Period, scope: Scope, limit?: number): Promise<CrewRow[]>;
@@ -182,8 +200,8 @@ export interface Api {
 }
 
 export type SessionAction = "approve" | "reject" | "adjust" | "reopen";
-export type PlayerAction = "hide" | "unhide" | "rename";
-export type CrewAction = "rename" | "hide" | "unhide" | "archive" | "transfer" | "remove_member";
+export type PlayerAction = "hide" | "unhide" | "rename" | "clear_photo" | "clear_bio";
+export type CrewAction = "rename" | "hide" | "unhide" | "archive" | "transfer" | "remove_member" | "clear_motto";
 export type ExportKind = "weekly" | "players" | "sessions";
 
 export interface AdminApi {
@@ -362,9 +380,58 @@ const live: Api = {
     await rpc("remove_spindex");
   },
   deleteAccount: async () => {
+    // Remove photo files first (best effort), then the account and everything in it.
+    try {
+      const sb = need(supabase);
+      const { data } = await sb.auth.getUser();
+      if (data.user) {
+        const { data: files } = await sb.storage.from("avatars").list(data.user.id);
+        if (files?.length) await sb.storage.from("avatars").remove(files.map((f) => `${data.user!.id}/${f.name}`));
+      }
+    } catch {
+      /* the account is still deleted below */
+    }
     await rpc("delete_my_account");
     await need(supabase).auth.signOut({ scope: "local" });
   },
+  removeSession: async (id) => {
+    await rpc("remove_my_session", { p_id: id });
+  },
+  saveBio: async (bio) => {
+    await rpc("save_bio", { p_bio: bio.trim() || null });
+  },
+  async uploadAvatar(file) {
+    try {
+      const sb = need(supabase);
+      const { data } = await sb.auth.getUser();
+      if (!data.user) throw new AppError("Sign in again to change your photo.");
+      const blob = await squareJpeg(file);
+      const path = `${data.user.id}/${Date.now().toString(36)}.jpg`;
+      const { error } = await sb.storage.from("avatars").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+      if (error) throw error;
+      await rpc("set_avatar", { p_path: path });
+      // Tidy up older photos (best effort).
+      const { data: files } = await sb.storage.from("avatars").list(data.user.id);
+      const old = (files ?? []).map((f) => `${data.user!.id}/${f.name}`).filter((p) => p !== path);
+      if (old.length) await sb.storage.from("avatars").remove(old);
+    } catch (err) {
+      throw toAppError(err);
+    }
+  },
+  async removeAvatar() {
+    await rpc("set_avatar", { p_path: null });
+    try {
+      const sb = need(supabase);
+      const { data } = await sb.auth.getUser();
+      if (data.user) {
+        const { data: files } = await sb.storage.from("avatars").list(data.user.id);
+        if (files?.length) await sb.storage.from("avatars").remove(files.map((f) => `${data.user!.id}/${f.name}`));
+      }
+    } catch {
+      /* the photo is already off the profile */
+    }
+  },
+  playerCard: (userId) => rpc<PlayerCard>("get_player_card", { p_user_id: userId }),
 
   myCrew: (period, scope) => rpc<MyCrew | null>("get_my_crew", { p_period: period, p_scope: scope }),
   previewCrew: (code) => rpc<CrewPreview | null>("preview_crew", { p_code: code }, supabase ?? publicClient),
@@ -388,6 +455,9 @@ const live: Api = {
   },
   removeCrewMember: async (userId) => {
     await rpc("remove_crew_member", { p_user_id: userId });
+  },
+  setCrewStyle: async ({ color, emblem, motto }) => {
+    await rpc("set_crew_style", { p_color: color, p_emblem: emblem, p_motto: motto.trim() || null });
   },
 
   leaderboard: (metric, period, scope, limit = 50) =>
