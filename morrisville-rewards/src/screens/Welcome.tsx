@@ -4,6 +4,7 @@ import { api, errorText } from "../lib/api";
 import { domainAcceptsMail, suggestEmail } from "../lib/emailCheck";
 import type { CrewPreview } from "../lib/types";
 import { Logo } from "../components/Logo";
+import Tutorial from "../components/Tutorial";
 import { Button, Chip, Field, IconButton, InlineError, Sheet } from "../components/ui";
 
 type Step = "email" | "password";
@@ -19,6 +20,7 @@ export default function Welcome({ inviteCode }: { inviteCode: string | null }) {
   const [invite, setInvite] = useState<CrewPreview | null>(null);
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [dismissedFor, setDismissedFor] = useState("");
+  const [how, setHow] = useState(false);
 
   useEffect(() => {
     if (!inviteCode) return;
@@ -176,7 +178,11 @@ export default function Welcome({ inviteCode }: { inviteCode: string | null }) {
             {step === "email" ? "Continue" : "Sign in"}
           </Button>
         </form>
+        <button type="button" className="link-btn welcome-how" onClick={() => setHow(true)}>
+          How it works
+        </button>
       </main>
+      {how && <Tutorial onClose={() => setHow(false)} />}
 
       <footer className="welcome-foot">
         A local PingPod Morrisville pilot · not the PingPod booking app

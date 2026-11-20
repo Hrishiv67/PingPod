@@ -1755,3 +1755,51 @@ button.spindex-prompt {
   margin: 0;
   color: var(--text-2);
 }
+
+/* Research survey on Home: a small quiet card until opened */
+.survey-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+.survey-card:active {
+  background: var(--surface-2);
+}
+.survey-card-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--surface-3);
+  color: var(--text-2);
+}
+.survey-card-text {
+  display: grid;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+.survey-card-text strong {
+  font-size: 15px;
+}
+.survey-card-text span {
+  color: var(--muted);
+  font-size: 13.5px;
+}
+.survey-card > svg {
+  flex: none;
+  color: var(--muted);
+}
+
+.welcome-how {
+  justify-self: center;
+  margin-top: 4px;
+}

@@ -16,11 +16,16 @@ handle bookings, door entry or payments, and it never asks for anyone's PingPod 
    gets them straight back in, on any phone.
 3. Tap **Start playing** when they begin and **Finish** when they're done. The timer keeps running
    if they lock the phone or close Safari; reopening the app shows it again.
-4. Forgot to start the timer? **Log past play**: pick the day (up to 7 days back) and 30 / 60 / 90 /
+4. Forgot to start the timer? **Log past session**: pick the day (up to 7 days back) and 30 / 60 / 90 /
    120 minutes or a custom amount.
 5. Finished and logged sessions count right away — there's no approval step. We trust players to
    log their own time; staff only step in to fix obvious mistakes.
 6. Friends can form a **crew** (2–8 people) and share an invite link or code.
+7. **How it works**: six quick slides show new players everything once, right after they pick a
+   nickname. Anyone can reopen them from **Me → How it works** or the sign-in page.
+8. **Weekly Rally** on Home: a flame for each day played this week, plus an optional weekly goal
+   (hours and days). The goal planner starts with the CDC's 150-minutes-a-week guideline as a
+   suggestion, then the player picks their own.
 
 Returning customers stay signed in, so they just open the app and tap Start playing.
 

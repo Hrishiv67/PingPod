@@ -6,6 +6,7 @@ import {
   CalendarCheck,
   Camera,
   ChevronRight,
+  CircleHelp,
   Clock,
   Crown,
   ExternalLink,
@@ -44,7 +45,7 @@ import { ColorPicker, nicknameProblem } from "./Onboarding";
 import { SessionRow } from "./Home";
 
 export default function MeScreen() {
-  const { me, refresh, signOut, version, bump } = useApp();
+  const { me, refresh, signOut, version, bump, showTutorial } = useApp();
   const toast = useToast();
   const p = me.profile!;
   const s = me.stats!;
@@ -192,6 +193,12 @@ export default function MeScreen() {
               <ChevronRight size={18} />
             </button>
           )}
+          <button className="settings-link" onClick={showTutorial}>
+            <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <CircleHelp size={18} /> How it works
+            </span>
+            <ChevronRight size={18} />
+          </button>
           {me.settings.survey_url && (
             <a className="settings-link" href={me.settings.survey_url} target="_blank" rel="noopener noreferrer">
               <span style={{ display: "flex", gap: 10, alignItems: "center" }}>

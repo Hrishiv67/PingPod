@@ -7,6 +7,7 @@ import type { Me, PlaySession } from "./lib/types";
 import { AppCtx, type AppState } from "./state";
 import { Logo, PingPodMark } from "./components/Logo";
 import Splash, { shouldShowSplash } from "./components/Splash";
+import Tutorial from "./components/Tutorial";
 import LogoLoader from "./components/LogoLoader";
 import { Avatar, Button, InlineError, useOnline } from "./components/ui";
 import Welcome from "./screens/Welcome";
@@ -108,6 +109,7 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
   const [loadError, setLoadError] = useState("");
   const [finished, setFinished] = useState<PlaySession | null>(null);
   const [version, setVersion] = useState(0);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
   const offset = useRef(0);
   const online = useOnline();
 
@@ -168,6 +170,15 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
   }, [refresh]);
 
   const hasProfile = Boolean(me?.profile);
+  // "How it works" opens by itself once per player, right after they pick a nickname.
+  const tutorialKey = `pingpod-tutorial-${user.id}`;
+  useEffect(() => {
+    if (hasProfile && !store.get<string>(tutorialKey)) setTutorialOpen(true);
+  }, [hasProfile, tutorialKey]);
+  const closeTutorial = useCallback(() => {
+    store.set(tutorialKey, "seen");
+    setTutorialOpen(false);
+  }, [tutorialKey]);
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [path, hasProfile]);
@@ -187,8 +198,10 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
         setFinished,
         version,
         bump: () => setVersion((v) => v + 1),
+        showTutorial: () => setTutorialOpen(true),
+        tutorialOpen,
       },
-    [me, user, refresh, finished, version],
+    [me, user, refresh, finished, version, tutorialOpen],
   );
 
   if (!state)
@@ -257,6 +270,7 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
           {inviteCode ? screen : <FirstVisit tab={tab}>{screen}</FirstVisit>}
         </main>
         {!online && <div className="offline-bar">You're offline. A running timer keeps counting — we'll sync when you're back.</div>}
+        {tutorialOpen && <Tutorial onClose={closeTutorial} />}
         <nav className="bottom-nav" aria-label="Main">
           <span className="nav-indicator" style={{ "--i": TAB_ORDER.indexOf(currentTab) } as CSSProperties} aria-hidden />
           <NavItem to="/" label="Home" active={tab === "/"} icon={<HomeIcon size={22} />} />

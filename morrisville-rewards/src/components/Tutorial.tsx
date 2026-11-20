@@ -1,0 +1,275 @@
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { QrCode, X } from "lucide-react";
+import { PingPodMark } from "./Logo";
+import CrewBadge from "./CrewBadge";
+import "./tutorial.css";
+
+// "How it works": six short slides with one simple picture each. Shown once after a new player picks
+// a nickname, and any time from Me → How it works (or the sign-in page). Swipe, tap Next, or use the
+// arrow keys. Nothing here needs to be signed in.
+
+type Slide = { key: string; title: string; text: string; visual: ReactNode };
+
+const SLIDES: Slide[] = [
+  {
+    key: "track",
+    title: "Track your table time",
+    text: "Tap Start playing when you get on a table and Finish when you're done. Forgot? Log it afterwards.",
+    visual: <TimerVisual />,
+  },
+  {
+    key: "board",
+    title: "Climb the leaderboard",
+    text: "Every minute counts toward this week's board. It resets each Monday, so anyone can win the week.",
+    visual: <PodiumVisual />,
+  },
+  {
+    key: "rally",
+    title: "Keep your rally going",
+    text: "Each day you play lights a flame. Set a weekly goal and watch it fill up.",
+    visual: <FlamesVisual />,
+  },
+  {
+    key: "crew",
+    title: "Play as a crew",
+    text: "Start a crew, send friends the invite link, and add your minutes together on the crew board.",
+    visual: <CrewVisual />,
+  },
+  {
+    key: "spindex",
+    title: "Show your SPINDEX",
+    text: "Add your PingPod skill rating to the SPINDEX board. It's just for fun.",
+    visual: <SpindexVisual />,
+  },
+  {
+    key: "screen",
+    title: "See your name at PingPod",
+    text: "The boards play on the screen at PingPod Morrisville. Scan its QR code to join.",
+    visual: <ScreenVisual />,
+  },
+];
+
+export default function Tutorial({ onClose }: { onClose: () => void }) {
+  const [i, setI] = useState(0);
+  const [dir, setDir] = useState<"next" | "back">("next");
+  const touch = useRef<{ x: number; y: number } | null>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const last = i === SLIDES.length - 1;
+  const slide = SLIDES[i];
+
+  const go = (n: number) => {
+    if (n < 0 || n >= SLIDES.length) return;
+    setDir(n > i ? "next" : "back");
+    setI(n);
+  };
+
+  useEffect(() => {
+    const prev = document.activeElement as HTMLElement | null;
+    root.current?.focus({ preventScroll: true });
+    document.body.classList.add("no-scroll");
+    return () => {
+      document.body.classList.remove("no-scroll");
+      prev?.focus?.({ preventScroll: true });
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowRight") go(i + 1);
+      else if (e.key === "ArrowLeft") go(i - 1);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  });
+
+  return (
+    <div
+      className="tut"
+      role="dialog"
+      aria-modal="true"
+      aria-label="How it works"
+      tabIndex={-1}
+      ref={root}
+      onTouchStart={(e) => (touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY })}
+      onTouchEnd={(e) => {
+        const t = touch.current;
+        touch.current = null;
+        if (!t) return;
+        const dx = e.changedTouches[0].clientX - t.x;
+        const dy = e.changedTouches[0].clientY - t.y;
+        if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) go(dx < 0 ? i + 1 : i - 1);
+      }}
+    >
+      <div className="tut-top">
+        <PingPodMark height={16} />
+        <span className="tut-count num">
+          {i + 1} / {SLIDES.length}
+        </span>
+        <button type="button" className="tut-skip" onClick={onClose} aria-label="Close how it works">
+          {last ? <X size={20} /> : "Skip"}
+        </button>
+      </div>
+
+      <div key={slide.key} className={`tut-slide tut-${dir}`}>
+        <div className="tut-visual" aria-hidden>
+          {slide.visual}
+        </div>
+        <h2 className="tut-title">{slide.title}</h2>
+        <p className="tut-text">{slide.text}</p>
+      </div>
+
+      <div className="tut-bottom">
+        <div className="tut-dots" role="tablist" aria-label="Slides">
+          {SLIDES.map((s, n) => (
+            <button
+              key={s.key}
+              type="button"
+              role="tab"
+              aria-selected={n === i}
+              aria-label={`Slide ${n + 1}: ${s.title}`}
+              className={n === i ? "on" : ""}
+              onClick={() => go(n)}
+            />
+          ))}
+        </div>
+        <div className="tut-actions">
+          {i > 0 ? (
+            <button type="button" className="tut-back" onClick={() => go(i - 1)}>
+              Back
+            </button>
+          ) : (
+            <span />
+          )}
+          <button type="button" className="btn btn-primary btn-lg tut-next" onClick={() => (last ? onClose() : go(i + 1))}>
+            {last ? "Let's play" : "Next"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Pictures (plain shapes in PingPod colors; they animate a little when the slide appears) ──
+
+function TimerVisual() {
+  const [s, setS] = useState(42 * 60 + 7);
+  useEffect(() => {
+    const id = window.setInterval(() => setS((v) => v + 1), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  const mm = String(Math.floor(s / 60)).padStart(2, "0");
+  const ss = String(s % 60).padStart(2, "0");
+  return (
+    <div className="tv-timer">
+      <span className="tv-live">
+        <i /> Playing now
+      </span>
+      <span className="tv-clock num">
+        {mm}:{ss}
+      </span>
+      <span className="tv-btn">Finish session</span>
+    </div>
+  );
+}
+
+function PodiumVisual() {
+  return (
+    <div className="tv-podium">
+      {[
+        { place: 2, h: 110, color: "green", label: "JL" },
+        { place: 1, h: 160, color: "pink", label: "YOU" },
+        { place: 3, h: 80, color: "blue", label: "SR" },
+      ].map((p, k) => (
+        <div key={p.place} className="tv-pod" style={{ ["--h" as string]: `${p.h}px`, ["--d" as string]: `${k * 90}ms` }}>
+          <span className={`tv-ava avatar-${p.color} ${p.place === 1 ? "me" : ""}`}>{p.label}</span>
+          <span className="tv-bar">
+            <b className="num">#{p.place}</b>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FlamesVisual() {
+  const lit = [true, true, false, true, false, false, false];
+  return (
+    <div className="tv-rally">
+      <div className="tv-flames">
+        {["M", "T", "W", "T", "F", "S", "S"].map((d, k) => (
+          <span key={k} className={lit[k] ? "on" : ""} style={{ ["--d" as string]: `${k * 120}ms` }}>
+            <svg viewBox="0 0 24 24" width="26" height="26">
+              <path d="M13 2c1 4-.3 6.8-2.7 8.7.2-1.5-.2-2.6-1.2-3.5C7.2 9.5 5 12.1 5 15.4a7 7 0 0 0 14 0C19 10.7 15.8 6 13 2Z" fill="currentColor" />
+            </svg>
+            {d}
+          </span>
+        ))}
+      </div>
+      <span className="tv-goal">
+        <span />
+      </span>
+      <span className="tv-goal-text">1 hr 30 min of 2 hr</span>
+    </div>
+  );
+}
+
+function CrewVisual() {
+  return (
+    <div className="tv-crew">
+      <CrewBadge emblem="bolt" color="pink" size={72} />
+      <div className="tv-members">
+        {["blue", "green", "orange"].map((c, k) => (
+          <span key={c} className={`tv-ava avatar-${c}`} style={{ ["--d" as string]: `${200 + k * 110}ms` }}>
+            {["AK", "MJ", "RT"][k]}
+          </span>
+        ))}
+        <span className="tv-ava tv-plus" style={{ ["--d" as string]: "530ms" }}>
+          +
+        </span>
+      </div>
+      <span className="tv-crew-total num">620 min together</span>
+    </div>
+  );
+}
+
+function SpindexVisual() {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    const t0 = performance.now();
+    let raf = 0;
+    const tick = (t: number) => {
+      const p = Math.min(1, (t - t0) / 900);
+      setN(Math.round(1450 * (1 - Math.pow(1 - p, 3))));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  return (
+    <div className="tv-spindex">
+      <span className="tv-spindex-label">SPINDEX</span>
+      <span className="tv-spindex-num num">{n}</span>
+    </div>
+  );
+}
+
+function ScreenVisual() {
+  return (
+    <div className="tv-screen">
+      <div className="tv-screen-rows">
+        {[88, 70, 56, 40].map((w, k) => (
+          <span key={k} style={{ ["--w" as string]: `${w}%`, ["--d" as string]: `${k * 90}ms` }}>
+            <b className="num">{k + 1}</b>
+            <i />
+          </span>
+        ))}
+      </div>
+      <div className="tv-qr">
+        <span>
+          <QrCode size={56} strokeWidth={2.2} />
+        </span>
+      </div>
+    </div>
+  );
+}

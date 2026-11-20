@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, ClipboardList } from "lucide-react";
 import { store } from "../lib/storage";
 import { useApp } from "../state";
 import { Button, Sheet } from "./ui";
@@ -74,10 +74,24 @@ export function SurveyPopup({ ready }: { ready: boolean }) {
 export function SurveyFooter() {
   const { url, opened, markOpened } = useSurvey();
   if (!url) return null;
+  // Before it's opened: a small, quiet card. After: a muted "thanks" line that stays put.
+  if (opened)
+    return (
+      <a className="survey-line done" href={url} target="_blank" rel="noopener noreferrer">
+        <span>Research survey · thanks for helping</span>
+        <ChevronRight size={16} aria-hidden />
+      </a>
+    );
   return (
-    <a className={`survey-line ${opened ? "done" : ""}`} href={url} target="_blank" rel="noopener noreferrer" onClick={markOpened}>
-      <span>{opened ? "Research survey · thanks for helping" : "Help our school research · short anonymous survey"}</span>
-      <ChevronRight size={16} aria-hidden />
+    <a className="survey-card" href={url} target="_blank" rel="noopener noreferrer" onClick={markOpened}>
+      <span className="survey-card-icon">
+        <ClipboardList size={18} aria-hidden />
+      </span>
+      <span className="survey-card-text">
+        <strong>Help our school research</strong>
+        <span>A short, anonymous survey</span>
+      </span>
+      <ChevronRight size={18} aria-hidden />
     </a>
   );
 }

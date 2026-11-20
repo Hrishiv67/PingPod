@@ -18,7 +18,7 @@ import LogPlaySheet from "./LogPlaySheet";
 import CountUp from "../components/CountUp";
 
 export default function Home() {
-  const { me, serverNow, refresh, finished, setFinished, bump, version } = useApp();
+  const { me, serverNow, refresh, finished, setFinished, bump, version, tutorialOpen } = useApp();
   const toast = useToast();
   const profile = me.profile!;
   const settings = me.settings;
@@ -170,7 +170,7 @@ export default function Home() {
           <RecentSessions rows={sessions} error={sessionsError} onRetry={loadSessions} />
           <VerifyEmailCard />
           <SurveyFooter />
-          <SurveyPopup ready={me.stats!.sessions > 0 && !finished && !logOpen} />
+          <SurveyPopup ready={me.stats!.sessions > 0 && !finished && !logOpen && !tutorialOpen} />
           <RewardsStrip enabled={settings.rewards_enabled} />
         </>
       ) : (
