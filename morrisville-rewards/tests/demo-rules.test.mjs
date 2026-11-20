@@ -256,3 +256,18 @@ test("saving the profile keeps the bio and photo", async () => {
   await api.saveProfile({ display_name: "Renamed Player", avatar_color: "blue", show_on_leaderboard: true, show_spindex: true });
   assert.equal((await api.getMe()).profile.bio, "Lefty");
 });
+
+test("SPINDEX board: staff-verified ratings rank above a higher self-reported one", async () => {
+  await signedInWithProfile("High Claim");
+  await api.submitSpindex(2999);
+  const rows = await api.leaderboard("spindex", "all", "community");
+  const firstSelf = rows.findIndex((r) => r.detail === "self_reported");
+  const lastVerified = rows.map((r) => r.detail).lastIndexOf("verified");
+  assert.ok(lastVerified >= 0, "sample data has verified ratings");
+  assert.ok(lastVerified < firstSelf, "every verified rating is listed before any self-reported one");
+  const mine = rows.find((r) => r.is_me);
+  assert.equal(mine.detail, "self_reported");
+  assert.ok(mine.rank > 1, "a typed-in 2999 is not #1");
+  const display = await api.displayData();
+  assert.notEqual(display.highlights.top_spindex?.display_name, "High Claim", "the iPad's Top SPINDEX is never self-reported");
+});

@@ -84,11 +84,11 @@ export default function Welcome({ inviteCode }: { inviteCode: string | null }) {
           <p className="hero-sub">Log your table time at PingPod Morrisville and climb the weekly leaderboard.</p>
         </div>
 
-        {invite && (
+        {inviteCode && (
           <div className="invite-banner">
             <Users size={22} aria-hidden />
             <div>
-              <strong>You're invited to join {invite.name}</strong>
+              <strong>{invite ? `You're invited to join ${invite.name}` : "You've got a crew invite"}</strong>
               <div className="small-print">Enter your email and you'll join the crew right after.</div>
             </div>
           </div>

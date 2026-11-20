@@ -8,6 +8,7 @@ import type { CrewRow, DisplayData, DisplaySlide, LeaderRow, Period, Scope, Sett
 import { Logo, PingPodMark } from "../components/Logo";
 import { formatNumber, formatTime, venueDate } from "../lib/time";
 import { displayUrl, isLocalUrl, resolveAppUrl } from "./appUrl";
+import { tiePlaces } from "../lib/ranks";
 import "../styles/tokens.css";
 import "../styles/ui.css";
 import "./display.css";
@@ -242,23 +243,46 @@ export default function Display() {
     listRef.current?.scrollTo({ top: 0 });
   }, [current, boardPeriod]);
 
-  // TV mode: a list longer than the screen scrolls itself slowly during its turn.
+  // TV mode: a list longer than the screen turns page by page during its turn (whole rows, so
+  // nobody's name sits half cut off), then the next board comes up.
   const shownCount = cache[cacheKey]?.rows.length ?? 0;
   useEffect(() => {
     const el = listRef.current;
     if (manual || !el) return;
     const max = el.scrollHeight - el.clientHeight;
     if (max < 24) return;
-    const start = performance.now() + 2500;
-    const duration = Math.max(4000, dwell - 5000);
+    const first = el.querySelector<HTMLElement>(".row");
+    const list = el.querySelector<HTMLElement>(".rows");
+    const gap = list ? parseFloat(getComputedStyle(list).rowGap) || 0 : 0;
+    const rowStep = first ? first.getBoundingClientRect().height + gap : el.clientHeight;
+    const perPage = Math.max(1, Math.floor(el.clientHeight / rowStep) - 1); // one row stays on screen
+    const stops: number[] = [];
+    for (let y = perPage * rowStep; y < max; y += perPage * rowStep) stops.push(Math.round(y));
+    stops.push(max);
+    const MOVE = 900;
+    const HOLD_MIN = 3500;
+    // Fit as many pages as the board's turn allows, each held at least HOLD_MIN.
+    const fit = Math.max(1, Math.min(stops.length, Math.floor((dwell - HOLD_MIN) / (HOLD_MIN + MOVE))));
+    const pages = stops.slice(0, fit);
+    const hold = (dwell - pages.length * MOVE) / (pages.length + 1);
     let raf = 0;
-    const step = (t: number) => {
-      const p = Math.min(1, Math.max(0, (t - start) / duration));
-      el.scrollTop = max * (p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2);
-      if (p < 1) raf = requestAnimationFrame(step);
+    const timers: number[] = [];
+    const glide = (from: number, to: number) => {
+      const t0 = performance.now();
+      const frame = (t: number) => {
+        const p = Math.min(1, (t - t0) / MOVE);
+        el.scrollTop = from + (to - from) * (p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2);
+        if (p < 1) raf = requestAnimationFrame(frame);
+      };
+      raf = requestAnimationFrame(frame);
     };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
+    pages.forEach((y, k) => {
+      timers.push(window.setTimeout(() => glide(k ? pages[k - 1] : 0, y), hold * (k + 1) + MOVE * k));
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      timers.forEach((t) => window.clearTimeout(t));
+    };
   }, [cacheKey, shownCount, manual, dwell]);
 
   const touch = () => {
@@ -441,17 +465,26 @@ function valueOf(board: Board, r: LeaderRow): { value: string; unit: string } {
 }
 
 function PlayerList({ rows, board }: { rows: LeaderRow[]; board: Board }) {
+  const places = tiePlaces(board, rows);
   return (
     <ol className="rows">
       {rows.map((r, i) => {
         const v = valueOf(board, r);
+        const place = places[i];
         return (
-          <li key={r.user_id} className={`row ${r.rank <= 3 ? `row-top row-${r.rank}` : ""}`} style={{ "--i": Math.min(i, 10) } as CSSProperties}>
-            <span className="row-rank num">{r.rank}</span>
+          <li key={r.user_id} className={`row ${place <= 3 ? `row-top row-${place}` : ""}`} style={{ "--i": Math.min(i, 10) } as CSSProperties}>
+            <span className="row-rank num">{place}</span>
             <RowAvatar name={r.display_name} color={r.avatar_color} path={r.avatar_path} />
             <span className="row-name">
-              {r.display_name}
-              {board === "spindex" && r.detail === "verified" && <BadgeCheck className="row-verified" aria-label="Verified" />}
+              <span className="row-name-text">{r.display_name}</span>
+              {board === "spindex" &&
+                (r.detail === "verified" ? (
+                  <span className="row-tag verified">
+                    <BadgeCheck aria-hidden /> Verified
+                  </span>
+                ) : (
+                  <span className="row-tag">Self-reported</span>
+                ))}
             </span>
             <span className="row-value">
               <span className="num">{v.value}</span>
@@ -465,13 +498,14 @@ function PlayerList({ rows, board }: { rows: LeaderRow[]; board: Board }) {
 }
 
 function CrewList({ rows }: { rows: CrewRow[] }) {
+  const places = tiePlaces("crews", rows.map((c) => ({ rank: c.rank, value: c.minutes })));
   return (
     <ol className="rows">
       {rows.map((c, i) => {
         const Icon = emblemIcon(c.emblem);
         return (
-          <li key={c.crew_id} className={`row ${c.rank <= 3 ? `row-top row-${c.rank}` : ""}`} style={{ "--i": Math.min(i, 10) } as CSSProperties}>
-            <span className="row-rank num">{c.rank}</span>
+          <li key={c.crew_id} className={`row ${places[i] <= 3 ? `row-top row-${places[i]}` : ""}`} style={{ "--i": Math.min(i, 10) } as CSSProperties}>
+            <span className="row-rank num">{places[i]}</span>
             <span className={`row-emblem avatar-${c.color ?? "pink"}`} aria-hidden>
               <Icon strokeWidth={2.4} />
             </span>

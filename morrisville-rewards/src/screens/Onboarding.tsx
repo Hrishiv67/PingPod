@@ -13,6 +13,7 @@ export function nicknameProblem(name: string): string {
   const v = name.trim().replace(/\s+/g, " ");
   if (v.length < 2) return "At least 2 characters.";
   if (v.length > 20) return "20 characters max.";
+  if (/\p{Extended_Pictographic}/u.test(v)) return "No emoji in nicknames. You can put them in your bio.";
   if (!NICKNAME_RE.test(v)) return "Letters, numbers, spaces, _ . or - (start with a letter or number).";
   return "";
 }
@@ -92,7 +93,10 @@ export default function Onboarding() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             onBlur={() => setTouched(true)}
-            error={touched && name ? problem : undefined}
+            // Character problems show right away (so the layout doesn't jump on your next tap);
+            // "too short" waits until you leave the field.
+            error={name && (touched || (problem && name.trim().length >= 2)) ? problem || undefined : undefined}
+            hint="Letters, numbers, spaces, _ . or -"
           />
           <div className="stack-sm">
             <span className="label">Avatar color</span>

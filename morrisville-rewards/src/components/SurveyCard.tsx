@@ -6,8 +6,8 @@ import { Button, Sheet } from "./ui";
 
 // Research survey for the high school project. The link opens the Google Form in a new tab;
 // nothing about the player is added to it, so answers stay anonymous.
-//   • Pop-up: shown once, a moment after a new player lands on Home.
-//   • Footer card: stays at the bottom of Home until they actually open the survey.
+//   • Pop-up: shown once, after the player's first saved session (not before they've played).
+//   • Footer line: always at the bottom of Home; it turns quiet once they've opened the survey.
 const openedKey = (id: string) => `pingpod-survey-${id}`;
 const popupKey = (id: string) => `pingpod-survey-popup-${id}`;
 const ASK = "We're high school students running this pilot with PingPod Morrisville for a research project. Mind answering a short anonymous survey?";
@@ -31,14 +31,14 @@ function useSurvey() {
   return { url, id, opened, markOpened };
 }
 
-export function SurveyPopup() {
+export function SurveyPopup({ ready }: { ready: boolean }) {
   const { url, id, opened, markOpened } = useSurvey();
   const [show, setShow] = useState(false);
   useEffect(() => {
-    if (!url || opened || !id || store.get<string>(popupKey(id))) return;
-    const t = window.setTimeout(() => setShow(true), 1200);
+    if (!ready || !url || opened || !id || store.get<string>(popupKey(id))) return;
+    const t = window.setTimeout(() => setShow(true), 900);
     return () => window.clearTimeout(t);
-  }, [url, opened, id]);
+  }, [ready, url, opened, id]);
   if (!show || !url) return null;
   const close = () => {
     store.set(popupKey(id), "seen");

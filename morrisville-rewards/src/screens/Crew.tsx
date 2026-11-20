@@ -263,6 +263,7 @@ function CrewView({ crew, onChanged }: { crew: MyCrew; onChanged: () => Promise<
             </span>
           </div>
         </div>
+        <p className="small-print">Crew minutes count play from when each member joined.</p>
         {needed > 0 && (
           <div className="invite-banner">
             <Users size={20} aria-hidden />
@@ -378,17 +379,34 @@ function ManageSheet({ crew, onClose, onChanged }: { crew: MyCrew; onClose: () =
   const [color, setColor] = useState<AvatarColor>(crew.color ?? "pink");
   const [emblem, setEmblem] = useState<CrewEmblem>(crew.emblem ?? "users");
   const [motto, setMotto] = useState(crew.motto ?? "");
-  const [busy, setBusy] = useState<"" | "rename" | "code" | "look">("");
+  const [busy, setBusy] = useState<"" | "save" | "code">("");
   const [error, setError] = useState("");
+  const nameChanged = name.trim() !== crew.name;
   const lookChanged = color !== (crew.color ?? "pink") || emblem !== (crew.emblem ?? "users") || motto.trim() !== (crew.motto ?? "");
-  async function run(kind: "rename" | "code" | "look") {
-    setBusy(kind);
+  const nameOk = name.trim().length >= 3;
+
+  // One Save for everything on this sheet: name and look go together, so nothing gets lost.
+  async function save() {
+    setBusy("save");
     setError("");
     try {
-      if (kind === "rename") await api.renameCrew(name);
-      else if (kind === "look") await api.setCrewStyle({ color, emblem, motto });
-      else await api.regenerateCrewCode();
-      toast(kind === "rename" ? "Crew renamed." : kind === "look" ? "Crew look saved." : "New invite code ready. The old one no longer works.");
+      if (nameChanged) await api.renameCrew(name);
+      if (lookChanged) await api.setCrewStyle({ color, emblem, motto });
+      toast("Crew saved.");
+      await onChanged();
+      onClose();
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      setBusy("");
+    }
+  }
+  async function newCode() {
+    setBusy("code");
+    setError("");
+    try {
+      await api.regenerateCrewCode();
+      toast("New invite code ready. The old one no longer works.");
       await onChanged();
       onClose();
     } catch (err) {
@@ -399,14 +417,21 @@ function ManageSheet({ crew, onClose, onChanged }: { crew: MyCrew; onClose: () =
   }
   return (
     <Sheet title="Manage crew" onClose={onClose}>
-      <div className="stack-sm">
+      <form
+        className="stack-sm"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if ((nameChanged || lookChanged) && nameOk) void save();
+        }}
+      >
         <div className="crew-look-preview">
           <CrewBadge emblem={emblem} color={color} size={56} />
           <div style={{ minWidth: 0 }}>
-            <strong>{crew.name}</strong>
+            <strong>{name.trim() || crew.name}</strong>
             {motto.trim() && <span>{motto.trim()}</span>}
           </div>
         </div>
+        <Field label="Crew name" maxLength={24} value={name} onChange={(e) => setName(e.target.value)} />
         <span className="label">Color</span>
         <div className="swatches" role="radiogroup" aria-label="Crew color">
           {CREW_COLORS.map((c) => (
@@ -438,26 +463,14 @@ function ManageSheet({ crew, onClose, onChanged }: { crew: MyCrew; onClose: () =
           ))}
         </div>
         <Field label="Motto" maxLength={60} placeholder="Optional · e.g. Every Tuesday" value={motto} onChange={(e) => setMotto(e.target.value)} />
-        <Button variant="primary" block loading={busy === "look"} disabled={!lookChanged} onClick={() => void run("look")}>
-          Save look
-        </Button>
-      </div>
-      <form
-        className="stack-sm"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void run("rename");
-        }}
-      >
-        <Field label="Crew name" maxLength={24} value={name} onChange={(e) => setName(e.target.value)} />
-        <Button type="submit" variant="secondary" block loading={busy === "rename"} disabled={name.trim() === crew.name || name.trim().length < 3}>
-          Save name
+        <Button type="submit" variant="primary" size="lg" block loading={busy === "save"} disabled={!(nameChanged || lookChanged) || !nameOk}>
+          Save changes
         </Button>
       </form>
       <div className="stack-sm">
         <span className="label">Invite code</span>
         <p className="small-print">The old code stops working. Members stay in.</p>
-        <Button variant="secondary" block icon={<RefreshCw size={16} />} loading={busy === "code"} onClick={() => void run("code")}>
+        <Button variant="secondary" block icon={<RefreshCw size={16} />} loading={busy === "code"} onClick={() => void newCode()}>
           Make a new invite code
         </Button>
       </div>

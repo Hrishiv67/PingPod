@@ -7,7 +7,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "node --test tests/time.test.mjs tests/demo-rules.test.mjs",
+    "test": "node --test tests/time.test.mjs tests/demo-rules.test.mjs tests/ranks.test.mjs",
     "typecheck": "tsc -b",
     "test:integration": "node --test tests/integration.test.mjs",
     "db:schema": "sh -c 'f=supabase/schema.sql; { echo \"-- PingPod Morrisville Rewards \u2014 full schema, generated from supabase/migrations (in order).\"; echo \"-- For a brand-new project you can run this file once in the SQL editor.\"; echo \"-- Source of truth: the numbered files in supabase/migrations. Regenerate with: npm run db:schema\"; for m in supabase/migrations/*.sql; do echo; echo \"-- \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 $(basename $m) \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\"; cat $m; done; } > $f'"

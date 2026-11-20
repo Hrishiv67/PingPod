@@ -94,8 +94,10 @@ as friendly competition rather than an audited record.
 ## SPINDEX ratings
 
 Players can add their SPINDEX rating (0–3000). It shows as **Self-reported** everywhere until staff
-verify it. The app is not connected to SPINDEX, PodPlay or PingPod accounts and never calculates
-SPINDEX.
+verify it. On the SPINDEX board (app and iPad) every staff-verified rating is listed above every
+self-reported one, so a typed-in number can't take #1 from a checked rating, and the iPad's
+"Top SPINDEX" tile only ever shows a verified rating. The app is not connected to SPINDEX, PodPlay or
+PingPod accounts and never calculates SPINDEX.
 
 To verify one (**Admin → More → SPINDEX ratings**): only after you have seen proof in person (for example the
 player shows their SPINDEX profile in the official app). Write how you checked

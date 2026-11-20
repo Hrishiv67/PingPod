@@ -2,7 +2,27 @@ import { useCallback, useEffect, useState } from "react";
 import LogoLoader from "../components/LogoLoader";
 import PhotoCropper from "../components/PhotoCropper";
 import SpindexSheet from "../components/SpindexSheet";
-import { Award, Camera, ChevronRight, ExternalLink, KeyRound, LogOut, ShieldCheck, Trash2 } from "lucide-react";
+import {
+  Award,
+  CalendarCheck,
+  Camera,
+  ChevronRight,
+  Clock,
+  Crown,
+  ExternalLink,
+  Flame,
+  Hourglass,
+  KeyRound,
+  LogOut,
+  Medal,
+  Play,
+  ShieldCheck,
+  Star,
+  Trash2,
+  Trophy,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import { api, errorText } from "../lib/api";
 import { Link } from "../lib/router";
 import { formatDateTime, formatDay, formatDuration, formatNumber, formatTime } from "../lib/time";
@@ -342,6 +362,21 @@ function EditProfileSheet({ onClose }: { onClose: () => void }) {
   );
 }
 
+// Each milestone gets its own icon so the list doesn't read as one repeated ribbon.
+const BADGE_ICON: Record<string, LucideIcon> = {
+  first_session: Play,
+  first_hour: Clock,
+  minutes_300: Medal,
+  minutes_600: Star,
+  minutes_1200: Crown,
+  long_session: Hourglass,
+  streak_3: Flame,
+  streak_7: Flame,
+  crew_joined: Users,
+  regular: CalendarCheck,
+  weekly_top5: Trophy,
+};
+
 const BADGE_ORDER = (a: Achievement, b: Achievement) =>
   Number(Boolean(b.earned_at)) - Number(Boolean(a.earned_at)) || b.progress / b.target - a.progress / a.target;
 
@@ -380,7 +415,10 @@ function Achievements({ version }: { version: number }) {
             .map((a) => (
             <div key={a.code} className={`badge ${a.earned_at ? "earned" : ""}`}>
               <span className="badge-icon">
-                <Award size={20} />
+                {(() => {
+                  const Icon = BADGE_ICON[a.code] ?? Award;
+                  return <Icon size={20} />;
+                })()}
               </span>
               <span className="badge-text">
                 <strong>{a.title}</strong>
@@ -481,6 +519,24 @@ function History({ version }: { version: number }) {
       .catch((err) => setError(errorText(err)));
   }, [limit]);
   useEffect(load, [load, version]);
+  // Arrived from Home ("History" or a recent session): scroll here, and open that session.
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!rows || !(hash === "#history" || hash.startsWith("#session-"))) return;
+    let tries = 0;
+    let t = 0;
+    const go = () => {
+      const el = document.getElementById("history");
+      if (el && el.offsetParent !== null) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        const hit = hash.startsWith("#session-") ? rows.find((r) => r.id === hash.slice(9)) : undefined;
+        if (hit) setOpen(hit);
+        window.history.replaceState(null, "", window.location.pathname);
+      } else if (tries++ < 15) t = window.setTimeout(go, 150);
+    };
+    t = window.setTimeout(go, 50);
+    return () => window.clearTimeout(t);
+  }, [rows]);
   return (
     <section className="section" id="history">
       <div className="section-head">

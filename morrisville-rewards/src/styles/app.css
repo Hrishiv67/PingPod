@@ -43,7 +43,7 @@
   top: 0;
   z-index: 30;
   padding: calc(var(--safe-top) + 8px) calc(var(--gutter) + var(--safe-right)) 8px calc(var(--gutter) + var(--safe-left));
-  background: rgba(0, 0, 0, 0.88);
+  background: rgba(0, 0, 0, 0.97);
   backdrop-filter: saturate(140%) blur(12px);
   -webkit-backdrop-filter: saturate(140%) blur(12px);
   border-bottom: 1px solid var(--line);
@@ -63,6 +63,7 @@
   min-height: 44px;
 }
 .header-avatar {
+  text-decoration: none;
   border: 0;
   padding: 0;
   background: none;
@@ -155,7 +156,7 @@
   border-radius: 12px;
   color: var(--muted);
   text-decoration: none;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 700;
   letter-spacing: 0.02em;
 }
@@ -408,7 +409,7 @@ a.stat-cell:active {
   background: var(--surface-2);
 }
 .stat-label {
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -457,6 +458,9 @@ a.stat-cell:active {
   background: transparent;
   text-align: left;
 }
+button.session-row {
+  grid-template-columns: 40px 1fr auto auto;
+}
 button.session-row:active {
   background: var(--surface-2);
 }
@@ -487,7 +491,7 @@ button.session-row:active {
 }
 .session-min small {
   font-family: var(--font);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--muted);
   margin-left: 2px;
@@ -707,14 +711,14 @@ button.session-row:active {
   display: block;
   margin-top: 3px;
   font-family: var(--font);
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--muted);
   text-transform: uppercase;
 }
 .you-tag {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.08em;
   color: var(--pink);
@@ -931,11 +935,31 @@ button.podium-spot:active {
   font-size: 14px;
   justify-self: center;
 }
+#history {
+  scroll-margin-top: 76px;
+}
+.session-chevron {
+  flex: none;
+  color: var(--muted);
+  margin-left: -4px;
+}
 .rank-gap {
   padding: 6px 14px;
   font-size: 13px;
   color: var(--muted);
   text-align: center;
+}
+/* SPINDEX board: "Verified by staff" and "Self-reported" sections */
+.rank-heading {
+  padding: 18px 16px 8px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+[role="listitem"]:first-child > .rank-heading {
+  padding-top: 12px;
 }
 
 /* Crew */
@@ -1036,7 +1060,7 @@ button.podium-spot:active {
   line-height: 1.2;
 }
 .badge-text span {
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--muted);
   line-height: 1.3;
 }
@@ -1473,7 +1497,7 @@ button.podium-spot:active {
 }
 .your-spot-text strong small {
   margin-left: 4px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--muted);
@@ -1577,6 +1601,25 @@ a.btn-block {
 }
 
 /* Home: slim SPINDEX row + survey line */
+.result-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 18px;
+  margin-top: 4px;
+  color: var(--text-2);
+}
+.result-stats strong {
+  color: var(--text);
+  font-size: 20px;
+}
+.stat-note {
+  font-size: 13px;
+  color: var(--text-2);
+}
+.spindex-add {
+  text-align: left;
+}
 .spindex-prompt.has {
   border-color: var(--line);
   background: var(--surface);

@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { BadgeCheck } from "lucide-react";
+import { BadgeCheck, UserPlus } from "lucide-react";
 import { api, errorText } from "../lib/api";
+import { useApp } from "../state";
 import { formatNumber } from "../lib/time";
 import type { PlayerCard } from "../lib/types";
-import { Avatar, InlineError, Sheet } from "./ui";
+import { Avatar, Button, InlineError, Sheet, useToast } from "./ui";
 import CrewBadge from "./CrewBadge";
 import LogoLoader from "./LogoLoader";
 
@@ -11,8 +12,32 @@ const monthYear = new Intl.DateTimeFormat("en-US", { month: "short", year: "nume
 
 /** Tap a player anywhere (leaderboard, crew) to see their public profile. */
 export default function PlayerCardSheet({ userId, name, onClose }: { userId: string; name: string; onClose: () => void }) {
+  const { me } = useApp();
+  const toast = useToast();
   const [card, setCard] = useState<PlayerCard | null>(null);
   const [error, setError] = useState("");
+  const myCrew = me.crew ?? null;
+
+  // Invite someone you just found on the board to your crew (share sheet, or copy the link).
+  async function invite() {
+    if (!myCrew || !card) return;
+    const url = `${window.location.origin}/join/${myCrew.invite_code}`;
+    const text = `${card.display_name}, join my crew "${myCrew.name}" on PingPod Morrisville Rewards`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "PingPod Morrisville crew invite", text, url });
+        return;
+      } catch {
+        /* cancelled: fall back to copying */
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast("Invite link copied. Send it to them.");
+    } catch {
+      toast("Couldn't copy the link. Find it on the Crew tab.", "bad");
+    }
+  }
   useEffect(() => {
     let live = true;
     api
@@ -53,7 +78,7 @@ export default function PlayerCardSheet({ userId, name, onClose }: { userId: str
               </span>
             </div>
             <div className="stat-cell">
-              <span className="stat-label">Rank</span>
+              <span className="stat-label">Week rank</span>
               <span className={`stat-value num ${card.rank_week ? "pink" : ""}`}>{card.rank_week ? `#${card.rank_week}` : "—"}</span>
             </div>
             <div className="stat-cell">
@@ -69,12 +94,18 @@ export default function PlayerCardSheet({ userId, name, onClose }: { userId: str
                 {card.spindex ? card.spindex.rating : "—"}
                 {card.spindex?.verified && <BadgeCheck size={16} className="verified-tick" aria-label="Verified" />}
               </span>
+              {card.spindex && <span className="stat-note">{card.spindex.verified ? "Verified" : "Self-reported"}</span>}
             </div>
           </div>
           <p className="small-print">
             {formatNumber(card.total_minutes)} min in {card.sessions} {card.sessions === 1 ? "session" : "sessions"} · since{" "}
             {monthYear.format(new Date(card.member_since))}
           </p>
+          {myCrew && !card.is_me && !card.crew && (
+            <Button variant="secondary" block icon={<UserPlus size={18} />} onClick={() => void invite()}>
+              Invite to {myCrew.name}
+            </Button>
+          )}
         </div>
       )}
     </Sheet>

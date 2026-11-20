@@ -51,8 +51,12 @@ timer session — possible duplicate), `too_short` (timer stopped before the min
 | minutes | value ↓, whoever reached it first (earlier last counted session end) ↑, nickname (A→Z), id |
 | longest | minutes ↓, earlier session ↑, nickname, id |
 | streaks | current streak ↓, longest streak ↓, total minutes ↓, nickname, id |
-| spindex | rating ↓, verified before self-reported, earlier claim ↑, nickname, id |
+| spindex | verified before self-reported, then rating ↓, earlier claim ↑, nickname, id |
 | crews | minutes ↓, whoever reached it first ↑, crew name, id |
+
+`rank` is the position on the board (always 1, 2, 3…). The app and the iPad show players with the
+same displayed value with a shared place ("1, 1, 3"); see `src/lib/ranks.ts`. On SPINDEX a verified
+and a self-reported rating never share a place.
 
 Streak = consecutive days (Morrisville calendar) with at least one counted session. The current
 streak stays alive through today if the player played yesterday; it resets after a full missed day.

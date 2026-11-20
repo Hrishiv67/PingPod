@@ -464,7 +464,8 @@ function board(s: Stored, metric: Metric, period: Period, scope: Scope): Ranked[
         detail: p.spindex.status === "verified" ? "verified" : "self_reported", tie: [p.spindex.at], extra: [p.spindex.status === "verified" ? 1 : 0],
       });
     }
-    rows.sort((a, b) => b.value - a.value || b.extra[0] - a.extra[0] || cmpTime(a.tie[0], b.tie[0]) || byName(a.display_name, b.display_name) || a.user_id.localeCompare(b.user_id));
+    // Staff-verified ratings first, then self-reported (same as the live database).
+    rows.sort((a, b) => b.extra[0] - a.extra[0] || b.value - a.value || cmpTime(a.tie[0], b.tie[0]) || byName(a.display_name, b.display_name) || a.user_id.localeCompare(b.user_id));
   } else {
     fail("Unknown leaderboard.");
   }
@@ -635,7 +636,9 @@ function achievementsFor(s: Stored): Achievement[] {
     }
   }
   let top5Week: string | null = null;
+  const joinedDay = s.profile ? venueDate(new Date(s.profile.created_at)) : venueDate();
   for (const w of [...weekly.keys()].sort()) {
+    if (addDays(w, 7) <= joinedDay) continue; // weeks that ended before signing up don't count
     const totals = weekly.get(w)!;
     const mine = totals.get(uid);
     if (mine === undefined) continue;
@@ -1390,7 +1393,7 @@ export const demoApi: Api = {
         top_crew: crews[0] && crews[0].minutes > 0 ? { name: crews[0].name, minutes: crews[0].minutes } : null,
         top_spindex: (() => {
           const top = board(s, "spindex", "all", scope)[0];
-          return top ? { display_name: top.display_name, rating: top.value } : null;
+          return top && top.detail === "verified" ? { display_name: top.display_name, rating: top.value } : null;
         })(),
         active_crews: crews.filter((c) => c.minutes > 0).length,
       },

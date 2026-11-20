@@ -328,11 +328,32 @@ html.display-mode body {
   font-size: clamp(17px, 2.7vmin, 34px);
   font-weight: 700;
 }
-.row-verified {
+.row-name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* SPINDEX: every rating says whether staff checked it. */
+.row-tag {
   flex: none;
-  width: 0.8em;
-  height: 0.8em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0.2em 0.6em;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  color: var(--text-2);
+  font-size: 0.52em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.row-tag.verified {
+  border-color: color-mix(in srgb, var(--ok) 55%, transparent);
   color: var(--ok);
+}
+.row-tag svg {
+  width: 1.1em;
+  height: 1.1em;
 }
 .row-value {
   display: inline-flex;

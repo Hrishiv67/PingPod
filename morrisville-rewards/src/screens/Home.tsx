@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { BadgeCheck, ChevronRight, Hand, Pencil, Play, Square, Timer } from "lucide-react";
 import { api, errorText, toAppError } from "../lib/api";
-import { Link } from "../lib/router";
+import { Link, navigate } from "../lib/router";
 import { KEYS, newRequestId, store, type PendingStop } from "../lib/storage";
-import { elapsedMs, formatClock, formatDuration, formatTime, relativeDay } from "../lib/time";
+import { elapsedMs, formatClock, formatDuration, formatNumber, formatTime, relativeDay } from "../lib/time";
 import type { PlaySession, Reward } from "../lib/types";
 import { useApp } from "../state";
 import { Button, ConfirmSheet, InlineError, Sheet, StatusChip, useToast } from "../components/ui";
@@ -133,7 +133,7 @@ export default function Home() {
           <RecentSessions version={version} />
           <VerifyEmailCard />
           <SurveyFooter />
-          <SurveyPopup />
+          <SurveyPopup ready={me.stats!.sessions > 0 && !finished && !logOpen} />
           <RewardsStrip enabled={settings.rewards_enabled} />
         </>
       ) : (
@@ -164,6 +164,7 @@ export default function Home() {
             </div>
           )}
           {nearMax && !needsCheckin && <p className="timer-note">Timers stop at {formatDuration(settings.max_session_minutes)}.</p>}
+          {elapsedMin < 5 && <p className="timer-note">Sessions count once they reach 5 minutes.</p>}
 
           <div className="session-actions">
             {waitingToSync ? (
@@ -217,7 +218,11 @@ export default function Home() {
 }
 
 function FinishedSheet({ session, onClose }: { session: PlaySession; onClose: () => void }) {
+  const { me } = useApp();
   const counted = session.status === "pending" || session.status === "approved";
+  const stats = me.stats;
+  const rank = stats ? (me.settings.default_board_scope === "verified" ? stats.rank_week_verified : stats.rank_week_community) : null;
+  const onBoard = me.profile?.show_on_leaderboard && !me.profile?.hidden_by_admin;
   return (
     <Sheet title={counted ? "Nice session." : "Not saved"} onClose={onClose}>
       <div className="result">
@@ -228,6 +233,23 @@ function FinishedSheet({ session, onClose }: { session: PlaySession; onClose: ()
               <small>min</small>
             </div>
             <p>Saved to your leaderboard.</p>
+            {stats && (
+              <div className="result-stats">
+                {onBoard && rank ? (
+                  <span>
+                    <strong className="num">#{rank}</strong> this week
+                  </span>
+                ) : null}
+                <span>
+                  <strong className="num">{formatNumber(stats.week_verified + stats.week_pending)}</strong> min this week
+                </span>
+                {stats.current_streak > 0 && (
+                  <span>
+                    <strong className="num">{stats.current_streak}</strong>-day streak
+                  </span>
+                )}
+              </div>
+            )}
             {session.flags.includes("hit_max") && (
               <p className="result-note">Timer hit the {session.minutes}-minute limit. Played less? Fix it from your history.</p>
             )}
@@ -260,7 +282,7 @@ function StatStrip() {
         </span>
       </Link>
       <Link to="/rankings" className="stat-cell">
-        <span className="stat-label">Rank</span>
+        <span className="stat-label">Week rank</span>
         {hidden ? (
           <span className="stat-value text">Hidden</span>
         ) : (
@@ -301,10 +323,12 @@ function SpindexRow() {
               {claim.rating}
               {claim.status === "verified" && <BadgeCheck size={16} className="verified-tick" aria-label="Verified" />}
             </strong>
+            <span className="spindex-state">{claim.status === "verified" ? "Verified" : "Self-reported"}</span>
           </span>
         ) : (
-          <span>
+          <span className="spindex-add">
             <strong>Add your SPINDEX</strong>
+            <span>Your PingPod skill rating · optional</span>
           </span>
         )}
         <span className="spindex-row-cta">
@@ -332,7 +356,7 @@ function RecentSessions({ version }: { version: number }) {
     <section className="section">
       <div className="section-head">
         <h2>Recent sessions</h2>
-        <Link to="/me" className="link-btn" style={{ display: "inline-flex", alignItems: "center" }}>
+        <Link to="/me#history" className="link-btn" style={{ display: "inline-flex", alignItems: "center" }}>
           History <ChevronRight size={16} />
         </Link>
       </div>
@@ -345,7 +369,7 @@ function RecentSessions({ version }: { version: number }) {
       ) : (
         <div className="list">
           {rows.map((s) => (
-            <SessionRow key={s.id} s={s} />
+            <SessionRow key={s.id} s={s} onClick={() => navigate(`/me#session-${s.id}`)} />
           ))}
         </div>
       )}
@@ -373,6 +397,7 @@ export function SessionRow({ s, onClick }: { s: PlaySession; onClick?: () => voi
         {s.minutes}
         <small>min</small>
       </span>
+      {onClick && <ChevronRight size={18} className="session-chevron" aria-hidden />}
     </>
   );
   return onClick ? (
