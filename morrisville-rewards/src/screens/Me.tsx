@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import LogoLoader from "../components/LogoLoader";
+import PhotoCropper from "../components/PhotoCropper";
 import { Award, Camera, ChevronRight, KeyRound, LogOut, ShieldCheck, Trash2 } from "lucide-react";
 import { api, errorText } from "../lib/api";
 import { Link } from "../lib/router";
@@ -204,17 +205,18 @@ function EditProfileSheet({ onClose }: { onClose: () => void }) {
   const [bio, setBio] = useState(p.bio ?? "");
   const [busy, setBusy] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [cropping, setCropping] = useState<File | null>(null);
   const [error, setError] = useState("");
   const problem = nicknameProblem(name);
 
-  async function pickPhoto(file: File | undefined) {
-    if (!file) return;
+  async function savePhoto(photo: Blob) {
     setPhotoBusy(true);
     setError("");
     try {
-      await api.uploadAvatar(file);
+      await api.uploadAvatar(photo);
       await refresh();
       bump();
+      setCropping(null);
       toast("Photo updated.");
     } catch (err) {
       setError(errorText(err));
@@ -237,6 +239,14 @@ function EditProfileSheet({ onClose }: { onClose: () => void }) {
     }
   }
 
+  if (cropping)
+    return (
+      <Sheet title="Crop photo" onClose={() => setCropping(null)}>
+        <PhotoCropper file={cropping} busy={photoBusy} onCancel={() => setCropping(null)} onConfirm={(b) => void savePhoto(b)} />
+        {error && <InlineError>{error}</InlineError>}
+      </Sheet>
+    );
+
   return (
     <Sheet title="Edit profile" onClose={onClose}>
       <div className="photo-edit">
@@ -253,7 +263,11 @@ function EditProfileSheet({ onClose }: { onClose: () => void }) {
               hidden
               disabled={photoBusy}
               onChange={(e) => {
-                void pickPhoto(e.target.files?.[0]);
+                const f = e.target.files?.[0];
+                if (f) {
+                  setError("");
+                  setCropping(f);
+                }
                 e.target.value = "";
               }}
             />

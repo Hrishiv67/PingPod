@@ -1376,3 +1376,139 @@ button.podium-spot:active {
     transform: scale(0.96);
   }
 }
+
+/* Photo crop */
+.cropper {
+  display: grid;
+  justify-items: center;
+  gap: 22px;
+}
+.cropper-frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--r);
+  background: var(--surface-2);
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+.cropper-frame:active {
+  cursor: grabbing;
+}
+.cropper-frame canvas {
+  display: block;
+}
+.cropper-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.55);
+  outline: 2px solid rgba(255, 255, 255, 0.85);
+  outline-offset: -2px;
+  pointer-events: none;
+}
+.cropper-zoom {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 300px;
+  color: var(--muted);
+}
+.cropper-zoom input {
+  flex: 1;
+  accent-color: var(--pink);
+}
+.cropper-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+}
+
+/* Leaderboard: where you stand + ranked list */
+.your-spot {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 16px 18px;
+  border-radius: var(--r);
+  border: 1px solid var(--pink-line);
+  background: linear-gradient(90deg, var(--pink-soft), var(--surface) 75%);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.your-spot.empty {
+  display: block;
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--text-2);
+  cursor: default;
+}
+.your-spot-rank {
+  display: grid;
+  justify-items: start;
+  font-size: 40px;
+  line-height: 0.95;
+  color: var(--pink);
+}
+.your-spot-rank small {
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.your-spot-text {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.your-spot-text strong {
+  font-size: 22px;
+  line-height: 1.1;
+}
+.your-spot-text strong small {
+  margin-left: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.your-spot-text > span {
+  font-size: 14px;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.your-spot-find {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pink);
+  white-space: nowrap;
+}
+.rank-row.top .rank-num {
+  color: #fff;
+}
+.rank-row.top-1 .rank-num,
+.rank-row.top-1 .rank-value {
+  color: var(--pink);
+}
+.rank-row.top-1 {
+  box-shadow: inset 3px 0 0 var(--pink);
+}
+.rank-row.me {
+  box-shadow: inset 3px 0 0 var(--pink);
+}
+@keyframes rank-flash {
+  0%,
+  40% {
+    background: rgba(255, 0, 120, 0.32);
+  }
+}
+.rank-row.flash {
+  animation: rank-flash 1.4s ease;
+}

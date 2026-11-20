@@ -3,7 +3,32 @@
 
 const SIZE = 320;
 
-async function decode(file: Blob): Promise<CanvasImageSource & { width: number; height: number }> {
+export type Decoded = CanvasImageSource & { width: number; height: number };
+
+/** Decodes a photo with its camera rotation applied (so the crop matches what you see). */
+export async function decodeImage(file: Blob): Promise<Decoded> {
+  if (!file.type.startsWith("image/")) throw new Error("Choose a photo (JPEG, PNG or HEIC).");
+  try {
+    return await decode(file);
+  } catch {
+    throw new Error("That photo couldn't be opened. Try another one.");
+  }
+}
+
+/** Draws the square (sx, sy, size) of the source into a 320×320 JPEG. */
+export async function cropToJpeg(img: Decoded, sx: number, sy: number, size: number): Promise<Blob> {
+  const canvas = document.createElement("canvas");
+  canvas.width = SIZE;
+  canvas.height = SIZE;
+  const ctx = canvas.getContext("2d")!;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, sx, sy, size, size, 0, 0, SIZE, SIZE);
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+  if (!blob) throw new Error("That photo couldn't be prepared. Try another one.");
+  return blob;
+}
+
+async function decode(file: Blob): Promise<Decoded> {
   if (typeof createImageBitmap === "function") {
     try {
       return await createImageBitmap(file, { imageOrientation: "from-image" });
@@ -24,23 +49,11 @@ async function decode(file: Blob): Promise<CanvasImageSource & { width: number; 
 }
 
 export async function squareJpeg(file: Blob): Promise<Blob> {
-  if (!file.type.startsWith("image/")) throw new Error("Choose a photo (JPEG, PNG or HEIC).");
-  let img: CanvasImageSource & { width: number; height: number };
-  try {
-    img = await decode(file);
-  } catch {
-    throw new Error("That photo couldn't be opened. Try another one.");
-  }
+  const img = await decodeImage(file);
+  // Already cropped in the app (320×320 JPEG): upload as is.
+  if (img.width === SIZE && img.height === SIZE && file.type === "image/jpeg") return file;
   const side = Math.min(img.width, img.height);
-  const canvas = document.createElement("canvas");
-  canvas.width = SIZE;
-  canvas.height = SIZE;
-  const ctx = canvas.getContext("2d")!;
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, SIZE, SIZE);
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
-  if (!blob) throw new Error("That photo couldn't be prepared. Try another one.");
-  return blob;
+  return cropToJpeg(img, (img.width - side) / 2, (img.height - side) / 2, side);
 }
 
 /** Data URL version, used by demo mode (photos stay in this browser). */
