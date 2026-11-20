@@ -106,7 +106,7 @@ export default function Tutorial({ onClose }: { onClose: () => void }) {
         <span className="tut-count num">
           {i + 1} / {SLIDES.length}
         </span>
-        <button type="button" className="tut-skip" onClick={onClose} aria-label="Close how it works">
+        <button type="button" className="tut-skip" onClick={onClose} aria-label={last ? "Close" : undefined}>
           {last ? <X size={20} /> : "Skip"}
         </button>
       </div>
