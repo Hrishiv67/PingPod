@@ -9,7 +9,7 @@ import type { PlaySession, Reward } from "../lib/types";
 import { useApp } from "../state";
 import { Button, ConfirmSheet, InlineError, Sheet, StatusChip, useToast } from "../components/ui";
 import LogoLoader from "../components/LogoLoader";
-import { SurveyFooter, SurveyPopup } from "../components/SurveyCard";
+import { SurveyFooter } from "../components/SurveyCard";
 import SpindexCard from "../components/SpindexCard";
 import { WeeklyRally } from "../components/rally/WeeklyRally";
 import { PingPodMark } from "../components/Logo";
@@ -18,7 +18,7 @@ import LogPlaySheet from "./LogPlaySheet";
 import CountUp from "../components/CountUp";
 
 export default function Home() {
-  const { me, serverNow, refresh, finished, setFinished, bump, version, tutorialOpen } = useApp();
+  const { me, serverNow, refresh, finished, setFinished, bump, version } = useApp();
   const toast = useToast();
   const profile = me.profile!;
   const settings = me.settings;
@@ -170,7 +170,6 @@ export default function Home() {
           <RecentSessions rows={sessions} error={sessionsError} onRetry={loadSessions} />
           <VerifyEmailCard />
           <SurveyFooter />
-          <SurveyPopup ready={me.stats!.sessions > 0 && !finished && !logOpen && !tutorialOpen} />
           <RewardsStrip enabled={settings.rewards_enabled} />
         </>
       ) : (

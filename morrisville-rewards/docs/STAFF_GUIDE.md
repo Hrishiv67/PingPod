@@ -21,8 +21,9 @@ handle bookings, door entry or payments, and it never asks for anyone's PingPod 
 5. Finished and logged sessions count right away — there's no approval step. We trust players to
    log their own time; staff only step in to fix obvious mistakes.
 6. Friends can form a **crew** (2–8 people) and share an invite link or code.
-7. **How it works**: six quick slides show new players everything once, right after they pick a
-   nickname. Anyone can reopen them from **Me → How it works** or the sign-in page.
+7. **How it works**: six quick slides show players everything once (new players right after picking
+   a nickname), ending with the research survey ask. Anyone can reopen them from **Me → How it works**
+   or the sign-in page.
 8. **Weekly Rally** on Home: a flame for each day played this week, plus an optional weekly goal
    (hours and days). The goal planner starts with the CDC's 150-minutes-a-week guideline as a
    suggestion, then the player picks their own.
@@ -31,9 +32,12 @@ Returning customers stay signed in, so they just open the app and tap Start play
 
 ## Research survey
 
-New players see a one-time "Quick favor?" card asking them to fill out a short anonymous survey (it also stays on
-their profile as "Research survey"). Change or remove the link in **Settings → Research survey**. In Google Forms,
-keep "Collect email addresses" off so answers stay anonymous.
+The "How it works" slides end with "One quick favor": a short anonymous survey for our research
+(**Take the survey** or **Maybe later**; Skip jumps straight to it). Every player sees this once,
+existing players included. After that, a pink survey card stays on Home; once it's been opened it
+turns into a plain gray card ("Research survey · Thanks for helping") that's still there to tap. It's
+also under **Me → Research survey**. Change or remove the link in **Settings → Research survey**. In
+Google Forms, keep "Collect email addresses" off so answers stay anonymous.
 
 ## Photos, bios and crew mottos
 

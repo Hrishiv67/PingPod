@@ -204,7 +204,7 @@ does not expose.
 | `venue_lat`, `venue_lng` | null | the venue's coordinates for the timer location check (set from the venue with "Use this spot") |
 | `geofence_m` | 300 | 50–5000 metres |
 | `geofence_enabled` | false | needs `venue_lat`/`venue_lng` set |
-| `survey_url` | the "after" Google Form | https link shown once to new players and on the profile; null = off (no player data is added to the link) |
+| `survey_url` | the "after" Google Form | https link: last "How it works" slide (once per player), a card on Home and Me → Research survey; null = off (no player data is added to the link) |
 | `display_slides` | minutes, spindex, crews, streaks, longest, highlights | subset of those (≥1); the iPad always shows them in this order |
 | `boards_enabled` | minutes, streaks, longest, spindex, crews | subset of those |
 | `rewards_enabled` | false | boolean (master switch for physical rewards) |

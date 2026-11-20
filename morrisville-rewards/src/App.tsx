@@ -8,6 +8,7 @@ import { AppCtx, type AppState } from "./state";
 import { Logo, PingPodMark } from "./components/Logo";
 import Splash, { shouldShowSplash } from "./components/Splash";
 import Tutorial from "./components/Tutorial";
+import { markSurveyOpened, SURVEY_ASK, surveyOpened } from "./components/SurveyCard";
 import LogoLoader from "./components/LogoLoader";
 import { Avatar, Button, InlineError, useOnline } from "./components/ui";
 import Welcome from "./screens/Welcome";
@@ -170,8 +171,9 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
   }, [refresh]);
 
   const hasProfile = Boolean(me?.profile);
-  // "How it works" opens by itself once per player, right after they pick a nickname.
-  const tutorialKey = `pingpod-tutorial-${user.id}`;
+  // "How it works" opens by itself once per player (new players right after picking a nickname;
+  // existing players on their next visit, since v2 ends with the research survey ask).
+  const tutorialKey = `pingpod-tutorial-v2-${user.id}`;
   useEffect(() => {
     if (hasProfile && !store.get<string>(tutorialKey)) setTutorialOpen(true);
   }, [hasProfile, tutorialKey]);
@@ -270,7 +272,16 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
           {inviteCode ? screen : <FirstVisit tab={tab}>{screen}</FirstVisit>}
         </main>
         {!online && <div className="offline-bar">You're offline. A running timer keeps counting — we'll sync when you're back.</div>}
-        {tutorialOpen && <Tutorial onClose={closeTutorial} />}
+        {tutorialOpen && (
+          <Tutorial
+            onClose={closeTutorial}
+            survey={
+              state.me.settings.survey_url && !surveyOpened(user.id)
+                ? { url: state.me.settings.survey_url, ask: SURVEY_ASK, onOpen: () => markSurveyOpened(user.id) }
+                : null
+            }
+          />
+        )}
         <nav className="bottom-nav" aria-label="Main">
           <span className="nav-indicator" style={{ "--i": TAB_ORDER.indexOf(currentTab) } as CSSProperties} aria-hidden />
           <NavItem to="/" label="Home" active={tab === "/"} icon={<HomeIcon size={22} />} />

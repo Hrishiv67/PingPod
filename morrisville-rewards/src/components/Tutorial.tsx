@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { QrCode, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Check, ClipboardList, QrCode, X } from "lucide-react";
 import { PingPodMark } from "./Logo";
 import CrewBadge from "./CrewBadge";
 import "./tutorial.css";
 
-// "How it works": six short slides with one simple picture each. Shown once after a new player picks
-// a nickname, and any time from Me → How it works (or the sign-in page). Swipe, tap Next, or use the
-// arrow keys. Nothing here needs to be signed in.
+// "How it works": six short slides with one simple picture each, then (for signed-in players who
+// haven't opened it yet) the research survey ask as the last slide. Shown once on a player's first
+// visit, and any time from Me → How it works (or the sign-in page, without the survey slide).
+// Swipe, tap Next, or use the arrow keys. "Skip" jumps to the survey slide when there is one.
 
 type Slide = { key: string; title: string; text: string; visual: ReactNode };
 
@@ -38,7 +39,7 @@ const SLIDES: Slide[] = [
   {
     key: "spindex",
     title: "Show your SPINDEX",
-    text: "Add your PingPod skill rating to the SPINDEX board. It's just for fun.",
+    text: "Add your PingPod skill rating and see where you stand on the SPINDEX board.",
     visual: <SpindexVisual />,
   },
   {
@@ -49,16 +50,31 @@ const SLIDES: Slide[] = [
   },
 ];
 
-export default function Tutorial({ onClose }: { onClose: () => void }) {
+export default function Tutorial({
+  onClose,
+  survey,
+}: {
+  onClose: () => void;
+  /** Research survey ask as the final slide (omit when there's no survey or it's been opened). */
+  survey?: { url: string; ask: string; onOpen: () => void } | null;
+}) {
   const [i, setI] = useState(0);
   const [dir, setDir] = useState<"next" | "back">("next");
   const touch = useRef<{ x: number; y: number } | null>(null);
   const root = useRef<HTMLDivElement>(null);
-  const last = i === SLIDES.length - 1;
-  const slide = SLIDES[i];
+  const slides = useMemo<Slide[]>(
+    () =>
+      survey
+        ? [...SLIDES, { key: "survey", title: "One quick favor", text: survey.ask, visual: <SurveyVisual /> }]
+        : SLIDES,
+    [survey],
+  );
+  const last = i === slides.length - 1;
+  const slide = slides[i];
+  const onSurvey = slide.key === "survey";
 
   const go = (n: number) => {
-    if (n < 0 || n >= SLIDES.length) return;
+    if (n < 0 || n >= slides.length) return;
     setDir(n > i ? "next" : "back");
     setI(n);
   };
@@ -104,9 +120,15 @@ export default function Tutorial({ onClose }: { onClose: () => void }) {
       <div className="tut-top">
         <PingPodMark height={16} />
         <span className="tut-count num">
-          {i + 1} / {SLIDES.length}
+          {i + 1} / {slides.length}
         </span>
-        <button type="button" className="tut-skip" onClick={onClose} aria-label={last ? "Close" : undefined}>
+        <button
+          type="button"
+          className="tut-skip"
+          // Skip goes to the survey slide (when there is one); on the last slide it closes.
+          onClick={() => (last ? onClose() : survey ? go(slides.length - 1) : onClose())}
+          aria-label={last ? "Close" : undefined}
+        >
           {last ? <X size={20} /> : "Skip"}
         </button>
       </div>
@@ -117,11 +139,12 @@ export default function Tutorial({ onClose }: { onClose: () => void }) {
         </div>
         <h2 className="tut-title">{slide.title}</h2>
         <p className="tut-text">{slide.text}</p>
+        {onSurvey && <p className="tut-fine">It stays on Home too, if you'd rather do it later.</p>}
       </div>
 
       <div className="tut-bottom">
         <div className="tut-dots" role="tablist" aria-label="Slides">
-          {SLIDES.map((s, n) => (
+          {slides.map((s, n) => (
             <button
               key={s.key}
               type="button"
@@ -134,16 +157,35 @@ export default function Tutorial({ onClose }: { onClose: () => void }) {
           ))}
         </div>
         <div className="tut-actions">
-          {i > 0 ? (
+          {onSurvey ? (
+            <button type="button" className="tut-back" onClick={onClose}>
+              Maybe later
+            </button>
+          ) : i > 0 ? (
             <button type="button" className="tut-back" onClick={() => go(i - 1)}>
               Back
             </button>
           ) : (
             <span />
           )}
-          <button type="button" className="btn btn-primary btn-lg tut-next" onClick={() => (last ? onClose() : go(i + 1))}>
-            {last ? "Let's play" : "Next"}
-          </button>
+          {onSurvey && survey ? (
+            <a
+              className="btn btn-primary btn-lg tut-next"
+              href={survey.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => {
+                survey.onOpen();
+                onClose();
+              }}
+            >
+              Take the survey
+            </a>
+          ) : (
+            <button type="button" className="btn btn-primary btn-lg tut-next" onClick={() => (last ? onClose() : go(i + 1))}>
+              {last ? "Let's play" : "Next"}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -270,6 +312,24 @@ function ScreenVisual() {
           <QrCode size={56} strokeWidth={2.2} />
         </span>
       </div>
+    </div>
+  );
+}
+
+function SurveyVisual() {
+  return (
+    <div className="tv-survey">
+      <span className="tv-survey-icon">
+        <ClipboardList size={30} />
+      </span>
+      {[78, 62, 70].map((w, k) => (
+        <span key={k} className="tv-survey-row" style={{ ["--d" as string]: `${250 + k * 220}ms` }}>
+          <i className="tv-check">
+            <Check size={14} strokeWidth={3.2} />
+          </i>
+          <b style={{ width: `${w}%` }} />
+        </span>
+      ))}
     </div>
   );
 }
