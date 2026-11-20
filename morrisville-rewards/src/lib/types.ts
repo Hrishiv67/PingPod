@@ -72,6 +72,8 @@ export interface Settings {
   display_slides: DisplaySlide[];
   boards_enabled: BoardKey[];
   rewards_enabled: boolean;
+  /** Research survey link shown to new players and on the profile (null = off). */
+  survey_url?: string | null;
   updated_at?: string;
 }
 

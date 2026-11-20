@@ -24,6 +24,12 @@ handle bookings, door entry or payments, and it never asks for anyone's PingPod 
 
 Returning customers stay signed in, so they just open the app and tap Start playing.
 
+## Research survey
+
+New players see a one-time "Quick favor?" card asking them to fill out a short anonymous survey (it also stays on
+their profile as "Research survey"). Change or remove the link in **Settings → Research survey**. In Google Forms,
+keep "Collect email addresses" off so answers stay anonymous.
+
 ## Photos, bios and crew mottos
 
 Players can add a profile photo (shown on the leaderboard, crew pages and the iPad) and a short bio;

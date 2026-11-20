@@ -56,6 +56,7 @@ const DEFAULT_SETTINGS: Settings = {
   display_slides: ["minutes", "spindex", "crews", "streaks", "longest", "highlights"],
   boards_enabled: ["minutes", "spindex", "crews", "streaks", "longest"],
   rewards_enabled: false,
+  survey_url: "https://docs.google.com/forms/d/e/1FAIpQLSfZQ5hXNSCOuRfwqnv_CcqE36TBGtMDO-XlPapmkmmfj_y86Q/viewform",
 };
 const settings = (): Settings => ({
   ...DEFAULT_SETTINGS,

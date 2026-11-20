@@ -57,6 +57,7 @@ type Draft = {
   display_slides: DisplaySlide[];
   boards_enabled: BoardKey[];
   rewards_enabled: boolean;
+  survey_url: string;
 } & Record<NumKey, string>;
 
 function toDraft(s: Settings): Draft {
@@ -73,6 +74,7 @@ function toDraft(s: Settings): Draft {
     display_slides: [...s.display_slides],
     boards_enabled: [...s.boards_enabled],
     rewards_enabled: s.rewards_enabled,
+    survey_url: s.survey_url ?? "",
   };
 }
 
@@ -127,6 +129,7 @@ export default function SettingsTab({
     }
     if (!sameList(draft.display_slides, base.display_slides)) p.display_slides = draft.display_slides;
     if (!sameList(draft.boards_enabled, base.boards_enabled)) p.boards_enabled = draft.boards_enabled;
+    if (draft.survey_url.trim() !== (base.survey_url ?? "")) p.survey_url = draft.survey_url.trim();
     return p as Partial<Settings>;
   }, [base, draft]);
 
@@ -248,7 +251,28 @@ export default function SettingsTab({
               </label>
             ))}
           </fieldset>
-          <p className="field-hint">Screens with no results yet are skipped automatically. Don't sign in on the front-desk iPad.</p>
+          <p className="field-hint">Empty screens show their own invitation until someone's on them. Don't sign in on the front-desk iPad.</p>
+        </Group>
+
+        <Group title="Research survey">
+          <div className="field">
+            <label htmlFor="set-survey">Survey link</label>
+            <input
+              id="set-survey"
+              className="input"
+              type="url"
+              inputMode="url"
+              autoCapitalize="none"
+              placeholder="https://docs.google.com/forms/…/viewform"
+              value={draft.survey_url}
+              disabled={disabled}
+              onChange={(e) => set("survey_url", e.target.value)}
+            />
+            <div className="field-hint">
+              New players see a "Quick favor?" card once, and it stays on their profile. Leave empty to turn it off. Nothing about
+              the player is added to the link, so answers stay anonymous.
+            </div>
+          </div>
         </Group>
 
         <Group title="Rewards">

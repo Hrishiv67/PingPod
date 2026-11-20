@@ -1512,3 +1512,33 @@ button.podium-spot:active {
 .rank-row.flash {
   animation: rank-flash 1.4s ease;
 }
+
+/* Research survey ask */
+.survey-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: var(--r);
+  border: 1px dashed var(--line-strong);
+  background: var(--surface);
+}
+.survey-card-text {
+  display: grid;
+  gap: 4px;
+}
+.survey-card-text strong {
+  font-size: 17px;
+}
+.survey-card-text span {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+.survey-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.survey-card-actions .btn {
+  text-decoration: none;
+}

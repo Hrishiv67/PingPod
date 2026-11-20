@@ -196,6 +196,7 @@ does not expose.
 | `auto_approve_timer` | false | boolean — no effect since migration 0009 (sessions always count) |
 | `default_board_scope`, `display_scope` | community | verified·community (see Scope above) |
 | `display_rotation_seconds` | 15 | 8–60 |
+| `survey_url` | the "after" Google Form | https link shown once to new players and on the profile; null = off (no player data is added to the link) |
 | `display_slides` | minutes, spindex, crews, streaks, longest, highlights | subset of those (≥1); the iPad always shows them in this order |
 | `boards_enabled` | minutes, streaks, longest, spindex, crews | subset of those |
 | `rewards_enabled` | false | boolean (master switch for physical rewards) |

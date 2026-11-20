@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import LogoLoader from "../components/LogoLoader";
 import PhotoCropper from "../components/PhotoCropper";
-import { Award, Camera, ChevronRight, KeyRound, LogOut, ShieldCheck, Trash2 } from "lucide-react";
+import { Award, Camera, ChevronRight, ExternalLink, KeyRound, LogOut, ShieldCheck, Trash2 } from "lucide-react";
 import { api, errorText } from "../lib/api";
 import { Link } from "../lib/router";
 import { formatDateTime, formatDay, formatDuration, formatNumber, formatTime } from "../lib/time";
@@ -171,6 +171,14 @@ export default function MeScreen() {
               </span>
               <ChevronRight size={18} />
             </button>
+          )}
+          {me.settings.survey_url && (
+            <a className="settings-link" href={me.settings.survey_url} target="_blank" rel="noopener noreferrer">
+              <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <ExternalLink size={18} /> Research survey
+              </span>
+              <ChevronRight size={18} />
+            </a>
           )}
           <button className="settings-link" onClick={() => void signOut()}>
             <span style={{ display: "flex", gap: 10, alignItems: "center" }}>

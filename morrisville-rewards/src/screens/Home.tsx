@@ -8,6 +8,7 @@ import type { PlaySession, Reward } from "../lib/types";
 import { useApp } from "../state";
 import { Button, ConfirmSheet, InlineError, Sheet, StatusChip, useToast } from "../components/ui";
 import LogoLoader from "../components/LogoLoader";
+import SurveyCard from "../components/SurveyCard";
 import LogPlaySheet from "./LogPlaySheet";
 import CountUp from "../components/CountUp";
 
@@ -124,6 +125,7 @@ export default function Home() {
             {error && <InlineError>{error}</InlineError>}
           </section>
           <StatStrip />
+          <SurveyCard />
           <RecentSessions version={version} />
           <RewardsStrip enabled={settings.rewards_enabled} />
         </>
