@@ -51,12 +51,11 @@ timer session — possible duplicate), `too_short` (timer stopped before the min
 | minutes | value ↓, whoever reached it first (earlier last counted session end) ↑, nickname (A→Z), id |
 | longest | minutes ↓, earlier session ↑, nickname, id |
 | streaks | current streak ↓, longest streak ↓, total minutes ↓, nickname, id |
-| spindex | verified before self-reported, then rating ↓, earlier claim ↑, nickname, id |
+| spindex | rating ↓, earlier claim ↑, nickname, id (every rating counts in both scopes; `detail` still says verified / self_reported) |
 | crews | minutes ↓, whoever reached it first ↑, crew name, id |
 
 `rank` is the position on the board (always 1, 2, 3…). The app and the iPad show players with the
-same displayed value with a shared place ("1, 1, 3"); see `src/lib/ranks.ts`. On SPINDEX a verified
-and a self-reported rating never share a place.
+same displayed value with a shared place ("1, 1, 3"); see `src/lib/ranks.ts`.
 
 Streak = consecutive days (Morrisville calendar) with at least one counted session. The current
 streak stays alive through today if the player played yesterday; it resets after a full missed day.
@@ -89,7 +88,7 @@ database by `private.on_email_key`), so the derived key never opens staff tools.
 | --- | --- | --- | --- |
 | `get_me` | — | jsonb: `server_now`, `profile` (null until a nickname is chosen), `admin_role` (owner·staff·null; null until a staff account has its own password), `staff_needs_password` (on the staff list but still email-only), `active_session`, `crew` {id,name,invite_code,is_owner}, `spindex` {id,rating,status,source,verified_at,created_at}, `stats` (below), `settings` (pilot_settings row). Also closes the caller's abandoned timer. | player |
 | `save_profile` | `p_display_name`, `p_avatar_color`='pink' (pink·white·blue·green·orange·purple), `p_show_on_leaderboard`=true, `p_show_spindex`=true | `profiles` row | player |
-| `start_session` | `p_client_request_id` uuid? | `play_sessions` row (status `active`) | player with profile |
+| `start_session` | `p_client_request_id` uuid?, `p_lat`/`p_lng`/`p_accuracy` float? (needed when `geofence_enabled`; compared with the venue, never stored) | `play_sessions` row (status `active`). With the location check on: "Turn on location…" without coordinates, "The timer starts when you're at …" when farther than `geofence_m` + min(accuracy, 150 m). | player with profile |
 | `checkin_session` | `p_id` | row (sets `last_checkin_at`) | owner of session |
 | `stop_session` | `p_id`, `p_ended_at` timestamptz? (accepted only if within the last 30 min, never future) | row (`approved`, or `cancelled` if under 5 min) | owner of session |
 | `cancel_session` | `p_id` | row (`cancelled`, 0 min) | owner of session |
@@ -121,6 +120,7 @@ step, `*_pending` values are normally 0 — clients can show `*_verified + *_pen
 | Function | Args | Returns | Who |
 | --- | --- | --- | --- |
 | `save_bio` | `p_bio` text (≤140, null clears) | `profiles` row | player with profile |
+| `save_weekly_goals` | `p_days` 1–7, `p_minutes` 15–10080 (both null clears; minutes ≤ days × 1440) | `profiles` row (`weekly_goal_days`, `weekly_goal_minutes`) | player with profile |
 | `set_avatar` | `p_path` text — `<user id>/<name>.jpg` already uploaded to the public `avatars` bucket; null removes | `profiles` row | player with profile |
 | `get_player_card` | `p_user_id` | jsonb: `user_id, display_name, avatar_color, avatar_path, bio, member_since, is_me, crew{name,color,emblem,motto}, week_minutes, total_minutes, sessions, current_streak, longest_streak, rank_week, spindex{rating,verified}` (players hidden from boards are only visible to crewmates) | player |
 | `set_crew_style` | `p_color` (avatar colors), `p_motto` (≤60, optional), `p_emblem` users·flame·bolt·crown·target·rocket·star·shield | `crews` row | crew owner |
@@ -201,6 +201,9 @@ does not expose.
 | `auto_approve_timer` | false | boolean — no effect since migration 0009 (sessions always count) |
 | `default_board_scope`, `display_scope` | community | verified·community (see Scope above) |
 | `display_rotation_seconds` | 15 | 8–60 |
+| `venue_lat`, `venue_lng` | null | the venue's coordinates for the timer location check (set from the venue with "Use this spot") |
+| `geofence_m` | 300 | 50–5000 metres |
+| `geofence_enabled` | false | needs `venue_lat`/`venue_lng` set |
 | `survey_url` | the "after" Google Form | https link shown once to new players and on the profile; null = off (no player data is added to the link) |
 | `display_slides` | minutes, spindex, crews, streaks, longest, highlights | subset of those (≥1); the iPad always shows them in this order |
 | `boards_enabled` | minutes, streaks, longest, spindex, crews | subset of those |

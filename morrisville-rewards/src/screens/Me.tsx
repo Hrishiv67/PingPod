@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import LogoLoader from "../components/LogoLoader";
 import PhotoCropper from "../components/PhotoCropper";
-import SpindexSheet from "../components/SpindexSheet";
 import {
   Award,
   CalendarCheck,
@@ -147,7 +146,6 @@ export default function MeScreen() {
       </section>
 
       <Achievements version={version} />
-      <Spindex />
       <History version={version} />
       <Requests version={version} />
 
@@ -440,67 +438,6 @@ function Achievements({ version }: { version: number }) {
         <button type="button" className="link-btn quiet" onClick={() => setAll((v) => !v)}>
           {all ? "Show less" : `Show all ${items.length}`}
         </button>
-      )}
-    </section>
-  );
-}
-
-function Spindex() {
-  const { me, refresh, bump } = useApp();
-  const toast = useToast();
-  const claim = me.spindex ?? null;
-  const [open, setOpen] = useState(false);
-  const [removing, setRemoving] = useState(false);
-  return (
-    <section className="section" id="spindex">
-      <div className="section-head">
-        <h2>SPINDEX</h2>
-      </div>
-      <div className="panel stack-sm">
-        {claim ? (
-          <>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-              <span className="spindex-value num">{claim.rating}</span>
-              {claim.status === "verified" ? (
-                <Chip tone="ok">Verified by staff{claim.verified_at ? ` · ${formatDay(claim.verified_at.slice(0, 10))}` : ""}</Chip>
-              ) : (
-                <Chip tone="warn">Self-reported SPINDEX</Chip>
-              )}
-            </div>
-            {claim.status !== "verified" && <p className="small-print">Show it at the front desk to get it verified.</p>}
-            <div className="row-2">
-              <Button variant="secondary" onClick={() => setOpen(true)}>
-                Update
-              </Button>
-              <Button variant="ghost" onClick={() => setRemoving(true)}>
-                Remove
-              </Button>
-            </div>
-          </>
-        ) : (
-          <>
-            <p>Add your rating to get on the SPINDEX board.</p>
-            <Button variant="secondary" onClick={() => setOpen(true)}>
-              Add my SPINDEX
-            </Button>
-          </>
-        )}
-      </div>
-      {open && <SpindexSheet onClose={() => setOpen(false)} />}
-      {removing && (
-        <ConfirmSheet
-          title="Remove SPINDEX?"
-          body={<p>Your rating will disappear from your profile and the SPINDEX board.</p>}
-          confirmLabel="Remove rating"
-          danger
-          onClose={() => setRemoving(false)}
-          onConfirm={async () => {
-            await api.removeSpindex();
-            await refresh();
-            bump();
-            toast("SPINDEX removed.");
-          }}
-        />
       )}
     </section>
   );

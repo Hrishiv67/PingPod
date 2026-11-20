@@ -93,16 +93,28 @@ as friendly competition rather than an audited record.
 
 ## SPINDEX ratings
 
-Players can add their SPINDEX rating (0–3000). It shows as **Self-reported** everywhere until staff
-verify it. On the SPINDEX board (app and iPad) every staff-verified rating is listed above every
-self-reported one, so a typed-in number can't take #1 from a checked rating, and the iPad's
-"Top SPINDEX" tile only ever shows a verified rating. The app is not connected to SPINDEX, PodPlay or
-PingPod accounts and never calculates SPINDEX.
+SPINDEX is just for fun in this pilot. Players add their rating (0–3000) on Home, and the SPINDEX
+board (app and iPad) lists everyone by rating, highest first, with no verified / self-reported
+labels. The app is not connected to SPINDEX, PodPlay or PingPod accounts and never calculates
+SPINDEX.
 
-To verify one (**Admin → More → SPINDEX ratings**): only after you have seen proof in person (for example the
-player shows their SPINDEX profile in the official app). Write how you checked
-("Saw SPINDEX app at front desk 11/20"). You can't verify your own rating. Decline anything you
-can't confirm.
+If a real prize ever depends on SPINDEX, check the top ratings in person first. **Admin → More →
+SPINDEX ratings** still lets staff mark a rating verified (write how you checked, e.g. "Saw SPINDEX
+app at front desk 11/20"); players don't see the difference.
+
+## Timer location check
+
+Optional. When it's on, **Start playing** only works on a phone that's at PingPod. Logging a past
+session still works from anywhere.
+
+1. Stand inside PingPod with your phone and open **Admin → Settings → Timer location check**.
+2. Tap **Use this spot** (allow location when the phone asks), then **Save**.
+3. Turn on **Timer only starts at PingPod** and **Save** again.
+
+"How close players must be" defaults to 300 m, which covers the building and the parking lot. Phones
+indoors can be 50–100 m off, so the app also allows for the phone's own accuracy (up to 150 m).
+Players' locations are only compared with the venue's, never saved. If people have trouble starting
+the timer (location turned off, older phones), switch it off; nothing else changes.
 
 ## Player requests
 
@@ -143,6 +155,7 @@ address set in Settings, so it never points to a test address. Reprint if that a
 | Logging past sessions → Longest session | 180 min | Longest single session a player can log |
 | Crews → Largest crew / Members needed | 8 / 2 | Size limit, and members needed to appear on the board |
 | iPad display → Seconds per screen, Screens to show | 15 s, all 6 screens (minutes, highest SPINDEX, crew rankings, daily streaks, longest session, this week) | Rotation on the front-desk board |
+| Timer location check | Off, 300 m | Only start timers at PingPod (see above) |
 | Rewards → Show rewards to players | Off | Master switch for prizes |
 | **Advanced** (tap to open) | — | QR address, venue name, shortest session (5 min), daily limit (300 min), which leaderboards players see |
 
@@ -180,7 +193,8 @@ compare against; report the real numbers.
 
 ## What the app does not prove
 
-App activity is not proof that someone was physically at PingPod. A timer only measures time
-between two taps, and logged entries are self-reported. That's fine for a fun, trust-based pilot.
+App activity is not proof that someone was physically at PingPod. With the timer location check on,
+a timer was started on a phone near PingPod (a determined person can fake a phone's location), and
+logged entries are always self-reported. That's fine for a fun, trust-based pilot.
 If a physical prize is ever attached to a ranking, check the top entries against booking records
 before awarding it.

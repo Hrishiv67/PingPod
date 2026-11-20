@@ -28,6 +28,7 @@ import type {
 import { VENUE_TZ, addDays, venueDate, weekStart } from "./time.ts";
 import { emailKey, normalizeEmail } from "./emailKey.ts";
 import { squareJpegDataUrl } from "./image.ts";
+import { atVenue, needsLocation } from "./geo.ts";
 
 const STORAGE_KEY = "pingpod-morrisville-demo-v2";
 const AUTH_EVENT = "pingpod-demo-auth";
@@ -57,11 +58,21 @@ const DEFAULT_SETTINGS: Settings = {
   boards_enabled: ["minutes", "spindex", "crews", "streaks", "longest"],
   rewards_enabled: false,
   survey_url: "https://docs.google.com/forms/d/e/1FAIpQLSfZQ5hXNSCOuRfwqnv_CcqE36TBGtMDO-XlPapmkmmfj_y86Q/viewform",
+  venue_lat: null,
+  venue_lng: null,
+  geofence_m: 300,
+  geofence_enabled: false,
 };
+// Sample mode has no staff tools; tests can still change settings (e.g. turn on the location check).
+let settingsOverride: Partial<Settings> = {};
+export function setDemoSettings(patch: Partial<Settings>) {
+  settingsOverride = { ...settingsOverride, ...patch };
+}
 const settings = (): Settings => ({
   ...DEFAULT_SETTINGS,
   display_slides: [...DEFAULT_SETTINGS.display_slides],
   boards_enabled: [...DEFAULT_SETTINGS.boards_enabled],
+  ...settingsOverride,
 });
 
 const BLOCKED_TERMS = [
@@ -156,6 +167,7 @@ function emit(name: string, detail?: unknown) {
 /** Test helper: wipe demo data (also used by "delete account"). */
 export function resetDemo() {
   memory = null;
+  settingsOverride = {};
   try {
     if (typeof localStorage !== "undefined") localStorage.removeItem(STORAGE_KEY);
   } catch {
@@ -458,14 +470,13 @@ function board(s: Stored, metric: Metric, period: Period, scope: Scope): Ranked[
   } else if (metric === "spindex") {
     for (const p of eligible) {
       if (!p.spindex || !p.showSpindex) continue;
-      if (scope === "verified" && p.spindex.status !== "verified") continue;
       rows.push({
         rank: 0, user_id: p.id, display_name: p.name, avatar_color: p.color, value: p.spindex.rating, secondary: null, sessions: null,
         detail: p.spindex.status === "verified" ? "verified" : "self_reported", tie: [p.spindex.at], extra: [p.spindex.status === "verified" ? 1 : 0],
       });
     }
-    // Staff-verified ratings first, then self-reported (same as the live database).
-    rows.sort((a, b) => b.extra[0] - a.extra[0] || b.value - a.value || cmpTime(a.tie[0], b.tie[0]) || byName(a.display_name, b.display_name) || a.user_id.localeCompare(b.user_id));
+    // Highest rating first (SPINDEX is just for fun: verified or not doesn't change the order).
+    rows.sort((a, b) => b.value - a.value || cmpTime(a.tie[0], b.tie[0]) || byName(a.display_name, b.display_name) || a.user_id.localeCompare(b.user_id));
   } else {
     fail("Unknown leaderboard.");
   }
@@ -880,6 +891,8 @@ export const demoApi: Api = {
       bio: s.profile?.bio ?? null,
       avatar_path: s.profile?.avatar_path ?? null,
       email_verified_at: s.profile?.email_verified_at ?? null,
+      weekly_goal_days: s.profile?.weekly_goal_days ?? null,
+      weekly_goal_minutes: s.profile?.weekly_goal_minutes ?? null,
       created_at: s.profile?.created_at ?? now,
       updated_at: now,
     };
@@ -887,7 +900,7 @@ export const demoApi: Api = {
     return { ...s.profile };
   },
 
-  async startSession(clientRequestId) {
+  async startSession(clientRequestId, at) {
     await delay();
     const s = load();
     const profile = requireProfile(s);
@@ -897,6 +910,11 @@ export const demoApi: Api = {
       if (same) return same;
     }
     if (s.sessions.some((x) => x.status === "active")) fail("You already have a session running.");
+    const cfg = settings();
+    if (needsLocation(cfg)) {
+      if (!at) fail(`Turn on location to start the timer. It only checks that you're at ${cfg.venue_name}.`);
+      if (!atVenue(cfg, at!)) fail(`The timer starts when you're at ${cfg.venue_name}.`);
+    }
     rateLimit(s, "start", 12, 60 * MINUTE);
     const row = newSession(profile.id, { client_request_id: clientRequestId || null });
     s.sessions.unshift(row);
@@ -1087,6 +1105,18 @@ export const demoApi: Api = {
       x!.reviewed_at = iso(Date.now());
       save(s);
     }
+  },
+  async saveWeeklyGoals(days, minutes) {
+    await delay();
+    const s = load();
+    requireProfile(s);
+    if ((days == null) !== (minutes == null)) fail("Pick both hours and days, or clear the goal.");
+    if (days != null && (!Number.isInteger(days) || days < 1 || days > 7)) fail("Pick 1 to 7 days.");
+    if (minutes != null && (!Number.isInteger(minutes) || minutes < 15 || minutes > 10080)) fail("Pick between 15 minutes and 168 hours.");
+    if (days != null && minutes != null && minutes > days * 1440) fail("That's more time than those days have.");
+    s.profile!.weekly_goal_days = days;
+    s.profile!.weekly_goal_minutes = minutes;
+    save(s);
   },
   async saveBio(bio) {
     await delay();
@@ -1393,7 +1423,7 @@ export const demoApi: Api = {
         top_crew: crews[0] && crews[0].minutes > 0 ? { name: crews[0].name, minutes: crews[0].minutes } : null,
         top_spindex: (() => {
           const top = board(s, "spindex", "all", scope)[0];
-          return top && top.detail === "verified" ? { display_name: top.display_name, rating: top.value } : null;
+          return top ? { display_name: top.display_name, rating: top.value } : null;
         })(),
         active_crews: crews.filter((c) => c.minutes > 0).length,
       },

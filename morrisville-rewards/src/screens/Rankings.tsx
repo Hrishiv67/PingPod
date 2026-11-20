@@ -5,7 +5,7 @@ import { Link } from "../lib/router";
 import { formatDay, formatNumber } from "../lib/time";
 import type { BoardKey, CrewRow, LeaderRow, Period, Scope } from "../lib/types";
 import { useApp } from "../state";
-import { Avatar, Chip, EmptyState, InlineError, Segmented } from "../components/ui";
+import { Avatar, EmptyState, InlineError, Segmented } from "../components/ui";
 import LogoLoader from "../components/LogoLoader";
 import CrewBadge from "../components/CrewBadge";
 import PlayerCardSheet from "../components/PlayerCardSheet";
@@ -153,7 +153,7 @@ function valueOf(board: BoardKey, r: LeaderRow): { value: string; unit: string; 
     case "longest":
       return { value: formatNumber(r.value), unit: "min", sub: r.detail ? formatDay(r.detail) : "" };
     case "spindex":
-      return { value: String(r.value), unit: "SPINDEX", sub: r.detail === "verified" ? "Verified" : "Self-reported" };
+      return { value: String(r.value), unit: "SPINDEX", sub: "" };
     default:
       return { value: formatNumber(r.value), unit: "min", sub: `${r.sessions ?? 0} session${r.sessions === 1 ? "" : "s"}` };
   }
@@ -161,10 +161,10 @@ function valueOf(board: BoardKey, r: LeaderRow): { value: string; unit: string; 
 
 function AddSpindex() {
   return (
-    <Link to="/me" className="panel spindex-prompt">
+    <Link to="/" className="panel spindex-prompt">
       <span>
         <strong>Add your SPINDEX</strong>
-        <span>Your PingPod skill rating. It shows as self-reported until staff check it.</span>
+        <span>Your PingPod skill rating. Add it from Home in a few seconds.</span>
       </span>
       <ChevronRight size={18} aria-hidden />
     </Link>
@@ -198,22 +198,19 @@ function YourSpot({ rows, places, board, onFind }: { rows: LeaderRow[]; places: 
   }
   const me = rows[i];
   const v = valueOf(board, me);
-  const tied = rows.filter((r, j) => j !== i && sameScore(board, r, me));
+  const tied = rows.filter((r, j) => j !== i && sameScore(r, me));
   let ahead = -1;
   for (let j = i - 1; j >= 0; j--)
-    if (!sameScore(board, rows[j], me)) {
+    if (!sameScore(rows[j], me)) {
       ahead = j;
       break;
     }
-  const behind = rows.findIndex((r, j) => j > i && !sameScore(board, r, me));
+  const behind = rows.findIndex((r, j) => j > i && !sameScore(r, me));
   const tiedText = tied.length ? `Tied with ${tied[0].display_name}${tied.length > 1 ? ` and ${tied.length - 1} more` : ""}` : "";
   let line: string;
   if (ahead >= 0) {
     const a = rows[ahead];
-    line =
-      board === "spindex" && a.detail === "verified" && me.detail !== "verified"
-        ? "Verified ratings rank first. Get yours checked to move up."
-        : `${gapText(board, a.value - me.value)} behind #${places[ahead]} ${a.display_name}`;
+    line = `${gapText(board, a.value - me.value)} behind #${places[ahead]} ${a.display_name}`;
     if (tiedText) line = `${tiedText} · ${line}`;
   } else if (tiedText) {
     line = `${tiedText} for #${places[i]}`;
@@ -263,57 +260,70 @@ function PlayerBoard({ rows, board, hasSpindex, hidden }: { rows: LeaderRow[]; b
         />
       </>
     );
-  const places = tiePlaces(board, rows);
-  const verifiedCount = board === "spindex" ? rows.filter((r) => r.detail === "verified").length : 0;
+  const places = tiePlaces(rows);
+  // Top three on the podium (#2 · #1 · #3), then where you stand, then everyone else.
+  const podium = rows.slice(0, 3).filter((r) => r.rank <= 3);
+  const rest = rows.slice(podium.length);
   return (
     <>
       {prompt}
-      {!hidden && <YourSpot rows={rows} places={places} board={board} onFind={scrollToMe} />}
-      <div className="list" role="list">
-        {rows.map((r, i) => {
+      <div className="podium" aria-label="Top three">
+        {[podium[1], podium[0], podium[2]].map((r, k) => {
+          if (!r) return <div key={`empty-${k}`} aria-hidden />;
+          const place = places[rows.indexOf(r)];
           const v = valueOf(board, r);
-          const gap = i > 0 && r.rank - rows[i - 1].rank > 1;
-          const place = places[i];
-          // SPINDEX: staff-verified ratings first, then self-reported ones, each under its own heading.
-          const heading =
-            board === "spindex" && (i === 0 || rows[i - 1].detail !== r.detail)
-              ? r.detail === "verified"
-                ? "Verified by staff"
-                : verifiedCount
-                  ? "Self-reported"
-                  : null
-              : null;
           return (
-            <div key={r.user_id} role="listitem">
-              {heading && <div className="rank-heading">{heading}</div>}
-              {gap && <div className="rank-gap">…</div>}
-              <button
-                type="button"
-                id={r.is_me ? "rank-me" : undefined}
-                className={`rank-row tappable ${place <= 3 ? `top top-${place}` : ""} ${r.is_me ? "me" : ""}`}
-                onClick={() => setOpen(r)}
-              >
-                <span className="rank-num num">{place}</span>
-                <Avatar name={r.display_name} color={r.avatar_color} path={r.avatar_path} size={38} />
-                <span className="rank-name">
-                  <strong>
-                    {r.display_name} {r.is_me && <span className="you-tag">YOU</span>}
-                  </strong>
-                  {v.sub && (
-                    <span>
-                      {board === "spindex" ? <Chip tone={r.detail === "verified" ? "ok" : "neutral"}>{v.sub}</Chip> : v.sub}
-                    </span>
-                  )}
-                </span>
-                <span className="rank-value num">
-                  {v.value}
-                  <small>{v.unit}</small>
-                </span>
-              </button>
-            </div>
+            <button
+              type="button"
+              key={r.user_id}
+              id={r.is_me ? "rank-me" : undefined}
+              className={`podium-spot ${r === podium[0] ? "first" : ""} ${r.is_me ? "me" : ""}`}
+              onClick={() => setOpen(r)}
+              aria-label={`${r.display_name}, rank ${place}. Open profile`}
+            >
+              <span className="podium-rank num">#{place}</span>
+              <Avatar name={r.display_name} color={r.avatar_color} path={r.avatar_path} size={r === podium[0] ? 58 : 48} />
+              <span className="podium-name">{r.is_me ? "You" : r.display_name}</span>
+              <span className="podium-value num">{v.value}</span>
+              <span className="podium-unit">{v.unit}</span>
+            </button>
           );
         })}
       </div>
+      {!hidden && <YourSpot rows={rows} places={places} board={board} onFind={scrollToMe} />}
+      {rest.length > 0 && (
+        <div className="list" role="list">
+          {rest.map((r, k) => {
+            const i = rows.indexOf(r);
+            const v = valueOf(board, r);
+            const gap = k > 0 && r.rank - rest[k - 1].rank > 1;
+            return (
+              <div key={r.user_id} role="listitem">
+                {gap && <div className="rank-gap">…</div>}
+                <button
+                  type="button"
+                  id={r.is_me ? "rank-me" : undefined}
+                  className={`rank-row tappable ${r.is_me ? "me" : ""}`}
+                  onClick={() => setOpen(r)}
+                >
+                  <span className="rank-num num">{places[i]}</span>
+                  <Avatar name={r.display_name} color={r.avatar_color} path={r.avatar_path} size={38} />
+                  <span className="rank-name">
+                    <strong>
+                      {r.display_name} {r.is_me && <span className="you-tag">YOU</span>}
+                    </strong>
+                    {v.sub && <span>{v.sub}</span>}
+                  </span>
+                  <span className="rank-value num">
+                    {v.value}
+                    <small>{v.unit}</small>
+                  </span>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
       {open && <PlayerCardSheet userId={open.user_id} name={open.display_name} onClose={() => setOpen(null)} />}
     </>
   );
@@ -333,7 +343,7 @@ function CrewBoard({ rows, minSize, hasCrew }: { rows: CrewRow[]; minSize: numbe
         }
       />
     );
-  const places = tiePlaces("crews", rows.map((c) => ({ rank: c.rank, value: c.minutes })));
+  const places = tiePlaces(rows.map((c) => ({ rank: c.rank, value: c.minutes })));
   const mi = rows.findIndex((c) => c.is_mine);
   const mine = mi >= 0 ? rows[mi] : undefined;
   const tied = mine ? rows.find((c) => c !== mine && c.minutes === mine.minutes) : undefined;

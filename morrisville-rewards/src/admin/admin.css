@@ -1110,3 +1110,18 @@
 .adm-row-title .crew-badge {
   border-radius: 7px;
 }
+
+/* Timer location check: where PingPod is + "Use this spot" */
+.adm-geo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.adm-geo strong {
+  font-size: 15px;
+}

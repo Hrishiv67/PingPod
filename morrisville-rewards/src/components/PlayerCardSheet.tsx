@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BadgeCheck, UserPlus } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import { api, errorText } from "../lib/api";
 import { useApp } from "../state";
 import { formatNumber } from "../lib/time";
@@ -90,11 +90,7 @@ export default function PlayerCardSheet({ userId, name, onClose }: { userId: str
             </div>
             <div className="stat-cell">
               <span className="stat-label">SPINDEX</span>
-              <span className="stat-value num">
-                {card.spindex ? card.spindex.rating : "—"}
-                {card.spindex?.verified && <BadgeCheck size={16} className="verified-tick" aria-label="Verified" />}
-              </span>
-              {card.spindex && <span className="stat-note">{card.spindex.verified ? "Verified" : "Self-reported"}</span>}
+              <span className="stat-value num">{card.spindex ? card.spindex.rating : "—"}</span>
             </div>
           </div>
           <p className="small-print">

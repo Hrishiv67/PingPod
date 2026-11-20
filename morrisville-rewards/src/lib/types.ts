@@ -29,6 +29,9 @@ export interface Profile {
   email_verified_at?: string | null;
   /** Path in the public "avatars" storage bucket; build the URL with avatarUrl(). */
   avatar_path?: string | null;
+  /** Weekly Rally goal: play days per week (1–7) and minutes per week. Both null = no goal. */
+  weekly_goal_days?: number | null;
+  weekly_goal_minutes?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -76,6 +79,11 @@ export interface Settings {
   rewards_enabled: boolean;
   /** Research survey link shown to new players and on the profile (null = off). */
   survey_url?: string | null;
+  /** Timer location check: the venue's coordinates (set by staff from the venue), radius, on/off. */
+  venue_lat?: number | null;
+  venue_lng?: number | null;
+  geofence_m?: number;
+  geofence_enabled?: boolean;
   updated_at?: string;
 }
 

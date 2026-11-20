@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import QRCode from "qrcode";
-import { BadgeCheck, Maximize, Minimize, RefreshCw } from "lucide-react";
+import { Maximize, Minimize, RefreshCw } from "lucide-react";
 import { api, avatarUrl, errorText } from "../lib/api";
 import { emblemIcon } from "../components/CrewBadge";
 import LogoLoader from "../components/LogoLoader";
@@ -465,7 +465,7 @@ function valueOf(board: Board, r: LeaderRow): { value: string; unit: string } {
 }
 
 function PlayerList({ rows, board }: { rows: LeaderRow[]; board: Board }) {
-  const places = tiePlaces(board, rows);
+  const places = tiePlaces(rows);
   return (
     <ol className="rows">
       {rows.map((r, i) => {
@@ -477,14 +477,6 @@ function PlayerList({ rows, board }: { rows: LeaderRow[]; board: Board }) {
             <RowAvatar name={r.display_name} color={r.avatar_color} path={r.avatar_path} />
             <span className="row-name">
               <span className="row-name-text">{r.display_name}</span>
-              {board === "spindex" &&
-                (r.detail === "verified" ? (
-                  <span className="row-tag verified">
-                    <BadgeCheck aria-hidden /> Verified
-                  </span>
-                ) : (
-                  <span className="row-tag">Self-reported</span>
-                ))}
             </span>
             <span className="row-value">
               <span className="num">{v.value}</span>
@@ -498,7 +490,7 @@ function PlayerList({ rows, board }: { rows: LeaderRow[]; board: Board }) {
 }
 
 function CrewList({ rows }: { rows: CrewRow[] }) {
-  const places = tiePlaces("crews", rows.map((c) => ({ rank: c.rank, value: c.minutes })));
+  const places = tiePlaces(rows.map((c) => ({ rank: c.rank, value: c.minutes })));
   return (
     <ol className="rows">
       {rows.map((c, i) => {

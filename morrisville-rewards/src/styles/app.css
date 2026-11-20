@@ -661,7 +661,7 @@ button.session-row:active {
   font-size: 32px;
 }
 .podium-unit {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.1em;
   color: var(--muted);
@@ -1069,7 +1069,7 @@ button.podium-spot:active {
   margin-top: 2px;
 }
 .spindex-value {
-  font-size: 56px;
+  font-size: 64px;
   line-height: 1;
 }
 .settings-list .toggle-row,
@@ -1731,4 +1731,27 @@ button.spindex-prompt {
 }
 .survey-line.done {
   opacity: 0.7;
+}
+
+/* "Checking you're at PingPod…" while the timer asks for the phone's location */
+.locating {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--text-2);
+  font-size: 14px;
+}
+.locating svg {
+  color: var(--pink);
+}
+/* SPINDEX card on Home */
+.spindex-card {
+  display: grid;
+  gap: 16px;
+}
+.spindex-empty {
+  margin: 0;
+  color: var(--text-2);
 }

@@ -2,7 +2,7 @@
 // It should enforce the same rules and messages as the database functions.
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { demoApi as api, resetDemo } from "../src/lib/demo.ts";
+import { demoApi as api, resetDemo, setDemoSettings } from "../src/lib/demo.ts";
 import { addDays, venueDate } from "../src/lib/time.ts";
 
 const today = venueDate();
@@ -162,17 +162,16 @@ test("crews: create, invite rules, sample crew join, leave", async () => {
   await assert.rejects(api.renameCrew("New Name"), /Only the crew owner/);
 });
 
-test("SPINDEX is range-checked and always self-reported in demo", async () => {
+test("SPINDEX is range-checked and shows on every board scope", async () => {
   await signedInWithProfile("Rated Riley");
   await assert.rejects(api.submitSpindex(4000), /0 to 3000/);
   await api.submitSpindex(1450, "From the SPINDEX app");
   const me = await api.getMe();
-  assert.equal(me.spindex?.status, "unverified");
-  assert.equal(me.spindex?.source, "self_reported");
-  const verified = await api.leaderboard("spindex", "all", "verified");
-  assert.ok(!verified.some((r) => r.is_me));
-  const community = await api.leaderboard("spindex", "all", "community");
-  assert.equal(community.find((r) => r.is_me)?.detail, "self_reported");
+  assert.equal(me.spindex?.rating, 1450);
+  for (const scope of ["verified", "community"]) {
+    const rows = await api.leaderboard("spindex", "all", scope);
+    assert.equal(rows.find((r) => r.is_me)?.value, 1450, `on the ${scope} board`);
+  }
 });
 
 test("achievements: eleven codes with progress", async () => {
@@ -257,17 +256,40 @@ test("saving the profile keeps the bio and photo", async () => {
   assert.equal((await api.getMe()).profile.bio, "Lefty");
 });
 
-test("SPINDEX board: staff-verified ratings rank above a higher self-reported one", async () => {
+test("SPINDEX board is just for fun: sorted by rating, every rating counts", async () => {
   await signedInWithProfile("High Claim");
   await api.submitSpindex(2999);
-  const rows = await api.leaderboard("spindex", "all", "community");
-  const firstSelf = rows.findIndex((r) => r.detail === "self_reported");
-  const lastVerified = rows.map((r) => r.detail).lastIndexOf("verified");
-  assert.ok(lastVerified >= 0, "sample data has verified ratings");
-  assert.ok(lastVerified < firstSelf, "every verified rating is listed before any self-reported one");
-  const mine = rows.find((r) => r.is_me);
-  assert.equal(mine.detail, "self_reported");
-  assert.ok(mine.rank > 1, "a typed-in 2999 is not #1");
+  const rows = await api.leaderboard("spindex", "all", "verified");
+  assert.equal(rows[0].display_name, "High Claim", "highest rating is #1, verified or not");
+  assert.ok(rows.every((r, i) => i === 0 || rows[i - 1].value >= r.value), "sorted by rating");
   const display = await api.displayData();
-  assert.notEqual(display.highlights.top_spindex?.display_name, "High Claim", "the iPad's Top SPINDEX is never self-reported");
+  assert.equal(display.highlights.top_spindex?.display_name, "High Claim");
+});
+
+test("timer location check: off by default, then only starts near PingPod", async () => {
+  await signedInWithProfile();
+  const start = await api.startSession(rid());
+  assert.equal(start.status, "active", "no check until staff turn it on");
+  await api.cancelSession(start.id);
+  setDemoSettings({ geofence_enabled: true, venue_lat: 35.8235, venue_lng: -78.8256, geofence_m: 300 });
+  await assert.rejects(api.startSession(rid()), /Turn on location/);
+  await assert.rejects(api.startSession(rid(), { lat: 35.8335, lng: -78.8256, accuracy: 20 }), /starts when you're at/);
+  const near = await api.startSession(rid(), { lat: 35.825, lng: -78.8256, accuracy: 30 });
+  assert.equal(near.status, "active", "167 m away is inside the 300 m radius");
+});
+
+test("weekly goals save on the profile and can be cleared", async () => {
+  await signedInWithProfile();
+  await api.saveWeeklyGoals(4, 120);
+  let me = await api.getMe();
+  assert.equal(me.profile.weekly_goal_days, 4);
+  assert.equal(me.profile.weekly_goal_minutes, 120);
+  await assert.rejects(api.saveWeeklyGoals(4, null), /both hours and days/);
+  await assert.rejects(api.saveWeeklyGoals(1, 2000), /more time than those days/);
+  await api.saveProfile({ display_name: "Demo Player", avatar_color: "blue", show_on_leaderboard: true, show_spindex: true });
+  me = await api.getMe();
+  assert.equal(me.profile.weekly_goal_days, 4, "editing the profile keeps the goal");
+  await api.saveWeeklyGoals(null, null);
+  me = await api.getMe();
+  assert.equal(me.profile.weekly_goal_days, null);
 });

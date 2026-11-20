@@ -35,15 +35,12 @@ export default function SpindexSheet({ onClose }: { onClose: () => void }) {
           }
         }}
       >
-        <div className="sheet-text">
-          <p>SPINDEX is PingPod's skill rating. You'll find yours in the PingPod app.</p>
-          <p>
-            It shows as <strong>Self-reported</strong> until staff check it, and verified ratings rank first. Don't have one?
-            Skip this. You can add it anytime.
-          </p>
-        </div>
+        <p className="sheet-text">
+          SPINDEX is PingPod's skill rating. You'll find yours in the PingPod app. Don't have one? Skip this, you can add it
+          anytime.
+        </p>
         <Field
-          label="Your rating (0–3000)"
+          label="Your SPINDEX (0–3000)"
           type="number"
           inputMode="numeric"
           pattern="[0-9]*"
@@ -59,12 +56,7 @@ export default function SpindexSheet({ onClose }: { onClose: () => void }) {
           value={note}
           onChange={(e) => setNote(e.target.value)}
         />
-        {claim?.status === "verified" && (
-          <p className="small-print">Saving a new number replaces your verified rating with a self-reported one.</p>
-        )}
-        {claim?.status !== "verified" && (
-          <p className="small-print">To get it verified, show staff your SPINDEX in the PingPod app next time you see them.</p>
-        )}
+
         {error && <InlineError>{error}</InlineError>}
         <Button type="submit" variant="primary" size="lg" block loading={busy} disabled={!rating}>
           Save

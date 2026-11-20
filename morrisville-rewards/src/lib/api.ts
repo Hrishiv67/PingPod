@@ -1,3 +1,4 @@
+import type { GeoFix } from "./geo";
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 import type {
   Achievement,
@@ -157,7 +158,8 @@ export interface Api {
 
   getMe(): Promise<Me>;
   saveProfile(input: ProfileInput): Promise<Profile>;
-  startSession(clientRequestId: string): Promise<PlaySession>;
+  /** `at`: the phone's location, needed when the venue's timer location check is on (never stored). */
+  startSession(clientRequestId: string, at?: GeoFix | null): Promise<PlaySession>;
   checkinSession(id: string): Promise<PlaySession>;
   stopSession(id: string, endedAt?: string): Promise<PlaySession>;
   cancelSession(id: string): Promise<PlaySession>;
@@ -172,6 +174,8 @@ export interface Api {
   /** Removes one of your own finished sessions; it stops counting everywhere. */
   removeSession(id: string): Promise<void>;
   saveBio(bio: string): Promise<void>;
+  /** Weekly Rally goal (days per week + minutes per week); nulls clear it. */
+  saveWeeklyGoals(days: number | null, minutes: number | null): Promise<void>;
   /** Resizes the picture on the phone (square, small JPEG), uploads it and sets it as your photo. */
   uploadAvatar(file: Blob): Promise<void>;
   removeAvatar(): Promise<void>;
@@ -339,7 +343,11 @@ const live: Api = {
       p_show_on_leaderboard: p.show_on_leaderboard,
       p_show_spindex: p.show_spindex,
     }),
-  startSession: (id) => rpc<PlaySession>("start_session", { p_client_request_id: id }),
+  startSession: (id, at) =>
+    rpc<PlaySession>("start_session", {
+      p_client_request_id: id,
+      ...(at ? { p_lat: at.lat, p_lng: at.lng, p_accuracy: at.accuracy } : {}),
+    }),
   checkinSession: (id) => rpc<PlaySession>("checkin_session", { p_id: id }),
   stopSession: (id, endedAt) => rpc<PlaySession>("stop_session", { p_id: id, p_ended_at: endedAt ?? null }),
   cancelSession: (id) => rpc<PlaySession>("cancel_session", { p_id: id }),
@@ -407,6 +415,9 @@ const live: Api = {
   },
   saveBio: async (bio) => {
     await rpc("save_bio", { p_bio: bio.trim() || null });
+  },
+  saveWeeklyGoals: async (days, minutes) => {
+    await rpc("save_weekly_goals", { p_days: days, p_minutes: minutes });
   },
   async uploadAvatar(file) {
     try {
