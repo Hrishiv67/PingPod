@@ -876,6 +876,7 @@ export const demoApi: Api = {
       hidden_by_admin: false,
       bio: s.profile?.bio ?? null,
       avatar_path: s.profile?.avatar_path ?? null,
+      email_verified_at: s.profile?.email_verified_at ?? null,
       created_at: s.profile?.created_at ?? now,
       updated_at: now,
     };
@@ -1146,6 +1147,21 @@ export const demoApi: Api = {
       rank_week: rank,
       spindex: p!.spindex && p!.showSpindex ? { rating: p!.spindex.rating, verified: p!.spindex.status === "verified" } : null,
     };
+  },
+  async sendEmailCode() {
+    await delay();
+    requireProfile(load());
+  },
+  async verifyEmailCode(code) {
+    await delay();
+    const s = load();
+    requireProfile(s);
+    if (!/^\d{6}$/.test(code.trim())) fail("That code didn't work. Check it or send a new one.");
+    s.profile!.email_verified_at = iso(Date.now());
+    save(s);
+  },
+  async confirmEmailFromLink() {
+    return false;
   },
   async setCrewStyle({ color, emblem, motto }) {
     await delay();

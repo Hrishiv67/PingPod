@@ -10,6 +10,7 @@ import { Button, ConfirmSheet, InlineError, Sheet, StatusChip, useToast } from "
 import LogoLoader from "../components/LogoLoader";
 import { SurveyFooter, SurveyPopup } from "../components/SurveyCard";
 import SpindexSheet from "../components/SpindexSheet";
+import VerifyEmailCard from "../components/VerifyEmailCard";
 import LogPlaySheet from "./LogPlaySheet";
 import CountUp from "../components/CountUp";
 
@@ -130,6 +131,7 @@ export default function Home() {
             <SpindexRow />
           </div>
           <RecentSessions version={version} />
+          <VerifyEmailCard />
           <SurveyFooter />
           <SurveyPopup />
           <RewardsStrip enabled={settings.rewards_enabled} />

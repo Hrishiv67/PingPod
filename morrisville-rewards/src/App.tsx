@@ -136,7 +136,9 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
       }
     }
     const t0 = Date.now();
-    const next = await api.getMe();
+    let next = await api.getMe();
+    // Came back from the emailed verification link? Mark the email verified.
+    if (next.profile && !next.profile.email_verified_at && (await api.confirmEmailFromLink())) next = await api.getMe();
     const t1 = Date.now();
     offset.current = new Date(next.server_now).getTime() - (t0 + t1) / 2;
     setMe(next);

@@ -121,6 +121,7 @@ step, `*_pending` values are normally 0 — clients can show `*_verified + *_pen
 | `get_player_card` | `p_user_id` | jsonb: `user_id, display_name, avatar_color, avatar_path, bio, member_since, is_me, crew{name,color,emblem,motto}, week_minutes, total_minutes, sessions, current_streak, longest_streak, rank_week, spindex{rating,verified}` (players hidden from boards are only visible to crewmates) | player |
 | `set_crew_style` | `p_color` (avatar colors), `p_motto` (≤60, optional), `p_emblem` users·flame·bolt·crown·target·rocket·star·shield | `crews` row | crew owner |
 | `remove_my_session` | `p_id` | row (`cancelled`, reason "Removed by player"; stops counting everywhere) | owner of session |
+| `confirm_email_verified` | — (call right after `auth.verifyOtp` with the emailed code, or after arriving from the emailed link) | `profiles` row with `email_verified_at`; refused unless the caller's token shows an OTP sign-in from the last hour | player with profile |
 
 Photos: upload with Supabase Storage to bucket `avatars`, path `<auth user id>/<anything>.jpg` (players can only
 write their own folder; max 512 KB; jpeg/png/webp), then call `set_avatar`. Public URL:

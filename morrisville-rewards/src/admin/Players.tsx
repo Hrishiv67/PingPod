@@ -89,6 +89,7 @@ export default function Players({
                       </strong>
                       {p.admin_role && <Chip tone="pink">{p.admin_role === "owner" ? "Owner" : "Staff"}</Chip>}
                       {p.hidden_by_admin && <Chip tone="bad">Hidden</Chip>}
+                      {p.email_verified_at && <Chip tone="ok">Verified email</Chip>}
                     </div>
                     <span className="adm-row-meta adm-email">{p.email ?? "No email"}</span>
                     {p.bio && <span className="adm-row-meta adm-bio">“{p.bio}”</span>}

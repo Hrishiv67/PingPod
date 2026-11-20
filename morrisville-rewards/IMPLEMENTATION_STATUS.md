@@ -51,6 +51,10 @@ Latest results (2026-11-19): `npm test` 22/22 pass · `tsc` clean · `npm run bu
 - Sign-in suggests fixes for mistyped domains ("gmial.com" → "gmail.com") and blocks domains that can't receive
   email (DNS check). It can't prove someone owns the inbox; only an emailed code can.
 - Swift guide removed (no native app planned).
+- iPad always rotates (TV mode) with a progress bar; long lists scroll themselves; a tapped board stays up 30 s.
+- Optional email verification ("eligible for possible future rewards"): blue card at the bottom of Home, 6-digit code
+  or emailed link; recorded server-side only when the session proves an OTP sign-in (confirm_email_verified).
+- Survey line stays at the bottom of Home after it's opened (quieter).
 - Home: Start playing / Log past session first, one compact stats strip, recent sessions; the active timer has its own focused view.
 - Less repeated grey text on Rankings, Crew and Me.
 - iPad `/display`: back to the original layout (large QR panel beside the board) by request. Six boards rotate: most minutes, highest SPINDEX (second, by request; verified ratings marked), crew rankings, daily streaks, longest session and this week. Category-specific labels and units, pilot dates in the header, an invitation row under short lists, and each empty board shows its own message.

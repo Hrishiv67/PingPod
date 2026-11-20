@@ -176,6 +176,11 @@ export interface Api {
   uploadAvatar(file: Blob): Promise<void>;
   removeAvatar(): Promise<void>;
   playerCard(userId: string): Promise<PlayerCard>;
+  /** Optional email verification: email a one-time code (and link) to the signed-in player. */
+  sendEmailCode(): Promise<void>;
+  verifyEmailCode(code: string): Promise<void>;
+  /** After tapping the emailed link: marks the email verified if this session came from it. */
+  confirmEmailFromLink(): Promise<boolean>;
 
   myCrew(period: Period, scope: Scope): Promise<MyCrew | null>;
   previewCrew(code: string): Promise<CrewPreview | null>;
@@ -435,6 +440,51 @@ const live: Api = {
     }
   },
   playerCard: (userId) => rpc<PlayerCard>("get_player_card", { p_user_id: userId }),
+  async sendEmailCode() {
+    try {
+      const sb = need(supabase);
+      const { data } = await sb.auth.getUser();
+      if (!data.user?.email) throw new AppError("Sign in again first.");
+      const { error } = await sb.auth.signInWithOtp({
+        email: data.user.email,
+        options: { shouldCreateUser: false, emailRedirectTo: `${window.location.origin}/` },
+      });
+      if (error) throw error;
+    } catch (err) {
+      throw toAppError(err);
+    }
+  },
+  async verifyEmailCode(code) {
+    try {
+      const sb = need(supabase);
+      const { data } = await sb.auth.getUser();
+      if (!data.user?.email) throw new AppError("Sign in again first.");
+      const { error } = await sb.auth.verifyOtp({ email: data.user.email, token: code.trim(), type: "email" });
+      if (error) throw error;
+    } catch (err) {
+      const e = toAppError(err);
+      throw /expired|invalid/i.test(e.message) ? new AppError("That code didn't work. Check it or send a new one.") : e;
+    }
+    await rpc("confirm_email_verified");
+  },
+  async confirmEmailFromLink() {
+    try {
+      const { data } = await need(supabase).auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return false;
+      const claims = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))) as {
+        amr?: { method: string; timestamp: number }[];
+      };
+      const fresh = (claims.amr ?? []).some(
+        (a) => (a.method === "otp" || a.method === "magiclink") && a.timestamp > Date.now() / 1000 - 3600,
+      );
+      if (!fresh) return false;
+      await rpc("confirm_email_verified");
+      return true;
+    } catch {
+      return false;
+    }
+  },
 
   myCrew: (period, scope) => rpc<MyCrew | null>("get_my_crew", { p_period: period, p_scope: scope }),
   previewCrew: (code) => rpc<CrewPreview | null>("preview_crew", { p_code: code }, supabase ?? publicClient),

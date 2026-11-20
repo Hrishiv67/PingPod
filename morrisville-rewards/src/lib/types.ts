@@ -25,6 +25,8 @@ export interface Profile {
   show_spindex: boolean;
   hidden_by_admin: boolean;
   bio?: string | null;
+  /** Set once the player proved they own their email with a one-time code (optional; for rewards). */
+  email_verified_at?: string | null;
   /** Path in the public "avatars" storage bucket; build the URL with avatarUrl(). */
   avatar_path?: string | null;
   created_at: string;
@@ -312,6 +314,7 @@ export interface AdminPlayer {
   avatar_color: AvatarColor | null;
   avatar_path?: string | null;
   bio?: string | null;
+  email_verified_at?: string | null;
   show_on_leaderboard: boolean | null;
   hidden_by_admin: boolean | null;
   hidden_reason: string | null;

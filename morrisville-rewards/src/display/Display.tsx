@@ -12,15 +12,15 @@ import "../styles/tokens.css";
 import "../styles/ui.css";
 import "./display.css";
 
-// In-venue iPad scoreboard (/display, /?display=1). Signed-out data only. People can tap a board,
-// switch Today / Week / Month and scroll; after a while with nobody touching it, it goes back to
-// rotating through the boards on its own.
+// In-venue iPad scoreboard (/display, /?display=1). Signed-out data only. It always rotates like a
+// TV board (long lists scroll themselves slowly). People can still tap a board, switch Today / Week /
+// Month or scroll: that board then stays up a little longer before the rotation carries on.
 
 const POLL_MS = 30_000;
 const LIVE_WINDOW_MS = 90_000;
 const PING_DEBOUNCE_MS = 2_000;
 const CURSOR_IDLE_MS = 3_000;
-const RESUME_AFTER_MS = 45_000; // hands-off time before rotation resumes
+const TOUCH_DWELL_MS = 30_000; // how long a board someone picked stays up
 const SETTINGS_POLL_MS = 5 * 60_000;
 const ROWS = 50;
 
@@ -83,7 +83,8 @@ export default function Display() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [board, setBoard] = useState<Board>("minutes");
   const [period, setPeriod] = useState<BoardPeriod>("week");
-  const [touchedAt, setTouchedAt] = useState(0);
+  const [manual, setManual] = useState(false);
+  const [touchStamp, setTouchStamp] = useState(0);
   const [cache, setCache] = useState<Record<string, Rows>>({});
   const [tick, setTick] = useState(0);
   const inflight = useRef(false);
@@ -198,11 +199,13 @@ export default function Display() {
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
 
+  // Keyed by content, so refreshing the data every 30 s doesn't restart the rotation timer.
+  const slidesKey = (data?.slides ?? []).join(",");
   const boards = useMemo<Board[]>(() => {
-    const wanted = data?.slides?.length ? data.slides : ORDER;
+    const wanted = slidesKey ? (slidesKey.split(",") as Board[]) : ORDER;
     const list = ORDER.filter((b) => wanted.includes(b));
     return list.length ? list : ["minutes"];
-  }, [data?.slides]);
+  }, [slidesKey]);
   const current: Board = boards.includes(board) ? board : boards[0];
   const scope: Scope = data?.scope ?? "community";
   const rotationMs = Math.min(60, Math.max(8, Number(data?.rotation_seconds) || 15)) * 1000;
@@ -223,23 +226,45 @@ export default function Display() {
     };
   }, [current, boardPeriod, scope, cacheKey, tick, data]);
 
-  // Hands-off: rotate through the boards. Any touch pauses it for a while.
+  // Always rotating. A touch keeps the current board up for TOUCH_DWELL_MS, then rotation carries on.
+  const dwell = manual ? TOUCH_DWELL_MS : rotationMs;
   useEffect(() => {
     if (boards.length < 2) return;
-    const sinceTouch = Date.now() - touchedAt;
-    const wait = sinceTouch < RESUME_AFTER_MS ? RESUME_AFTER_MS - sinceTouch + rotationMs : rotationMs;
     const id = window.setTimeout(() => {
       setBoard(boards[(boards.indexOf(current) + 1) % boards.length]);
       setPeriod("week");
-    }, wait);
+      setManual(false);
+    }, dwell);
     return () => window.clearTimeout(id);
-  }, [current, period, touchedAt, rotationMs, boards]);
+  }, [current, period, touchStamp, dwell, boards]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: 0 });
   }, [current, boardPeriod]);
 
-  const touch = () => setTouchedAt(Date.now());
+  // TV mode: a list longer than the screen scrolls itself slowly during its turn.
+  const shownCount = cache[cacheKey]?.rows.length ?? 0;
+  useEffect(() => {
+    const el = listRef.current;
+    if (manual || !el) return;
+    const max = el.scrollHeight - el.clientHeight;
+    if (max < 24) return;
+    const start = performance.now() + 2500;
+    const duration = Math.max(4000, dwell - 5000);
+    let raf = 0;
+    const step = (t: number) => {
+      const p = Math.min(1, Math.max(0, (t - start) / duration));
+      el.scrollTop = max * (p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2);
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [cacheKey, shownCount, manual, dwell]);
+
+  const touch = () => {
+    setManual(true);
+    setTouchStamp(Date.now());
+  };
   const appUrl = resolveAppUrl(data?.public_app_url);
   const qr = useQr(appUrl);
   const live = online && lastSuccessAt !== null && now - lastSuccessAt < LIVE_WINDOW_MS;
@@ -320,12 +345,13 @@ export default function Display() {
             )}
           </div>
 
-          <div
-            className="board-body"
-            ref={listRef}
-            onScroll={() => Date.now() - touchedAt > 1000 && touch()}
-            key={cacheKey}
-          >
+          {boards.length > 1 && (
+            <div className="board-progress" aria-hidden>
+              <span key={`${cacheKey}-${touchStamp}`} style={{ animationDuration: `${dwell}ms` }} />
+            </div>
+          )}
+
+          <div className="board-body" ref={listRef} onWheel={touch} key={cacheKey}>
             {current === "highlights" ? (
               <Highlights data={data} />
             ) : !shown ? (

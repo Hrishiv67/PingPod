@@ -71,6 +71,7 @@ export default function MeScreen() {
             ) : (
               <Chip>Private</Chip>
             )}
+            {p.email_verified_at && <Chip tone="ok">Email verified</Chip>}
             {me.crew && (
               <Link to="/crew" className="chip chip-crew">
                 {me.crew.name}

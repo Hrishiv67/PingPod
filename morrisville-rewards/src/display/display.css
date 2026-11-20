@@ -134,8 +134,8 @@ html.display-mode body {
 /* Boards */
 .display-board {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
-  gap: clamp(14px, 2.2vmin, 28px);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  gap: clamp(12px, 2vmin, 24px);
   min-height: 0;
   min-width: 0;
 }
@@ -205,6 +205,27 @@ html.display-mode body {
 .board-period.on {
   background: var(--pink);
   color: #000;
+}
+/* Time until the next board */
+.board-progress {
+  height: clamp(3px, 0.45vmin, 5px);
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.board-progress span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: inherit;
+  background: var(--pink);
+  transform-origin: left;
+  animation: board-progress linear forwards;
+}
+@keyframes board-progress {
+  from {
+    transform: scaleX(0);
+  }
 }
 .board-body {
   min-height: 0;
@@ -551,5 +572,9 @@ html.display-mode body {
   .board-body,
   .display-live-dot {
     animation: none;
+  }
+  .board-progress span {
+    animation: none;
+    transform: scaleX(1);
   }
 }

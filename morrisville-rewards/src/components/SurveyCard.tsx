@@ -73,10 +73,10 @@ export function SurveyPopup() {
 
 export function SurveyFooter() {
   const { url, opened, markOpened } = useSurvey();
-  if (!url || opened) return null;
+  if (!url) return null;
   return (
-    <a className="survey-line" href={url} target="_blank" rel="noopener noreferrer" onClick={markOpened}>
-      <span>Help our school research · short anonymous survey</span>
+    <a className={`survey-line ${opened ? "done" : ""}`} href={url} target="_blank" rel="noopener noreferrer" onClick={markOpened}>
+      <span>{opened ? "Research survey · thanks for helping" : "Help our school research · short anonymous survey"}</span>
       <ChevronRight size={16} aria-hidden />
     </a>
   );
