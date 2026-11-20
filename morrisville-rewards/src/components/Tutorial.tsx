@@ -139,7 +139,6 @@ export default function Tutorial({
         </div>
         <h2 className="tut-title">{slide.title}</h2>
         <p className="tut-text">{slide.text}</p>
-        {onSurvey && <p className="tut-fine">It stays on Home too, if you'd rather do it later.</p>}
       </div>
 
       <div className="tut-bottom">
@@ -165,9 +164,7 @@ export default function Tutorial({
             <button type="button" className="tut-back" onClick={() => go(i - 1)}>
               Back
             </button>
-          ) : (
-            <span />
-          )}
+          ) : null}
           {onSurvey && survey ? (
             <a
               className="btn btn-primary btn-lg tut-next"

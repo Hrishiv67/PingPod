@@ -133,6 +133,10 @@
   align-items: center;
   gap: 12px;
 }
+/* First slide has no Back: Next spans the full width. */
+.tut-actions > .tut-next:only-child {
+  grid-column: 1 / -1;
+}
 .tut-back {
   min-height: 52px;
   border: 0;
@@ -182,11 +186,13 @@
   font-weight: 800;
   line-height: 1;
 }
+/* Grey on purpose: only the real Next button below is pink. */
 .tv-btn {
   padding: 10px 22px;
+  border: 1px solid var(--line-strong);
   border-radius: 12px;
-  background: var(--pink);
-  color: var(--on-pink);
+  background: var(--surface-3);
+  color: var(--text);
   font-family: var(--font-display);
   font-weight: 800;
   font-size: 18px;
@@ -440,11 +446,6 @@
   color: #000;
 }
 
-.tut-fine {
-  margin: 0;
-  color: var(--muted);
-  font-size: 14px;
-}
 a.tut-next {
   text-decoration: none;
 }

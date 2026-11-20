@@ -335,18 +335,15 @@ function GoalDialog({
   // How this week's pace compares with the plan (only when there's play to compare).
   let paceLine: ReactNode = null;
   if (pace !== null && days !== undefined && perDay !== null) {
-    const avg = duration(Math.round(pace));
-    const diff = Math.round(pace * days - target);
+    const avg = Math.round(pace);
     paceLine =
-      diff >= 0 ? (
-        <p>
-          This week you've played about <strong>{avg}</strong> per play day. Keep that up on {days}{" "}
-          {days === 1 ? "day" : "days"} and you'll hit it.
+      avg >= perDay ? (
+        <p className="rally-pace">
+          This week you're averaging <strong>{duration(avg)}</strong> a visit. You're on pace.
         </p>
       ) : (
-        <p>
-          This week you've played about <strong>{avg}</strong> per play day. At that pace, {days} {days === 1 ? "day" : "days"} leaves you{" "}
-          {duration(Math.abs(diff))} short. Add a day or stay a little longer.
+        <p className="rally-pace">
+          This week you're averaging <strong>{duration(avg)}</strong> a visit. Stay about {duration(perDay - avg)} longer, or add a day.
         </p>
       );
   }
@@ -392,13 +389,12 @@ function GoalDialog({
                   </div>
                 </div>
                 <h2 id={titleId} className="rally-lockup-title">
-                  Your weekly goal
+                  Set goals
                 </h2>
-                <p className="rally-lockup-sub">Pick how much you want to play. Your flames show how it's going.</p>
               </div>
               <div className="rally-intro-copy" inert={!revealed}>
                 <button type="button" className="rally-primary" onClick={() => advance("guide")}>
-                  Let's set it <span aria-hidden="true">→</span>
+                  Let's go <span aria-hidden="true">→</span>
                 </button>
               </div>
             </div>
@@ -411,12 +407,11 @@ function GoalDialog({
                 <span className="rally-stat-unit">minutes a week</span>
               </h2>
               <p className="rally-stat-source">
-                That's the{" "}
+                The{" "}
                 <a href="https://www.cdc.gov/physical-activity-basics/guidelines/adults.html" target="_blank" rel="noreferrer">
                   CDC's
                 </a>{" "}
-                guideline for adults: 2½ hours of moderate activity every week. Kids and teens should aim for about an hour a day.
-                Table tennis counts.
+                weekly activity goal. Table tennis counts.
               </p>
               <div className="rally-activity-example">
                 <TimeSplit sections={5} activityExample />
@@ -522,6 +517,9 @@ function GoalDialog({
                     <TimeSplit sections={days} />
                     <div className="rally-plan-label">Each play day, aim for about</div>
                     <strong key={perDay}>{duration(perDay)}</strong>
+                    <p className="rally-math num">
+                      {days} {days === 1 ? "day" : "days"} × {duration(perDay)} = {hoursLabel(hours)} a week
+                    </p>
                     {paceLine}
                   </>
                 )}
