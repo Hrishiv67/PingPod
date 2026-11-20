@@ -121,7 +121,7 @@ that person's sessions and ratings).
 5. **Never sign in as staff on the iPad.** The board needs no login and shows only public nicknames,
    their stats and crew names.
 
-It rotates through most minutes this week, highest SPINDEX, crew rankings, daily streaks, longest session and weekly highlights, and
+Players can tap a board (Minutes, SPINDEX, Crews, Streaks, Longest, This week), switch Today / Week / Month and scroll the list. When nobody touches it for about 45 seconds it goes back to rotating through the boards on its own, and
 refreshes itself within seconds when anyone finishes or logs a session. The small "Updated" time in the corner shows freshness;
 if the internet drops it says the data may be out of date instead of pretending to be live.
 

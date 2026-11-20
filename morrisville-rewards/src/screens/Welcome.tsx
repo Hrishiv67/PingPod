@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Eye, EyeOff, Users } from "lucide-react";
 import { api, errorText } from "../lib/api";
+import { domainAcceptsMail, suggestEmail } from "../lib/emailCheck";
 import type { CrewPreview } from "../lib/types";
 import { Logo } from "../components/Logo";
 import { Button, Chip, Field, IconButton, InlineError, Sheet } from "../components/ui";
@@ -16,6 +17,8 @@ export default function Welcome({ inviteCode }: { inviteCode: string | null }) {
   const [error, setError] = useState("");
   const [forgot, setForgot] = useState(false);
   const [invite, setInvite] = useState<CrewPreview | null>(null);
+  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const [dismissedFor, setDismissedFor] = useState("");
 
   useEffect(() => {
     if (!inviteCode) return;
@@ -34,7 +37,18 @@ export default function Welcome({ inviteCode }: { inviteCode: string | null }) {
     setError("");
     try {
       if (step === "email") {
-        const result = await api.enterWithEmail(email);
+        const e = email.trim();
+        const better = dismissedFor === e.toLowerCase() ? null : suggestEmail(e);
+        if (better) {
+          setSuggestion(better);
+          setBusy(false);
+          return;
+        }
+        if ((await domainAcceptsMail(e)) === false) {
+          setBusy(false);
+          return setError("That email address can't receive email. Check it for a typo.");
+        }
+        const result = await api.enterWithEmail(e);
         if (result === "password") {
           setStep("password");
           setBusy(false);
@@ -92,6 +106,7 @@ export default function Welcome({ inviteCode }: { inviteCode: string | null }) {
             value={email}
             onChange={(e) => {
               setEmail(e.target.value);
+              setSuggestion(null);
               if (step === "password") {
                 setStep("email");
                 setPassword("");
@@ -126,6 +141,35 @@ export default function Welcome({ inviteCode }: { inviteCode: string | null }) {
                 </button>
               </div>
             </>
+          )}
+          {suggestion && (
+            <div className="email-suggest" role="status">
+              <span>
+                Did you mean <strong>{suggestion}</strong>?
+              </span>
+              <span className="email-suggest-actions">
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() => {
+                    setEmail(suggestion);
+                    setSuggestion(null);
+                  }}
+                >
+                  Yes, fix it
+                </button>
+                <button
+                  type="button"
+                  className="link-btn quiet"
+                  onClick={() => {
+                    setDismissedFor(email.trim().toLowerCase());
+                    setSuggestion(null);
+                  }}
+                >
+                  No, mine is right
+                </button>
+              </span>
+            </div>
           )}
           {error && <InlineError>{error}</InlineError>}
           <Button type="submit" variant="primary" size="lg" block loading={busy} disabled={!email.trim()}>

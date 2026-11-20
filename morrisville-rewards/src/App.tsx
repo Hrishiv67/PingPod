@@ -252,7 +252,7 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
           </div>
         </header>
         <main key={inviteCode ? `join-${inviteCode}` : tab} className={`screen screen-${direction}`}>
-          {screen}
+          {inviteCode ? screen : <FirstVisit tab={tab}>{screen}</FirstVisit>}
         </main>
         {!online && <div className="offline-bar">You're offline. A running timer keeps counting — we'll sync when you're back.</div>}
         <nav className="bottom-nav" aria-label="Main">
@@ -264,6 +264,31 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
         </nav>
       </div>
     </AppCtx.Provider>
+  );
+}
+
+// The first time Rankings, Crew or Me opens in a visit, the PingPod loader shows for 0.8 s while the
+// screen loads underneath, so it feels like a real app opening a section. Afterwards tabs open instantly.
+const seenTabs = new Set<string>(["/"]);
+function FirstVisit({ tab, children }: { tab: string; children: ReactNode }) {
+  const [ready, setReady] = useState(() => seenTabs.has(tab));
+  useEffect(() => {
+    if (ready) return;
+    seenTabs.add(tab);
+    const t = window.setTimeout(() => setReady(true), 800);
+    return () => window.clearTimeout(t);
+  }, [ready, tab]);
+  return (
+    <>
+      {!ready && (
+        <div className="tab-loader">
+          <LogoLoader size={34} label="Loading" />
+        </div>
+      )}
+      <div hidden={!ready} className={ready ? "tab-reveal" : undefined}>
+        {children}
+      </div>
+    </>
   );
 }
 

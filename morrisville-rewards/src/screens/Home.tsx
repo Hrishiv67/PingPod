@@ -125,7 +125,10 @@ export default function Home() {
             </Button>
             {error && <InlineError>{error}</InlineError>}
           </section>
-          <StatStrip />
+          <div className="stack-sm">
+            <StatStrip />
+            <SpindexRow />
+          </div>
           <RecentSessions version={version} />
           <SurveyFooter />
           <SurveyPopup />
@@ -240,15 +243,13 @@ function FinishedSheet({ session, onClose }: { session: PlaySession; onClose: ()
 
 function StatStrip() {
   const { me } = useApp();
-  const [spindexOpen, setSpindexOpen] = useState(false);
-  const claim = me.spindex ?? null;
   const s = me.stats!;
   const profile = me.profile!;
   const weekTotal = s.week_verified + s.week_pending;
   const rank = me.settings.default_board_scope === "verified" ? s.rank_week_verified : s.rank_week_community;
   const hidden = !profile.show_on_leaderboard || profile.hidden_by_admin;
   return (
-    <section className="stat-strip home-strip" aria-label="Your week">
+    <section className="stat-strip" aria-label="Your week">
       <Link to="/me" className="stat-cell">
         <span className="stat-label">This week</span>
         <span className="stat-value num">
@@ -271,17 +272,6 @@ function StatStrip() {
           <small>{s.current_streak === 1 ? "day" : "days"}</small>
         </span>
       </Link>
-      <button type="button" className="stat-cell" onClick={() => setSpindexOpen(true)}>
-        <span className="stat-label">SPINDEX</span>
-        {claim ? (
-          <span className="stat-value num">
-            {claim.rating}
-            {claim.status === "verified" && <BadgeCheck size={16} className="verified-tick" aria-label="Verified" />}
-          </span>
-        ) : (
-          <span className="stat-value text pink">Add yours</span>
-        )}
-      </button>
       <Link to="/crew" className="stat-cell">
         <span className="stat-label">Crew</span>
         {me.crew ? (
@@ -290,8 +280,38 @@ function StatStrip() {
           <span className="stat-value text pink">Join one</span>
         )}
       </Link>
-      {spindexOpen && <SpindexSheet onClose={() => setSpindexOpen(false)} />}
     </section>
+  );
+}
+
+/** One slim row under the stats: add your SPINDEX, or see and update it. */
+function SpindexRow() {
+  const { me } = useApp();
+  const [open, setOpen] = useState(false);
+  const claim = me.spindex ?? null;
+  return (
+    <>
+      <button type="button" className={`panel spindex-prompt ${claim ? "has" : ""}`} onClick={() => setOpen(true)}>
+        {claim ? (
+          <span className="spindex-row-text">
+            <span className="stat-label">SPINDEX</span>
+            <strong className="num">
+              {claim.rating}
+              {claim.status === "verified" && <BadgeCheck size={16} className="verified-tick" aria-label="Verified" />}
+            </strong>
+          </span>
+        ) : (
+          <span>
+            <strong>Add your SPINDEX</strong>
+          </span>
+        )}
+        <span className="spindex-row-cta">
+          {claim ? "Update" : ""}
+          <ChevronRight size={18} aria-hidden />
+        </span>
+      </button>
+      {open && <SpindexSheet onClose={() => setOpen(false)} />}
+    </>
   );
 }
 

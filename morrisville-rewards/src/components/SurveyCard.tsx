@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { store } from "../lib/storage";
 import { useApp } from "../state";
 import { Button, Sheet } from "./ui";
@@ -74,14 +75,9 @@ export function SurveyFooter() {
   const { url, opened, markOpened } = useSurvey();
   if (!url || opened) return null;
   return (
-    <section className="survey-card" aria-label="Research survey">
-      <div className="survey-card-text">
-        <strong>Help our research</strong>
-        <span>A short anonymous survey for our school project.</span>
-      </div>
-      <a className="btn btn-secondary btn-md" href={url} target="_blank" rel="noopener noreferrer" onClick={markOpened}>
-        Take the survey
-      </a>
-    </section>
+    <a className="survey-line" href={url} target="_blank" rel="noopener noreferrer" onClick={markOpened}>
+      <span>Help our school research · short anonymous survey</span>
+      <ChevronRight size={16} aria-hidden />
+    </a>
   );
 }

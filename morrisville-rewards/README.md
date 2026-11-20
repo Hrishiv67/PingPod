@@ -30,9 +30,9 @@ It's a local four-week pilot. It isn't the official PingPod app, booking system 
 | `supabase/migrations/` | Database schema, security, and every rule (source of truth) |
 | `supabase/tests/` | QA account setup/teardown, rollback-only time-logic test |
 | `tests/` | Unit tests (time helpers, demo rules) and the live API integration suite |
-| `docs/` | `SETUP.md` (production config), `STAFF_GUIDE.md` (for Joe/staff), `API.md`, `SWIFT_INTEGRATION.md` (iOS app on the same backend) |
+| `docs/` | `SETUP.md` (production config), `STAFF_GUIDE.md` (for Joe/staff), `API.md` (database functions any client can call) |
 
-All rules live in Postgres functions, so this web app and a native Swift app can share one backend and one set of accounts. See `docs/SWIFT_INTEGRATION.md`.
+All rules live in Postgres functions (see `docs/API.md`), so any future client can share the same backend and accounts.
 
 ## Run locally
 

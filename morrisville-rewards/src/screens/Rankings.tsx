@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronRight, EyeOff, Info, Trophy, Users } from "lucide-react";
+import { ChevronRight, EyeOff, Trophy, Users } from "lucide-react";
 import { api, errorText } from "../lib/api";
 import { Link } from "../lib/router";
 import { formatDay, formatNumber } from "../lib/time";
@@ -99,21 +99,12 @@ export default function Rankings() {
             value={period}
             onChange={setPeriod}
             options={[
-              { value: "week", label: "This week" },
-              { value: "month", label: "This month" },
+              { value: "day", label: "Today" },
+              { value: "week", label: "Week" },
+              { value: "month", label: "Month" },
               { value: "all", label: "All time" },
             ]}
           />
-        )}
-        {(board === "spindex" || board === "streaks") && (
-          <p className="scope-note">
-            <Info size={15} aria-hidden />
-            <span>
-              {board === "spindex"
-                ? "Ratings players add on their profile. Staff-checked ones say Verified."
-                : "Days in a row you've played. Miss a full day and it starts over."}
-            </span>
-          </p>
         )}
       </div>
 

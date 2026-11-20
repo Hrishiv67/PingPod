@@ -4,8 +4,8 @@
 // this pilot (it's a play-time leaderboard). Staff accounts are different: they keep a real
 // password, so the derived key never opens staff tools.
 //
-// The iOS app must derive the exact same key (see docs/SWIFT_INTEGRATION.md):
-//   "Pp!" + first 40 hex chars of SHA-256(lowercased trimmed email + SALT) + "9"
+// Key: "Pp!" + first 40 hex chars of SHA-256(lowercased trimmed email + SALT) + "9" (also checked in
+// the database by private.on_email_key — keep both in sync).
 
 const SALT = "|pingpod-morrisville-email-only-v1";
 

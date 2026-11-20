@@ -379,6 +379,7 @@ const statuses = (scope: Scope) => (scope === "community" ? ["approved", "pendin
 
 function periodStart(period: Period | "all"): string {
   const today = venueDate();
+  if (period === "day") return today;
   if (period === "week") return weekStart(today);
   if (period === "month") return `${today.slice(0, 8)}01`;
   if (period === "all") return "2000-01-01";
@@ -1317,6 +1318,18 @@ export const demoApi: Api = {
     return crewBoard(s, period, scope)
       .filter((r) => r.rank <= cap || r.crew_id === mine)
       .map((r) => ({ ...r, is_mine: r.crew_id === mine }));
+  },
+  async publicBoard(metric, period, scope, limit = 50) {
+    await delay();
+    return board(load(), metric, period, scope)
+      .slice(0, limit)
+      .map((r) => ({ ...r, is_me: false }));
+  },
+  async publicCrewBoard(period, scope, limit = 50) {
+    await delay();
+    return crewBoard(load(), period, scope)
+      .slice(0, limit)
+      .map((r) => ({ ...r, is_mine: false }));
   },
   async displayData(): Promise<DisplayData> {
     await delay();

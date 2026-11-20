@@ -8,7 +8,7 @@ _Last updated: 2026-11-19 · branch `morrisville-rewards-starter` · app in `mor
 2. Backend: Supabase project **pingpod-morrisville** (ref `apojuerjhvyzjmpanqih`, us-east-1, free plan). Migrations 0100–0900 in `supabase/migrations/` are applied. New DB work = new numbered migration + re-run the grant/revoke block (see README).
 3. Frontend data access goes only through `src/lib/api.ts` (`api.*`). Types: `src/lib/types.ts`. Rules live in SQL, not React.
 4. Product decision (Nov 19): **players' time counts immediately**. There's no approval queue, and staff only fix or remove mistakes. Don't reintroduce verification UI unless the pilot owner asks.
-5. A native Swift app is planned on the same backend. Keep RPC names and signatures stable, and document changes in `docs/API.md` and `docs/SWIFT_INTEGRATION.md`.
+5. Keep RPC names and signatures stable and document changes in `docs/API.md`.
 
 ## Done and tested
 
@@ -44,6 +44,13 @@ Latest results (2026-11-19): `npm test` 22/22 pass · `tsc` clean · `npm run bu
   Admin → Settings → Research survey (`pilot_settings.survey_url`). Shown as a one-time pop-up, then a small card at the bottom of Home until opened.
 - SPINDEX tile on Home (tap to add or update). Nicknames are unique ignoring capitals, spaces and punctuation
   ("Hrishiv" = "hrishiv." = "Hri shiv"), enforced by a database index.
+- iPad display is touch-friendly: board tabs, Today / Week / Month, scrollable lists (top 50), calmer sizes, no filler
+  text; it resumes rotating after ~45 s hands-off. Boards everywhere support a "day" period.
+- Home is back to four tiles plus a slim SPINDEX row; the survey is a one-time pop-up plus one quiet line at the bottom.
+- First time Rankings, Crew or Me opens in a visit, the PingPod loader shows for 0.8 s.
+- Sign-in suggests fixes for mistyped domains ("gmial.com" → "gmail.com") and blocks domains that can't receive
+  email (DNS check). It can't prove someone owns the inbox; only an emailed code can.
+- Swift guide removed (no native app planned).
 - Home: Start playing / Log past session first, one compact stats strip, recent sessions; the active timer has its own focused view.
 - Less repeated grey text on Rankings, Crew and Me.
 - iPad `/display`: back to the original layout (large QR panel beside the board) by request. Six boards rotate: most minutes, highest SPINDEX (second, by request; verified ratings marked), crew rankings, daily streaks, longest session and this week. Category-specific labels and units, pilot dates in the header, an invitation row under short lists, and each empty board shows its own message.
@@ -65,5 +72,4 @@ Latest results (2026-11-19): `npm test` 22/22 pass · `tsc` clean · `npm run bu
 - Physical rewards are built but **off** until Joe approves terms (an approval note is required to enable one).
 - Optional match XP (+20/+60/+10) is not built (deferred by request).
 - No push notifications; the 90-minute check-in shows in the app only.
-- Swift integration guide was written but not compiled here (no Xcode in this environment).
 - Not tested on a physical iPhone/iPad; tested in Playwright's iPhone/iPad emulation.

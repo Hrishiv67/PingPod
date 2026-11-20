@@ -355,6 +355,7 @@ function Achievements({ version }: { version: number }) {
       .catch((err) => setError(errorText(err)));
   }, []);
   useEffect(load, [load, version]);
+  const [all, setAll] = useState(false);
   const earned = items?.filter((a) => a.earned_at).length ?? 0;
   return (
     <section className="section">
@@ -372,7 +373,10 @@ function Achievements({ version }: { version: number }) {
         <LogoLoader label="Loading milestones" />
       ) : (
         <div className="badges">
-          {[...items].sort(BADGE_ORDER).map((a) => (
+          {[...items]
+            .sort(BADGE_ORDER)
+            .slice(0, all ? items.length : 4)
+            .map((a) => (
             <div key={a.code} className={`badge ${a.earned_at ? "earned" : ""}`}>
               <span className="badge-icon">
                 <Award size={20} />
@@ -392,6 +396,11 @@ function Achievements({ version }: { version: number }) {
             </div>
           ))}
         </div>
+      )}
+      {items && items.length > 4 && (
+        <button type="button" className="link-btn quiet" onClick={() => setAll((v) => !v)}>
+          {all ? "Show less" : `Show all ${items.length}`}
+        </button>
       )}
     </section>
   );
@@ -419,11 +428,7 @@ function Spindex() {
                 <Chip tone="warn">Self-reported SPINDEX</Chip>
               )}
             </div>
-            <p className="small-print">
-              {claim.status === "verified"
-                ? "Checked by PingPod staff. A new number goes back to self-reported."
-                : "Want it verified? Show your SPINDEX at the front desk."}
-            </p>
+            {claim.status !== "verified" && <p className="small-print">Show it at the front desk to get it verified.</p>}
             <div className="row-2">
               <Button variant="secondary" onClick={() => setOpen(true)}>
                 Update
@@ -435,13 +440,12 @@ function Spindex() {
           </>
         ) : (
           <>
-            <p>Have a SPINDEX rating? Add it — it goes on the separate SPINDEX board.</p>
+            <p>Add your rating to get on the SPINDEX board.</p>
             <Button variant="secondary" onClick={() => setOpen(true)}>
               Add my SPINDEX
             </Button>
           </>
         )}
-        <p className="small-print">Not connected to SPINDEX or PodPlay — ratings you enter show as self-reported.</p>
       </div>
       {open && <SpindexSheet onClose={() => setOpen(false)} />}
       {removing && (

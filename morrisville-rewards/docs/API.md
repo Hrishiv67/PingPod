@@ -133,7 +133,7 @@ Staff: `admin_moderate_player` actions `clear_photo`, `clear_bio`; `admin_modera
 
 | Function | Args | Returns |
 | --- | --- | --- |
-| `get_leaderboard` | `p_metric` minutes·streaks·longest·spindex, `p_period` week·month·all (ignored for streaks/spindex but must be valid), `p_scope` verified·community, `p_limit`=50 (1–200) | table: `rank, user_id, display_name, avatar_color, value, secondary, sessions, detail, is_me`. The caller's own row is always included even if outside the limit. `secondary` = longest streak (streaks). `detail` = session date (longest) or `verified`/`self_reported` (spindex). |
+| `get_leaderboard` | `p_metric` minutes·streaks·longest·spindex, `p_period` day·week·month·all (ignored for streaks/spindex but must be valid), `p_scope` verified·community, `p_limit`=50 (1–200) | table: `rank, user_id, display_name, avatar_color, value, secondary, sessions, detail, is_me`. The caller's own row is always included even if outside the limit. `secondary` = longest streak (streaks). `detail` = session date (longest) or `verified`/`self_reported` (spindex). |
 | `get_crew_leaderboard` | `p_period`, `p_scope`, `p_limit`=50 | table: `rank, crew_id, name, minutes, members, contributors, avg_minutes, is_mine` |
 | `get_display_data` | — | jsonb for the iPad: `generated_at, scope, rotation_seconds, slides, public_app_url, venue_name, week_start, minutes[], longest[], streaks[], spindex[], crews[], highlights{players, minutes, sessions, new_players, longest, most_sessions, top_crew, top_spindex, active_crews}`. Nicknames only — no ids, emails or notes. |
 

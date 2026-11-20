@@ -191,6 +191,9 @@ export interface Api {
   leaderboard(metric: Metric, period: Period, scope: Scope, limit?: number): Promise<LeaderRow[]>;
   crewLeaderboard(period: Period, scope: Scope, limit?: number): Promise<CrewRow[]>;
   displayData(): Promise<DisplayData>;
+  /** Boards for the iPad, always fetched signed-out (public data only). */
+  publicBoard(metric: Metric, period: Period, scope: Scope, limit?: number): Promise<LeaderRow[]>;
+  publicCrewBoard(period: Period, scope: Scope, limit?: number): Promise<CrewRow[]>;
   publicSettings(): Promise<Settings>;
   rewards(): Promise<Reward[]>;
   /** Fires when standings may have changed (Supabase Realtime broadcast). */
@@ -465,6 +468,10 @@ const live: Api = {
   crewLeaderboard: (period, scope, limit = 50) =>
     rpc<CrewRow[]>("get_crew_leaderboard", { p_period: period, p_scope: scope, p_limit: limit }),
   displayData: () => rpc<DisplayData>("get_display_data", {}, publicClient),
+  publicBoard: (metric, period, scope, limit = 50) =>
+    rpc<LeaderRow[]>("get_leaderboard", { p_metric: metric, p_period: period, p_scope: scope, p_limit: limit }, publicClient),
+  publicCrewBoard: (period, scope, limit = 50) =>
+    rpc<CrewRow[]>("get_crew_leaderboard", { p_period: period, p_scope: scope, p_limit: limit }, publicClient),
   async publicSettings() {
     try {
       const { data, error } = await need(publicClient).from("pilot_settings").select("*").eq("id", 1).single();

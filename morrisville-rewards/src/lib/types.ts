@@ -1,10 +1,10 @@
 // Shapes returned by the Supabase functions in supabase/migrations.
-// Keep in sync with docs/API.md (the iOS app uses the same contract).
+// Keep in sync with docs/API.md.
 
 export type SessionStatus = "active" | "pending" | "approved" | "rejected" | "cancelled";
 export type Method = "timer" | "manual";
 export type Scope = "verified" | "community";
-export type Period = "week" | "month" | "all";
+export type Period = "day" | "week" | "month" | "all";
 export type Metric = "minutes" | "streaks" | "longest" | "spindex";
 export type AvatarColor = "pink" | "white" | "blue" | "green" | "orange" | "purple";
 export type CrewEmblem = "users" | "flame" | "bolt" | "crown" | "target" | "rocket" | "star" | "shield";
