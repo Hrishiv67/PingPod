@@ -1542,3 +1542,36 @@ button.podium-spot:active {
 .survey-card-actions .btn {
   text-decoration: none;
 }
+
+/* Home stats: three on top, SPINDEX + crew below */
+.stat-strip.home-strip {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+.stat-strip.home-strip > .stat-cell {
+  grid-column: span 2;
+}
+.stat-strip.home-strip > .stat-cell:nth-child(n + 4) {
+  grid-column: span 3;
+}
+button.stat-cell {
+  border: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+button.stat-cell:active {
+  background: var(--surface-2);
+}
+.survey-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+.survey-card .btn {
+  text-decoration: none;
+  white-space: nowrap;
+}
+a.btn-block {
+  display: flex;
+  justify-content: center;
+  text-decoration: none;
+}

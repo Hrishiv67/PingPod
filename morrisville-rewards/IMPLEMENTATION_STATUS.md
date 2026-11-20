@@ -41,7 +41,9 @@ Latest results (2026-11-19): `npm test` 22/22 pass · `tsc` clean · `npm run bu
   podium) with a "where you stand" card: your rank of everyone, the gap to the next spot up, and Find me. Same for crews.
 - Research survey: new players see a one-time "Quick favor?" card on Home linking to an anonymous Google Form (nothing about
   the player is added to the link); it stays as "Research survey" on the profile. Owners change or clear the link in
-  Admin → Settings → Research survey (`pilot_settings.survey_url`).
+  Admin → Settings → Research survey (`pilot_settings.survey_url`). Shown as a one-time pop-up, then a small card at the bottom of Home until opened.
+- SPINDEX tile on Home (tap to add or update). Nicknames are unique ignoring capitals, spaces and punctuation
+  ("Hrishiv" = "hrishiv." = "Hri shiv"), enforced by a database index.
 - Home: Start playing / Log past session first, one compact stats strip, recent sessions; the active timer has its own focused view.
 - Less repeated grey text on Rankings, Crew and Me.
 - iPad `/display`: back to the original layout (large QR panel beside the board) by request. Six boards rotate: most minutes, highest SPINDEX (second, by request; verified ratings marked), crew rankings, daily streaks, longest session and this week. Category-specific labels and units, pilot dates in the header, an invitation row under short lists, and each empty board shows its own message.

@@ -862,7 +862,8 @@ export const demoApi: Api = {
     const s = load();
     const acct = requireUser(s);
     const name = validNickname(clean(input.display_name));
-    if (SAMPLE_PLAYERS.some((p) => p.name.toLowerCase() === name.toLowerCase())) fail("That nickname is taken. Try another.");
+    const nameKey = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (SAMPLE_PLAYERS.some((p) => nameKey(p.name) === nameKey(name))) fail("That nickname is taken. Try another.");
     if (s.profile && s.profile.display_name !== name) rateLimit(s, "rename", 5, DAY);
     const now = iso(Date.now());
     s.profile = {

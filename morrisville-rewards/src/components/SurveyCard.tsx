@@ -1,40 +1,87 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { store } from "../lib/storage";
 import { useApp } from "../state";
+import { Button, Sheet } from "./ui";
 
-const key = (userId: string) => `pingpod-survey-${userId}`;
+// Research survey for the high school project. The link opens the Google Form in a new tab;
+// nothing about the player is added to it, so answers stay anonymous.
+//   • Pop-up: shown once, a moment after a new player lands on Home.
+//   • Footer card: stays at the bottom of Home until they actually open the survey.
+const openedKey = (id: string) => `pingpod-survey-${id}`;
+const popupKey = (id: string) => `pingpod-survey-popup-${id}`;
+const ASK = "We're high school students running this pilot with PingPod Morrisville for a research project. Mind answering a short anonymous survey?";
 
-/**
- * One-time research ask for new players. Opens the survey in a new tab; nothing about the player is
- * added to the link, so answers stay anonymous. Hidden for good once opened or dismissed (this device).
- */
-export default function SurveyCard() {
+function useSurvey() {
   const { me } = useApp();
-  const url = me.settings.survey_url;
+  const url = me.settings.survey_url ?? null;
   const id = me.profile?.id ?? "";
-  const [hidden, setHidden] = useState(() => !id || store.get<string>(key(id)) !== null);
-  if (!url || hidden) return null;
-  const close = (how: "opened" | "later") => {
-    store.set(key(id), how);
-    setHidden(true);
+  const [opened, setOpened] = useState(() => !id || store.get<string>(openedKey(id)) === "opened");
+  // Other survey cards on the page update when one of them is used.
+  useEffect(() => {
+    const sync = () => setOpened(!id || store.get<string>(openedKey(id)) === "opened");
+    window.addEventListener("pingpod-survey", sync);
+    return () => window.removeEventListener("pingpod-survey", sync);
+  }, [id]);
+  const markOpened = () => {
+    store.set(openedKey(id), "opened");
+    store.set(popupKey(id), "seen");
+    window.dispatchEvent(new Event("pingpod-survey"));
   };
+  return { url, id, opened, markOpened };
+}
+
+export function SurveyPopup() {
+  const { url, id, opened, markOpened } = useSurvey();
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (!url || opened || !id || store.get<string>(popupKey(id))) return;
+    const t = window.setTimeout(() => setShow(true), 1200);
+    return () => window.clearTimeout(t);
+  }, [url, opened, id]);
+  if (!show || !url) return null;
+  const close = () => {
+    store.set(popupKey(id), "seen");
+    setShow(false);
+  };
+  return (
+    <Sheet title="Quick favor?" onClose={close}>
+      <div className="stack">
+        <p className="sheet-text">{ASK}</p>
+        <a
+          className="btn btn-primary btn-lg btn-block"
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => {
+            markOpened();
+            setShow(false);
+          }}
+        >
+          Take the survey
+        </a>
+        <Button variant="ghost" block onClick={close}>
+          Maybe later
+        </Button>
+        <p className="small-print" style={{ textAlign: "center" }}>
+          It stays at the bottom of Home if you'd rather do it later.
+        </p>
+      </div>
+    </Sheet>
+  );
+}
+
+export function SurveyFooter() {
+  const { url, opened, markOpened } = useSurvey();
+  if (!url || opened) return null;
   return (
     <section className="survey-card" aria-label="Research survey">
       <div className="survey-card-text">
-        <strong>Quick favor?</strong>
-        <span>
-          We're high school students running this pilot with PingPod Morrisville for a research project. Mind answering a short
-          anonymous survey?
-        </span>
+        <strong>Help our research</strong>
+        <span>A short anonymous survey for our school project.</span>
       </div>
-      <div className="survey-card-actions">
-        <a className="btn btn-primary btn-md" href={url} target="_blank" rel="noopener noreferrer" onClick={() => close("opened")}>
-          Take the survey
-        </a>
-        <button type="button" className="link-btn quiet" onClick={() => close("later")}>
-          Not now
-        </button>
-      </div>
+      <a className="btn btn-secondary btn-md" href={url} target="_blank" rel="noopener noreferrer" onClick={markOpened}>
+        Take the survey
+      </a>
     </section>
   );
 }

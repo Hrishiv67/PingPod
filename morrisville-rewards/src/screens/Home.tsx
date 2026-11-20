@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ChevronRight, Hand, Pencil, Play, Square, Timer } from "lucide-react";
+import { BadgeCheck, ChevronRight, Hand, Pencil, Play, Square, Timer } from "lucide-react";
 import { api, errorText, toAppError } from "../lib/api";
 import { Link } from "../lib/router";
 import { KEYS, newRequestId, store, type PendingStop } from "../lib/storage";
@@ -8,7 +8,8 @@ import type { PlaySession, Reward } from "../lib/types";
 import { useApp } from "../state";
 import { Button, ConfirmSheet, InlineError, Sheet, StatusChip, useToast } from "../components/ui";
 import LogoLoader from "../components/LogoLoader";
-import SurveyCard from "../components/SurveyCard";
+import { SurveyFooter, SurveyPopup } from "../components/SurveyCard";
+import SpindexSheet from "../components/SpindexSheet";
 import LogPlaySheet from "./LogPlaySheet";
 import CountUp from "../components/CountUp";
 
@@ -125,8 +126,9 @@ export default function Home() {
             {error && <InlineError>{error}</InlineError>}
           </section>
           <StatStrip />
-          <SurveyCard />
           <RecentSessions version={version} />
+          <SurveyFooter />
+          <SurveyPopup />
           <RewardsStrip enabled={settings.rewards_enabled} />
         </>
       ) : (
@@ -238,13 +240,15 @@ function FinishedSheet({ session, onClose }: { session: PlaySession; onClose: ()
 
 function StatStrip() {
   const { me } = useApp();
+  const [spindexOpen, setSpindexOpen] = useState(false);
+  const claim = me.spindex ?? null;
   const s = me.stats!;
   const profile = me.profile!;
   const weekTotal = s.week_verified + s.week_pending;
   const rank = me.settings.default_board_scope === "verified" ? s.rank_week_verified : s.rank_week_community;
   const hidden = !profile.show_on_leaderboard || profile.hidden_by_admin;
   return (
-    <section className="stat-strip" aria-label="Your week">
+    <section className="stat-strip home-strip" aria-label="Your week">
       <Link to="/me" className="stat-cell">
         <span className="stat-label">This week</span>
         <span className="stat-value num">
@@ -267,6 +271,17 @@ function StatStrip() {
           <small>{s.current_streak === 1 ? "day" : "days"}</small>
         </span>
       </Link>
+      <button type="button" className="stat-cell" onClick={() => setSpindexOpen(true)}>
+        <span className="stat-label">SPINDEX</span>
+        {claim ? (
+          <span className="stat-value num">
+            {claim.rating}
+            {claim.status === "verified" && <BadgeCheck size={16} className="verified-tick" aria-label="Verified" />}
+          </span>
+        ) : (
+          <span className="stat-value text pink">Add yours</span>
+        )}
+      </button>
       <Link to="/crew" className="stat-cell">
         <span className="stat-label">Crew</span>
         {me.crew ? (
@@ -275,6 +290,7 @@ function StatStrip() {
           <span className="stat-value text pink">Join one</span>
         )}
       </Link>
+      {spindexOpen && <SpindexSheet onClose={() => setSpindexOpen(false)} />}
     </section>
   );
 }
