@@ -4,7 +4,7 @@ import { Maximize, Minimize, RefreshCw } from "lucide-react";
 import { api, avatarUrl, errorText } from "../lib/api";
 import { emblemIcon } from "../components/CrewBadge";
 import LogoLoader from "../components/LogoLoader";
-import type { CrewRow, DisplayData, DisplaySlide, LeaderRow, Period, Scope, Settings } from "../lib/types";
+import type { CrewRow, DisplayData, DisplaySlide, LeaderRow, Period, Scope } from "../lib/types";
 import { Logo, PingPodMark } from "../components/Logo";
 import { formatNumber, formatTime, venueDate } from "../lib/time";
 import { displayUrl, isLocalUrl, resolveAppUrl } from "./appUrl";
@@ -22,7 +22,6 @@ const LIVE_WINDOW_MS = 90_000;
 const PING_DEBOUNCE_MS = 2_000;
 const CURSOR_IDLE_MS = 3_000;
 const TOUCH_DWELL_MS = 30_000; // how long a board someone picked stays up
-const SETTINGS_POLL_MS = 5 * 60_000;
 const ROWS = 50;
 
 type Board = DisplaySlide;
@@ -55,19 +54,9 @@ const WHEN: Record<BoardPeriod, string> = { day: "today", week: "this week", mon
 const longDayFmt = new Intl.DateTimeFormat("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" });
 const atNoon = (day: string) => new Date(`${day}T12:00:00Z`);
 
-/** Pilot status ("Starts Monday, Nov 23" / "Week 2 of 4"), from the admin-set pilot dates. */
-function pilotLine(settings: Settings | null): string | null {
-  if (!settings?.pilot_start) return null;
-  const today = venueDate();
-  const start = settings.pilot_start;
-  if (today < start) return `Starts ${longDayFmt.format(atNoon(start))}`;
-  const end = settings.pilot_end;
-  if (end && today > end) return null;
-  const day = 86_400_000;
-  const week = Math.floor((atNoon(today).getTime() - atNoon(start).getTime()) / (7 * day)) + 1;
-  if (!end) return `Week ${week}`;
-  const weeks = Math.max(1, Math.ceil((atNoon(end).getTime() - atNoon(start).getTime() + day) / (7 * day)));
-  return `Week ${Math.min(week, weeks)} of ${weeks}`;
+/** Today's date in Morrisville ("Saturday, Nov 21"). The screen re-renders every few seconds, so it rolls over at midnight. */
+function todayLine(): string {
+  return longDayFmt.format(atNoon(venueDate()));
 }
 
 type Rows = { kind: "players"; rows: LeaderRow[] } | { kind: "crews"; rows: CrewRow[] };
@@ -81,7 +70,6 @@ export default function Display() {
   const [online, setOnline] = useState(() => navigator.onLine);
   const [cursorIdle, setCursorIdle] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
-  const [settings, setSettings] = useState<Settings | null>(null);
   const [board, setBoard] = useState<Board>("minutes");
   const [period, setPeriod] = useState<BoardPeriod>("week");
   const [manual, setManual] = useState(false);
@@ -90,22 +78,6 @@ export default function Display() {
   const [tick, setTick] = useState(0);
   const inflight = useRef(false);
   const listRef = useRef<HTMLDivElement>(null);
-
-  // Pilot dates for the header (anonymous read; a failure just hides it).
-  useEffect(() => {
-    let cancelled = false;
-    const fetchSettings = () =>
-      api
-        .publicSettings()
-        .then((next) => !cancelled && setSettings(next))
-        .catch(() => {});
-    void fetchSettings();
-    const id = window.setInterval(() => void fetchSettings(), SETTINGS_POLL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, []);
 
   const load = useCallback(async () => {
     if (inflight.current) return;
@@ -312,7 +284,7 @@ export default function Display() {
   }
 
   const joinUrl = displayUrl(appUrl);
-  const pilot = pilotLine(settings);
+  const today = todayLine();
   const shown = cache[cacheKey];
 
   return (
@@ -321,7 +293,7 @@ export default function Display() {
         <Logo size="lg" sub="MORRISVILLE" />
         <div className="display-status">
           {api.mode === "demo" && <span className="display-demo">DEMO</span>}
-          {pilot && <span className="display-pilot">{pilot}</span>}
+          <span className="display-pilot">{today}</span>
           {live ? (
             <span className="display-live">
               <span className="display-live-dot" aria-hidden /> LIVE
