@@ -92,7 +92,7 @@
   transition: transform 0.12s, background-color 0.2s;
 }
 .rally-cta:active { transform: scale(0.985); background: var(--surface-3, #232327); }
-.rally-cta-icon { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 10px; background: var(--surface-3, #232327); color: var(--pink, #ff0078); }
+.rally-cta-icon { display: grid; place-items: center; flex: none; width: 24px; height: 24px; color: var(--pink, #ff0078); }
 .rally-cta-text { display: grid; gap: 2px; flex: 1; min-width: 0; }
 .rally-cta-text strong { font-size: 16px; font-weight: 700; }
 .rally-cta-text span { color: var(--rally-muted); font-size: 13.5px; }

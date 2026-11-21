@@ -1,4 +1,4 @@
-import { Flag } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { RallyFilm, type BallHandoff } from "./RallyFilm";
 import "./weekly-rally.css";
@@ -141,7 +141,7 @@ export function WeeklyRally({
       ) : (
         <button type="button" className="rally-cta" onClick={() => setEditing(true)}>
           <span className="rally-cta-icon">
-            <Flag size={20} strokeWidth={2.2} aria-hidden />
+            <Plus size={22} strokeWidth={2.5} aria-hidden />
           </span>
           <span className="rally-cta-text">
             <strong>Set a weekly goal</strong>
