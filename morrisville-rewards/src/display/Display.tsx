@@ -217,8 +217,7 @@ export default function Display() {
     const wanted = slidesKey ? (slidesKey.split(",") as Board[]) : ORDER;
     const list = ORDER.filter((b) => wanted.includes(b));
     const base: Board[] = list.length ? list : ["minutes"];
-    // While the Players board is on, it is the only board (no rotation, no tabs).
-    return hasJoined ? ["joined"] : base;
+    return hasJoined ? ["joined", ...base] : base;
   }, [slidesKey, hasJoined]);
   const current: Board = boards.includes(board) ? board : boards[0];
   const scope: Scope = data?.scope ?? "community";
@@ -243,14 +242,16 @@ export default function Display() {
   // Always rotating. A touch keeps the current board up for TOUCH_DWELL_MS, then rotation carries on.
   const dwell = manual ? TOUCH_DWELL_MS : rotationMs;
   useEffect(() => {
-    if (boards.length < 2) return;
+    // While the Players board is on, nothing rotates: it stays up (the other tabs can still be tapped).
+    if (boards.length < 2 || (hasJoined && current === "joined")) return;
     const id = window.setTimeout(() => {
-      setBoard(boards[(boards.indexOf(current) + 1) % boards.length]);
+      // With the Players board on, a tapped tab returns to it; otherwise boards take turns.
+      setBoard(hasJoined ? "joined" : boards[(boards.indexOf(current) + 1) % boards.length]);
       setPeriod("week");
       setManual(false);
     }, dwell);
     return () => window.clearTimeout(id);
-  }, [current, period, touchStamp, dwell, boards]);
+  }, [current, period, touchStamp, dwell, boards, hasJoined]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: 0 });
