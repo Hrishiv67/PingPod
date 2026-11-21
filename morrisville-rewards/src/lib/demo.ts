@@ -751,6 +751,7 @@ const adminReject = async (): Promise<never> => {
 };
 const demoAdmin: AdminApi = {
   claim: adminReject,
+  surveyResponses: async () => [],
   sessions: adminReject,
   reviewSession: adminReject,
   bulkApprove: adminReject,
@@ -1105,6 +1106,15 @@ export const demoApi: Api = {
       x!.reviewed_at = iso(Date.now());
       save(s);
     }
+  },
+  async submitSurvey(answers) {
+    await delay();
+    const s = load();
+    requireProfile(s);
+    if (!answers || !("q1" in answers)) fail("Please answer the first question.");
+    if (s.profile!.survey_done_at) fail("You already took the survey. Thank you!");
+    s.profile!.survey_done_at = iso(Date.now());
+    save(s);
   },
   async saveWeeklyGoals(days, minutes) {
     await delay();

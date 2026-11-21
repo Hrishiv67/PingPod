@@ -181,10 +181,30 @@ export function Field({
   ...input
 }: InputHTMLAttributes<HTMLInputElement> & { label: string; hint?: ReactNode; error?: string }) {
   const id = useId();
+  // A new error gives the box a quick shake (and a tap of vibration where phones allow it).
+  const box = useRef<HTMLInputElement>(null);
+  const lastError = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const el = box.current;
+    if (el && error && error !== lastError.current) {
+      el.classList.remove("shake");
+      void el.offsetWidth; // restart the animation
+      el.classList.add("shake");
+      navigator.vibrate?.(25);
+    }
+    lastError.current = error;
+  }, [error]);
   return (
     <div className="field">
       <label htmlFor={id}>{label}</label>
-      <input id={id} aria-invalid={error ? true : undefined} aria-describedby={hint || error ? `${id}-d` : undefined} {...input} />
+      <input
+        ref={box}
+        id={id}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={hint || error ? `${id}-d` : undefined}
+        onAnimationEnd={(e) => e.currentTarget.classList.remove("shake")}
+        {...input}
+      />
       {(error || hint) && (
         <div id={`${id}-d`} className={error ? "field-error" : "field-hint"}>
           {error || hint}

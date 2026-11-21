@@ -71,7 +71,7 @@ function NoCrew({ onChanged }: { onChanged: () => Promise<void> }) {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState<"" | "create" | "join">("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState<{ kind: "create" | "join"; text: string } | null>(null);
   const [top, setTop] = useState<CrewRow[] | null>(null);
 
   useEffect(() => {
@@ -83,7 +83,7 @@ function NoCrew({ onChanged }: { onChanged: () => Promise<void> }) {
 
   async function run(kind: "create" | "join") {
     setBusy(kind);
-    setError("");
+    setError(null);
     try {
       if (kind === "create") await api.createCrew(name);
       else await api.joinCrew(code);
@@ -91,7 +91,7 @@ function NoCrew({ onChanged }: { onChanged: () => Promise<void> }) {
       await onChanged();
       window.scrollTo({ top: 0 });
     } catch (err) {
-      setError(errorText(err));
+      setError({ kind, text: shortCrewError(errorText(err), kind) });
     } finally {
       setBusy("");
     }
@@ -105,8 +105,6 @@ function NoCrew({ onChanged }: { onChanged: () => Promise<void> }) {
           Team up with {me.settings.crew_min_size}–{me.settings.crew_max_size} friends and add your minutes together.
         </p>
       </div>
-
-      {error && <InlineError>{error}</InlineError>}
 
       <section className="panel stack">
         <h2 style={{ fontSize: 24 }}>Join a crew</h2>
@@ -126,7 +124,11 @@ function NoCrew({ onChanged }: { onChanged: () => Promise<void> }) {
             maxLength={10}
             placeholder="ABCD2345"
             value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
+            onChange={(e) => {
+              setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""));
+              if (error?.kind === "join") setError(null);
+            }}
+            error={error?.kind === "join" ? error.text : undefined}
           />
           <Button type="submit" variant="primary" size="lg" block loading={busy === "join"} disabled={code.length < 6}>
             Join crew
@@ -149,7 +151,11 @@ function NoCrew({ onChanged }: { onChanged: () => Promise<void> }) {
             autoCapitalize="words"
             placeholder="e.g. Net Ninjas"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (error?.kind === "create") setError(null);
+            }}
+            error={error?.kind === "create" ? error.text : undefined}
           />
           <Button type="submit" variant="secondary" size="lg" block loading={busy === "create"} disabled={name.trim().length < 3}>
             Create crew
@@ -516,4 +522,10 @@ function MemberSheet({ member, onClose, onChanged }: { member: CrewMember; onClo
       </div>
     </Sheet>
   );
+}
+
+/** Keep the message under the box short: a wrong code is just "Wrong code". */
+function shortCrewError(text: string, kind: "create" | "join") {
+  if (kind === "join" && /code|not found|didn.t work|invalid/i.test(text)) return "Wrong code. Check it and try again.";
+  return text;
 }

@@ -8,7 +8,7 @@ import { AppCtx, type AppState } from "./state";
 import { Logo, PingPodMark } from "./components/Logo";
 import Splash, { shouldShowSplash } from "./components/Splash";
 import Tutorial from "./components/Tutorial";
-import { markSurveyOpened, SURVEY_ASK, surveyOpened } from "./components/SurveyCard";
+import { markSurveyOpened, openSurvey, SURVEY_ASK, surveyOpened } from "./components/SurveyCard";
 import LogoLoader from "./components/LogoLoader";
 import { Avatar, Button, InlineError, useOnline } from "./components/ui";
 import Welcome from "./screens/Welcome";
@@ -25,6 +25,7 @@ const Display = lazy(() => import("./display/Display"));
 const Poster = lazy(() => import("./display/Poster"));
 const AdminApp = lazy(() => import("./admin/AdminApp"));
 const Celebrations = lazy(() => import("./celebrate/Gallery"));
+const SurveySheet = lazy(() => import("./components/SurveySheet"));
 const Celebration = lazy(() => import("./celebrate/Celebration").then((m) => ({ default: m.Celebration })));
 
 export function Boot({ label = "Loading" }: { label?: string }) {
@@ -120,6 +121,12 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
   const [finished, setFinished] = useState<PlaySession | null>(null);
   const [version, setVersion] = useState(0);
   const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [surveyOpen, setSurveyOpen] = useState(false);
+  useEffect(() => {
+    const open = () => setSurveyOpen(true);
+    window.addEventListener("pingpod-open-survey", open);
+    return () => window.removeEventListener("pingpod-open-survey", open);
+  }, []);
   const offset = useRef(0);
   const online = useOnline();
   // Milestone pop-ups (first session, 10 sessions, first hour…) after saves, once per player.
@@ -290,13 +297,24 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
           <Tutorial
             onClose={closeTutorial}
             survey={
-              state.me.settings.survey_url && !surveyOpened(user.id)
-                ? { url: state.me.settings.survey_url, ask: SURVEY_ASK, onOpen: () => markSurveyOpened(user.id) }
+              !state.me.profile.survey_done_at && !surveyOpened(user.id)
+                ? {
+                    ask: SURVEY_ASK,
+                    onOpen: () => {
+                      markSurveyOpened(user.id);
+                      openSurvey();
+                    },
+                  }
                 : null
             }
           />
         )}
-        {!tutorialOpen && milestone.current && (
+        {surveyOpen && (
+          <Suspense fallback={null}>
+            <SurveySheet onClose={() => setSurveyOpen(false)} onDone={() => void refresh().catch(() => {})} />
+          </Suspense>
+        )}
+        {!tutorialOpen && !surveyOpen && milestone.current && (
           <Suspense fallback={null}>
             <Celebration key={milestone.current.key} spec={milestone.current} onClose={milestone.next} />
           </Suspense>

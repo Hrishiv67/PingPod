@@ -124,10 +124,9 @@ export function Medal({ kind, children, size = 150 }: { kind: CelebrationKind; c
 function FirstSessionStage() {
   return (
     <div className="st st-sessions">
-      <span className="sball-shadow first" />
       <span className="ring sball-ring" />
       <span className="sball-y first">
-        <span className="sball first">
+        <span className="hball first">
           <b className="num">1</b>
         </span>
       </span>

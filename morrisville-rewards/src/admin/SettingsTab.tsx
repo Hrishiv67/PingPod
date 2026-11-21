@@ -5,6 +5,7 @@ import { Button, InlineError, Toggle, useToast } from "../components/ui";
 import LogoLoader from "../components/LogoLoader";
 import { formatDateTime } from "../lib/time";
 import { currentFix, LocationError } from "../lib/geo";
+import { SURVEY } from "../lib/survey";
 import { Note, OwnerOnly, SectionHead } from "./shared";
 
 type NumKey =
@@ -324,24 +325,7 @@ export default function SettingsTab({
         </Group>
 
         <Group title="Research survey">
-          <div className="field">
-            <label htmlFor="set-survey">Survey link</label>
-            <input
-              id="set-survey"
-              className="input"
-              type="url"
-              inputMode="url"
-              autoCapitalize="none"
-              placeholder="https://docs.google.com/forms/…/viewform"
-              value={draft.survey_url}
-              disabled={disabled}
-              onChange={(e) => set("survey_url", e.target.value)}
-            />
-            <div className="field-hint">
-              New players see a "Quick favor?" card once, and it stays on their profile. Leave empty to turn it off. Nothing about
-              the player is added to the link, so answers stay anonymous.
-            </div>
-          </div>
+          <SurveyExport />
         </Group>
 
         <Group title="Rewards">
@@ -422,3 +406,50 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+
+/** The in-app survey's answers (anonymous) as a CSV file, one row per response. */
+function SurveyExport() {
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+  async function download() {
+    setBusy(true);
+    setNote("");
+    try {
+      const rows = await api.admin.surveyResponses();
+      if (!rows.length) {
+        setNote("No responses yet.");
+        return;
+      }
+      const qs = SURVEY.map((q) => q.id);
+      const cell = (v: unknown) => {
+        const s = Array.isArray(v) ? v.join("; ") : v == null ? "" : String(v);
+        return `"${s.replace(/"/g, '""')}"`;
+      };
+      const head = ["submitted", ...SURVEY.flatMap((q) => ["other" in q && q.other ? [q.text, `${q.text} (other)`] : [q.text]])];
+      const lines = rows.map((r) => [r.created_at, ...qs.flatMap((id) => {
+        const q = SURVEY.find((x) => x.id === id)!;
+        return "other" in q && q.other ? [r.answers[id], r.answers[`${id}_other`]] : [r.answers[id]];
+      })].map(cell).join(","));
+      const blob = new Blob([[head.map(cell).join(","), ...lines].join("\n")], { type: "text/csv" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `pingpod-survey-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      setNote(`${rows.length} response${rows.length === 1 ? "" : "s"} downloaded.`);
+    } catch (err) {
+      setNote(errorText(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="stack-sm">
+      <p className="field-hint">Players take the survey in the app. Answers are anonymous (not linked to accounts).</p>
+      <Button variant="secondary" loading={busy} onClick={() => void download()}>
+        Download responses (CSV)
+      </Button>
+      {note && <p className="field-hint">{note}</p>}
+    </div>
+  );
+}

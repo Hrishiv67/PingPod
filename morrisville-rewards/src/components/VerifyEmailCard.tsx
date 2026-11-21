@@ -50,7 +50,7 @@ function VerifySheet({ onClose }: { onClose: () => void }) {
       setStep("code");
       setWait(60);
     } catch (err) {
-      setError(errorText(err));
+      setError(sendError(errorText(err)));
     } finally {
       setBusy(false);
     }
@@ -61,7 +61,7 @@ function VerifySheet({ onClose }: { onClose: () => void }) {
       {step === "intro" ? (
         <div className="stack">
           <p className="sheet-text">
-            We'll email a 6-digit code to <strong>{user.email}</strong>. Verified players are eligible for possible future
+            We'll email a code to <strong>{user.email}</strong>. Verified players are eligible for possible future
             rewards.
           </p>
           {error && <InlineError>{error}</InlineError>}
@@ -89,21 +89,25 @@ function VerifySheet({ onClose }: { onClose: () => void }) {
           }}
         >
           <p className="sheet-text">
-            Check <strong>{user.email}</strong> and enter the code, or tap the link in that email on this phone.
+            Check <strong>{user.email}</strong> (and your spam folder) for the code, or tap the link in that email on this
+            phone.
           </p>
           <Field
-            label="6-digit code"
+            label="Code"
             inputMode="numeric"
             autoComplete="one-time-code"
             pattern="[0-9]*"
-            maxLength={6}
+            maxLength={8}
             className="code-input"
             value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+            onChange={(e) => {
+              setCode(e.target.value.replace(/\D/g, ""));
+              setError("");
+            }}
+            error={error || undefined}
             autoFocus
           />
-          {error && <InlineError>{error}</InlineError>}
-          <Button type="submit" variant="primary" size="lg" block loading={busy} disabled={code.length !== 6}>
+          <Button type="submit" variant="primary" size="lg" block loading={busy} disabled={code.length < 6}>
             Verify
           </Button>
           <button type="button" className="link-btn quiet" disabled={wait > 0 || busy} onClick={() => void send()}>
@@ -113,4 +117,11 @@ function VerifySheet({ onClose }: { onClose: () => void }) {
       )}
     </Sheet>
   );
+}
+
+/** Supabase's sending errors in plain words. */
+function sendError(text: string) {
+  if (/rate limit|too many|seconds/i.test(text)) return "Too many emails just now. Wait a minute and try again.";
+  if (/smtp|sending|confirmation|mail/i.test(text)) return "We couldn't send the email right now. Try again in a few minutes.";
+  return text;
 }

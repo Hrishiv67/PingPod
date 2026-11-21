@@ -114,6 +114,7 @@ export default function Welcome({ inviteCode }: { inviteCode: string | null }) {
               }
               setError("");
             }}
+            error={step === "email" && error ? error : undefined}
             required
           />
           {step === "password" && (
@@ -128,7 +129,11 @@ export default function Welcome({ inviteCode }: { inviteCode: string | null }) {
                   autoComplete="current-password"
                   placeholder="Your password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError("");
+                  }}
+                  error={error || undefined}
                   autoFocus
                 />
                 <IconButton type="button" label={show ? "Hide password" : "Show password"} onClick={() => setShow((v) => !v)}>
@@ -171,7 +176,6 @@ export default function Welcome({ inviteCode }: { inviteCode: string | null }) {
               </span>
             </div>
           )}
-          {error && <InlineError>{error}</InlineError>}
           <Button type="submit" variant="primary" size="lg" block loading={busy} disabled={!email.trim()}>
             {step === "email" ? "Continue" : "Sign in"}
           </Button>

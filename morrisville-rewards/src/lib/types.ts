@@ -32,6 +32,8 @@ export interface Profile {
   /** Weekly Rally goal: play days per week (1–7) and minutes per week. Both null = no goal. */
   weekly_goal_days?: number | null;
   weekly_goal_minutes?: number | null;
+  /** When the player finished the in-app research survey (answers themselves are anonymous). */
+  survey_done_at?: string | null;
   created_at: string;
   updated_at: string;
 }

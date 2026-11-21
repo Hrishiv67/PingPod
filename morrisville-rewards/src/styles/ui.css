@@ -542,3 +542,17 @@ p.sheet-text {
 .toast-bad svg {
   color: #c62828;
 }
+
+/* Wrong code / password: a quick sideways shake. */
+.field input.shake {
+  animation: field-shake 0.32s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+@keyframes field-shake {
+  15%, 85% { transform: translateX(-2px); }
+  30%, 70% { transform: translateX(5px); }
+  45% { transform: translateX(-7px); }
+  60% { transform: translateX(7px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .field input.shake { animation: none; }
+}

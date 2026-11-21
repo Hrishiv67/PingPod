@@ -340,36 +340,21 @@
     cel-fade-in 0.25s ease-out both;
 }
 @keyframes first-drop {
-  0% { transform: translateY(-220px); animation-timing-function: cubic-bezier(0.5, 0, 0.75, 0.4); }
+  0% { transform: translateY(-140px); animation-timing-function: cubic-bezier(0.5, 0, 0.75, 0.4); }
   60% { transform: translateY(0); animation-timing-function: cubic-bezier(0.25, 0.6, 0.4, 1); }
-  79% { transform: translateY(-26px); animation-timing-function: cubic-bezier(0.5, 0, 0.75, 0.4); }
+  79% { transform: translateY(-16px); animation-timing-function: cubic-bezier(0.5, 0, 0.75, 0.4); }
   100% { transform: translateY(0); }
 }
-.sball.first {
-  animation:
-    first-squash 1.2s ease-in-out both,
-    sball-glow 0.9s var(--climax) ease-out forwards;
+/* The first-session ball is the white ping-pong ball (same as Time played) with a pink 1. */
+.hball.first {
+  animation: hball-land 0.5s var(--climax) ease-out forwards;
 }
-@keyframes first-squash {
-  0%, 56% { transform: scale(1); }
-  60% { transform: scale(1.07, 0.93); }
-  66%, 100% { transform: scale(1); }
-}
-.sball.first b {
-  animation: first-in 0.45s var(--climax) cubic-bezier(0.2, 0.8, 0.2, 1) both;
+.hball.first b {
+  animation: first-in 0.4s var(--climax) cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 @keyframes first-in {
-  from { opacity: 0; transform: scale(1.25); }
+  from { opacity: 0; transform: scale(1.2); }
   to { opacity: 1; transform: none; }
-}
-.sball-shadow.first {
-  animation: first-shadow 1.2s linear both;
-}
-@keyframes first-shadow {
-  0% { transform: scale(0.4); opacity: 0; }
-  60% { transform: scale(1); opacity: 1; }
-  79% { transform: scale(0.85); opacity: 0.7; }
-  100% { transform: scale(1); opacity: 1; }
 }
 
 /* ── Hours: white ball settles in, thin dial sweeps round it, hours count up ── */

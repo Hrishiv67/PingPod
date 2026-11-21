@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Check, ClipboardList, QrCode, X } from "lucide-react";
 import { PingPodMark } from "./Logo";
-import CrewBadge from "./CrewBadge";
 import "./tutorial.css";
 
-// "How it works": six short slides with one simple picture each, then (for signed-in players who
+// "How it works": four short slides with one simple picture each, then (for signed-in players who
 // haven't opened it yet) the research survey ask as the last slide. Shown once on a player's first
 // visit, and any time from Me → How it works (or the sign-in page, without the survey slide).
 // Swipe, tap Next, or use the arrow keys. "Skip" jumps to the survey slide when there is one.
@@ -20,27 +19,15 @@ const SLIDES: Slide[] = [
   },
   {
     key: "board",
-    title: "Climb the leaderboard",
-    text: "More minutes, higher rank. Everyone starts fresh on Monday.",
+    title: "Climb the boards",
+    text: "More minutes, higher rank. Crews and SPINDEX ratings get boards too. Resets every Monday.",
     visual: <PodiumVisual />,
   },
   {
     key: "rally",
-    title: "Keep your rally going",
+    title: "Keep your week going",
     text: "Each day you play lights a flame. Set a weekly goal to stay on track.",
     visual: <FlamesVisual />,
-  },
-  {
-    key: "crew",
-    title: "Play as a crew",
-    text: "Invite friends. Your minutes add up on the crew board.",
-    visual: <CrewVisual />,
-  },
-  {
-    key: "spindex",
-    title: "Show your SPINDEX",
-    text: "Add your skill rating and see how you stack up.",
-    visual: <SpindexVisual />,
   },
   {
     key: "screen",
@@ -56,7 +43,7 @@ export default function Tutorial({
 }: {
   onClose: () => void;
   /** Research survey ask as the final slide (omit when there's no survey or it's been opened). */
-  survey?: { url: string; ask: string; onOpen: () => void } | null;
+  survey?: { ask: string; onOpen: () => void } | null;
 }) {
   const [i, setI] = useState(0);
   const [dir, setDir] = useState<"next" | "back">("next");
@@ -166,18 +153,16 @@ export default function Tutorial({
             </button>
           ) : null}
           {onSurvey && survey ? (
-            <a
+            <button
+              type="button"
               className="btn btn-primary btn-lg tut-next"
-              href={survey.url}
-              target="_blank"
-              rel="noopener noreferrer"
               onClick={() => {
-                survey.onOpen();
                 onClose();
+                survey.onOpen();
               }}
             >
               Take the survey
-            </a>
+            </button>
           ) : (
             <button type="button" className="btn btn-primary btn-lg tut-next" onClick={() => (last ? onClose() : go(i + 1))}>
               {last ? "Let's play" : "Next"}
@@ -253,45 +238,7 @@ function FlamesVisual() {
   );
 }
 
-function CrewVisual() {
-  return (
-    <div className="tv-crew">
-      <CrewBadge emblem="bolt" color="pink" size={72} />
-      <div className="tv-members">
-        {["blue", "green", "orange"].map((c, k) => (
-          <span key={c} className={`tv-ava avatar-${c}`} style={{ ["--d" as string]: `${200 + k * 110}ms` }}>
-            {["AK", "MJ", "RT"][k]}
-          </span>
-        ))}
-        <span className="tv-ava tv-plus" style={{ ["--d" as string]: "530ms" }}>
-          +
-        </span>
-      </div>
-      <span className="tv-crew-total num">620 min together</span>
-    </div>
-  );
-}
 
-function SpindexVisual() {
-  const [n, setN] = useState(0);
-  useEffect(() => {
-    const t0 = performance.now();
-    let raf = 0;
-    const tick = (t: number) => {
-      const p = Math.min(1, (t - t0) / 900);
-      setN(Math.round(1450 * (1 - Math.pow(1 - p, 3))));
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, []);
-  return (
-    <div className="tv-spindex">
-      <span className="tv-spindex-label">SPINDEX</span>
-      <span className="tv-spindex-num num">{n}</span>
-    </div>
-  );
-}
 
 function ScreenVisual() {
   return (

@@ -176,6 +176,8 @@ export interface Api {
   saveBio(bio: string): Promise<void>;
   /** Weekly Rally goal (days per week + minutes per week); nulls clear it. */
   saveWeeklyGoals(days: number | null, minutes: number | null): Promise<void>;
+  /** Research survey answers; saved anonymously (only "finished" is kept on the profile). */
+  submitSurvey(answers: Record<string, unknown>): Promise<void>;
   /** Resizes the picture on the phone (square, small JPEG), uploads it and sets it as your photo. */
   uploadAvatar(file: Blob): Promise<void>;
   removeAvatar(): Promise<void>;
@@ -218,6 +220,7 @@ export type ExportKind = "weekly" | "players" | "sessions";
 
 export interface AdminApi {
   claim(code: string): Promise<{ role: StaffRole }>;
+  surveyResponses(): Promise<{ id: string; answers: Record<string, unknown>; created_at: string }[]>;
   sessions(status: string, search?: string): Promise<AdminSession[]>;
   reviewSession(id: string, action: SessionAction, minutes?: number | null, reason?: string | null): Promise<PlaySession>;
   bulkApprove(ids: string[]): Promise<number>;
@@ -416,6 +419,9 @@ const live: Api = {
   saveBio: async (bio) => {
     await rpc("save_bio", { p_bio: bio.trim() || null });
   },
+  submitSurvey: async (answers) => {
+    await rpc("submit_survey", { p_answers: answers });
+  },
   saveWeeklyGoals: async (days, minutes) => {
     await rpc("save_weekly_goals", { p_days: days, p_minutes: minutes });
   },
@@ -564,6 +570,7 @@ const live: Api = {
 
   admin: {
     claim: (code) => rpc<{ role: StaffRole }>("admin_claim", { p_code: code }),
+    surveyResponses: () => rpc("admin_survey_export"),
     sessions: (status, search) =>
       rpc<AdminSession[]>("admin_list_sessions", { p_status: status, p_search: search || null, p_limit: 300 }),
     reviewSession: (id, action, minutes, reason) =>
