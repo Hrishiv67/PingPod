@@ -178,6 +178,8 @@ export interface Api {
   saveWeeklyGoals(days: number | null, minutes: number | null): Promise<void>;
   /** Research survey answers; saved anonymously (only "finished" is kept on the profile). */
   submitSurvey(answers: Record<string, unknown>): Promise<void>;
+  /** Records that this player has seen "How it works" so it doesn't pop up again (any phone). */
+  markTutorialSeen(): Promise<void>;
   /** Resizes the picture on the phone (square, small JPEG), uploads it and sets it as your photo. */
   uploadAvatar(file: Blob): Promise<void>;
   removeAvatar(): Promise<void>;
@@ -420,6 +422,9 @@ const live: Api = {
   },
   saveBio: async (bio) => {
     await rpc("save_bio", { p_bio: bio.trim() || null });
+  },
+  markTutorialSeen: async () => {
+    await rpc("mark_tutorial_seen");
   },
   submitSurvey: async (answers) => {
     await rpc("submit_survey", { p_answers: answers });

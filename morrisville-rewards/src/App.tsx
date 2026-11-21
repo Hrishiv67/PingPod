@@ -195,10 +195,13 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
   // existing players on their next visit, since v2 ends with the research survey ask).
   const tutorialKey = `pingpod-tutorial-v2-${user.id}`;
   useEffect(() => {
-    if (hasProfile && !store.get<string>(tutorialKey)) setTutorialOpen(true);
+    // Once per player: skipped if this account already saw it (on any phone) or this phone did.
+    if (hasProfile && !me?.profile?.tutorial_seen_at && !store.get<string>(tutorialKey)) setTutorialOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasProfile, tutorialKey]);
   const closeTutorial = useCallback(() => {
     store.set(tutorialKey, "seen");
+    void api.markTutorialSeen().catch(() => {});
     setTutorialOpen(false);
   }, [tutorialKey]);
   useEffect(() => {
@@ -289,6 +292,9 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
             <Link to="/" className="pp-logo-link" aria-label="Home" style={{ textDecoration: "none" }}>
               <Logo size="sm" />
             </Link>
+            <button type="button" className="header-help" aria-label="How it works" onClick={() => setTutorialOpen(true)}>
+              ?
+            </button>
             <Link to="/me" className="header-avatar" aria-label="Your profile">
               <Avatar name={state.me.profile.display_name} color={state.me.profile.avatar_color} path={state.me.profile.avatar_path} size={36} />
             </Link>

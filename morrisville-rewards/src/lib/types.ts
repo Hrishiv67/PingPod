@@ -34,6 +34,8 @@ export interface Profile {
   weekly_goal_minutes?: number | null;
   /** When the player finished the in-app research survey (answers themselves are anonymous). */
   survey_done_at?: string | null;
+  /** When the player first closed "How it works" (shown once per player). */
+  tutorial_seen_at?: string | null;
   created_at: string;
   updated_at: string;
 }

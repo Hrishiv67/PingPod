@@ -1107,6 +1107,13 @@ export const demoApi: Api = {
       save(s);
     }
   },
+  async markTutorialSeen() {
+    const s = load();
+    if (s.profile && !s.profile.tutorial_seen_at) {
+      s.profile.tutorial_seen_at = iso(Date.now());
+      save(s);
+    }
+  },
   async submitSurvey(answers) {
     await delay();
     const s = load();
