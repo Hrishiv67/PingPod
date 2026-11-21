@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Check, ClipboardList, QrCode, X } from "lucide-react";
 import { PingPodMark } from "./Logo";
+import CrewBadge from "./CrewBadge";
 import "./tutorial.css";
 
-// "How it works": four short slides with one simple picture each, then (for signed-in players who
+// "How it works": five short slides with one simple picture each, then (for signed-in players who
 // haven't opened it yet) the research survey ask as the last slide. Shown once on a player's first
 // visit, and any time from Me → How it works (or the sign-in page, without the survey slide).
 // Swipe, tap Next, or use the arrow keys. "Skip" jumps to the survey slide when there is one.
@@ -20,8 +21,14 @@ const SLIDES: Slide[] = [
   {
     key: "board",
     title: "Climb the boards",
-    text: "More minutes, higher rank. Crews and SPINDEX ratings get boards too. Resets every Monday.",
+    text: "More minutes, higher rank. Everyone starts fresh on Monday. SPINDEX ratings get a board too.",
     visual: <PodiumVisual />,
+  },
+  {
+    key: "crew",
+    title: "Play as a crew",
+    text: "Invite friends. Your minutes add up on the crew board.",
+    visual: <CrewVisual />,
   },
   {
     key: "rally",
@@ -212,6 +219,25 @@ function PodiumVisual() {
           </span>
         </div>
       ))}
+    </div>
+  );
+}
+
+function CrewVisual() {
+  return (
+    <div className="tv-crew">
+      <CrewBadge emblem="bolt" color="pink" size={72} />
+      <div className="tv-members">
+        {["blue", "green", "orange"].map((c, k) => (
+          <span key={c} className={`tv-ava avatar-${c}`} style={{ ["--d" as string]: `${200 + k * 110}ms` }}>
+            {["AK", "MJ", "RT"][k]}
+          </span>
+        ))}
+        <span className="tv-ava tv-plus" style={{ ["--d" as string]: "530ms" }}>
+          +
+        </span>
+      </div>
+      <span className="tv-crew-total num">620 min together</span>
     </div>
   );
 }

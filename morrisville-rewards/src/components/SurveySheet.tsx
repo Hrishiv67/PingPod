@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Check, ClipboardList, X } from "lucide-react";
 import { api, errorText } from "../lib/api";
 import { cleanAnswers, SURVEY, SURVEY_INTRO, type SurveyAnswers, type SurveyQuestion } from "../lib/survey";
-import { PingPodMark } from "./Logo";
 import "./survey.css";
 
 // The research survey, one question per screen. Answers are sent once at the end and saved
@@ -18,16 +17,7 @@ export default function SurveySheet({ onClose, onDone }: { onClose: () => void; 
   const q = step >= 0 && step < n ? SURVEY[step] : null;
 
   useEffect(() => {
-    document.body.classList.add("no-scroll");
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.body.classList.remove("no-scroll");
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [onClose]);
-  useEffect(() => {
-    body.current?.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0 });
   }, [step]);
 
   const set = (id: string, v: string | string[] | number) => setAnswers((a) => ({ ...a, [id]: v }));
@@ -52,11 +42,11 @@ export default function SurveySheet({ onClose, onDone }: { onClose: () => void; 
   }
 
   return (
-    <div className="sv" role="dialog" aria-modal="true" aria-label="Research survey">
+    <div className="page sv" aria-label="Research survey">
       <div className="sv-top">
-        <PingPodMark height={16} />
+        <h1 className="sv-heading">Research survey</h1>
         {q && <span className="sv-count num">{step + 1} / {n}</span>}
-        <button type="button" className="sv-close" onClick={onClose} aria-label="Close">
+        <button type="button" className="sv-close" onClick={onClose} aria-label="Close survey">
           <X size={20} />
         </button>
       </div>

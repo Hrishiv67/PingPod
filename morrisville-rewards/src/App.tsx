@@ -121,9 +121,8 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
   const [finished, setFinished] = useState<PlaySession | null>(null);
   const [version, setVersion] = useState(0);
   const [tutorialOpen, setTutorialOpen] = useState(false);
-  const [surveyOpen, setSurveyOpen] = useState(false);
   useEffect(() => {
-    const open = () => setSurveyOpen(true);
+    const open = () => navigate("/survey");
     window.addEventListener("pingpod-open-survey", open);
     return () => window.removeEventListener("pingpod-open-survey", open);
   }, []);
@@ -269,6 +268,12 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
   } else if (path === "/crew") {
     screen = <Crew />;
     tab = "/crew";
+  } else if (path === "/survey") {
+    screen = (
+      <Suspense fallback={<LogoLoader label="Loading" />}>
+        <SurveySheet onClose={() => navigate("/")} onDone={() => void refresh().catch(() => {})} />
+      </Suspense>
+    );
   } else if (path === "/me") {
     screen = <MeScreen />;
     tab = "/me";
@@ -309,12 +314,7 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
             }
           />
         )}
-        {surveyOpen && (
-          <Suspense fallback={null}>
-            <SurveySheet onClose={() => setSurveyOpen(false)} onDone={() => void refresh().catch(() => {})} />
-          </Suspense>
-        )}
-        {!tutorialOpen && !surveyOpen && milestone.current && (
+        {!tutorialOpen && milestone.current && (
           <Suspense fallback={null}>
             <Celebration key={milestone.current.key} spec={milestone.current} onClose={milestone.next} />
           </Suspense>

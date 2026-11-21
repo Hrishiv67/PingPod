@@ -1,3 +1,4 @@
+import { Flag } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { RallyFilm, type BallHandoff } from "./RallyFilm";
 import "./weekly-rally.css";
@@ -56,15 +57,6 @@ function Flame({ size = 18 }: { size?: number }) {
   );
 }
 
-function Target() {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" />
-      <circle cx="12" cy="12" r="5" />
-      <circle cx="12" cy="12" r="1.2" fill="currentColor" />
-    </svg>
-  );
-}
 
 export function WeeklyRally({
   activity,
@@ -149,7 +141,7 @@ export function WeeklyRally({
       ) : (
         <button type="button" className="rally-cta" onClick={() => setEditing(true)}>
           <span className="rally-cta-icon">
-            <Target />
+            <Flag size={20} strokeWidth={2.2} aria-hidden />
           </span>
           <span className="rally-cta-text">
             <strong>Set a weekly goal</strong>
