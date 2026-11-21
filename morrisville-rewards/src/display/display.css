@@ -12,7 +12,14 @@ html.display-mode body {
 
 .display {
   position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   inset: 0;
+  /* Exactly the visible screen (set from JS); falls back to the full viewport. */
+  width: var(--app-w, 100%);
+  height: var(--app-h, 100%);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: clamp(16px, 2.6vmin, 36px);
@@ -559,6 +566,7 @@ html.display-mode body {
   }
   .display-qr {
     width: clamp(110px, 20vmin, 220px);
+    height: clamp(110px, 20vmin, 220px);
   }
   .display-join-kicker {
     font-size: clamp(26px, 5vmin, 56px);

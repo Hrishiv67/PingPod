@@ -147,8 +147,31 @@ export default function Display() {
   }, []);
 
   useEffect(() => {
-    document.documentElement.classList.add("display-mode");
-    return () => document.documentElement.classList.remove("display-mode");
+    const root = document.documentElement;
+    root.classList.add("display-mode");
+    // Size the screen to the area actually visible. Kiosk apps and older iPad web views can report a
+    // taller page than the screen (or overlay a toolbar), which cut off the bottom; re-measure on
+    // rotate/resize.
+    const fit = () => {
+      const h = window.visualViewport?.height ?? window.innerHeight;
+      const w = window.visualViewport?.width ?? window.innerWidth;
+      root.style.setProperty("--app-h", `${Math.round(h)}px`);
+      root.style.setProperty("--app-w", `${Math.round(w)}px`);
+    };
+    fit();
+    const late = window.setTimeout(fit, 400); // after the rotation animation settles
+    window.addEventListener("resize", fit);
+    window.addEventListener("orientationchange", fit);
+    window.visualViewport?.addEventListener("resize", fit);
+    return () => {
+      window.clearTimeout(late);
+      window.removeEventListener("resize", fit);
+      window.removeEventListener("orientationchange", fit);
+      window.visualViewport?.removeEventListener("resize", fit);
+      root.classList.remove("display-mode");
+      root.style.removeProperty("--app-h");
+      root.style.removeProperty("--app-w");
+    };
   }, []);
 
   useWakeLock();
