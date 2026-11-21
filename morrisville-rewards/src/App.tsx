@@ -23,6 +23,7 @@ import ResetPassword from "./screens/ResetPassword";
 const Display = lazy(() => import("./display/Display"));
 const Poster = lazy(() => import("./display/Poster"));
 const AdminApp = lazy(() => import("./admin/AdminApp"));
+const Celebrations = lazy(() => import("./celebrate/Gallery"));
 
 export function Boot({ label = "Loading" }: { label?: string }) {
   return (
@@ -32,11 +33,17 @@ export function Boot({ label = "Loading" }: { label?: string }) {
 
 export default function App() {
   const path = usePath();
-  const [splash, setSplash] = useState(() => !["/display", "/poster"].includes(currentPath()) && shouldShowSplash());
+  const [splash, setSplash] = useState(() => !["/display", "/poster", "/celebrations"].includes(currentPath()) && shouldShowSplash());
   if (path === "/display")
     return (
       <Suspense fallback={<Boot label="Loading the leaderboard" />}>
         <Display />
+      </Suspense>
+    );
+  if (path === "/celebrations")
+    return (
+      <Suspense fallback={<Boot />}>
+        <Celebrations />
       </Suspense>
     );
   if (path === "/poster")
