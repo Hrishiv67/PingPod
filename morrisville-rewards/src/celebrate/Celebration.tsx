@@ -59,8 +59,9 @@ export function Celebration({ spec, onClose }: { spec: CelebrationSpec; onClose:
     const climax = window.setTimeout(
       () => {
         if (!reduced && canvas.current && stage.current) {
-          // Confetti comes out of the badge itself (the ball sits low in the session stages).
-          const r = (stage.current.querySelector(".sball") ?? stage.current).getBoundingClientRect();
+          // Confetti comes out of the badge itself. In the session stages that's where the ball comes
+          // to rest (its ring sits there; the ball is still moving fast at this instant).
+          const r = (stage.current.querySelector(".sball-ring") ?? stage.current).getBoundingClientRect();
           burst(canvas.current, r.left + r.width / 2, r.top + r.height / 2, ACCENT[kind]);
           navigator.vibrate?.([18, 40, 28]);
         }
