@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Check, Trophy, Users } from "lucide-react";
+import { Trophy, Users } from "lucide-react";
 import "./celebrate.css";
 
 // Full-screen milestone celebrations. Each kind has its own short animation (about 1–1.5 s) that
@@ -28,12 +28,12 @@ export const ACCENT: Record<CelebrationKind, string> = {
 
 /** When the badge lands (ms): confetti, buzz, then the words. */
 const CLIMAX: Record<CelebrationKind, number> = {
-  sessions: 1250,
+  sessions: 1350,
   hours: 1300,
   streak: 1350,
   goal: 1100,
-  crew: 1150,
-  top5: 1200,
+  crew: 1250,
+  top5: 1250,
   long: 1450,
 };
 
@@ -80,7 +80,7 @@ export function Celebration({ spec, onClose }: { spec: CelebrationSpec; onClose:
       <div className="cel-glow" aria-hidden />
       <canvas ref={canvas} className="cel-burst" aria-hidden />
       <div className="cel-stage" ref={stage} aria-hidden>
-        {kind === "sessions" && <SessionsStage n={value} />}
+        {kind === "sessions" && <SessionsStage n={value} reduced={reduced} />}
         {kind === "hours" && <HoursStage hours={value} reduced={reduced} />}
         {kind === "streak" && <StreakStage days={value} />}
         {kind === "goal" && <GoalStage />}
@@ -113,36 +113,78 @@ export function Medal({ kind, children, size = 150 }: { kind: CelebrationKind; c
 
 // ── Stages ────────────────────────────────────────────────────────────────
 
-/** Sessions: a quick rally between two paddles speeds up, then the ball becomes the badge. */
-function SessionsStage({ n }: { n: number }) {
+/** Sessions: a table-tennis flip scoreboard counts up and slams down on the number. */
+function SessionsStage({ n, reduced }: { n: number; reduced: boolean }) {
+  const target = Math.max(1, Math.min(Math.round(n), 99));
+  const { value, dur } = useFlipCount(target, reduced);
+  const text = String(value).padStart(2, "0");
   return (
     <div className="st st-sessions">
-      <Paddle className="pad pad-l" blade="#ff0078" />
-      <Paddle className="pad pad-r" blade="#f4f4f6" />
-      <span className="ball" />
-      <span className="ring" />
-      <span className="ring ring-2" />
-      <span className="st-medal">
-        <Medal kind="sessions">{n <= 1 ? <Check strokeWidth={3} /> : <b className="num">{n}</b>}</Medal>
-      </span>
+      <div className="scoreboard">
+        <span className="sb-led" />
+        <FlapDigit value={text[0]} dur={dur} />
+        <FlapDigit value={text[1]} dur={dur} />
+      </div>
+      <span className="sb-label">{target === 1 ? "Session" : "Sessions"}</span>
+      <span className="ring sb-ring" />
     </div>
   );
 }
 
-function Paddle({ className, blade }: { className: string; blade: string }) {
+/**
+ * The numbers the scoreboard flips through, and when: fast at first, slowing into the last flip,
+ * which lands at the climax. The first session spins the wheel once round and stops on 1.
+ */
+function useFlipCount(target: number, reduced: boolean) {
+  const [state, setState] = useState(() => ({ v: reduced ? target : 0, dur: 160 }));
+  useEffect(() => {
+    if (reduced) return;
+    let seq: number[];
+    if (target === 1) seq = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1];
+    else {
+      const k = Math.min(target, 14);
+      seq = [];
+      for (let i = 1; i <= k; i++) {
+        const v = Math.round(target * (1 - Math.pow(1 - i / k, 2)));
+        if (v > 0 && v !== seq[seq.length - 1]) seq.push(v);
+      }
+      if (seq[seq.length - 1] !== target) seq.push(target);
+    }
+    const start = 180;
+    const lastAt = 1100; // the last flip starts here and lands at the climax (~1350 ms)
+    const times = seq.map((_, i) => start + (lastAt - start) * Math.pow(seq.length === 1 ? 1 : i / (seq.length - 1), 1.9));
+    const timers = seq.map((v, i) => {
+      const gap = i < seq.length - 1 ? times[i + 1] - times[i] : 260;
+      return window.setTimeout(() => setState({ v, dur: Math.max(70, Math.min(260, gap * 0.95)) }), times[i]);
+    });
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, [target, reduced]);
+  return { value: state.v, dur: state.dur };
+}
+
+/** One split-flap digit: the top half folds down over the old number, the new bottom half unfolds. */
+function FlapDigit({ value, dur }: { value: string; dur: number }) {
+  const [s, setS] = useState({ cur: value, prev: value, k: 0 });
+  if (value !== s.cur) setS({ cur: value, prev: s.cur, k: s.k + 1 });
   return (
-    <svg className={className} viewBox="0 0 60 100" aria-hidden>
-      <rect x="24" y="58" width="12" height="38" rx="5" fill="#5a3b2e" />
-      <rect x="24" y="58" width="12" height="10" fill="#3c261d" />
-      <ellipse cx="30" cy="32" rx="27" ry="30" fill={blade} />
-      <ellipse cx="30" cy="32" rx="27" ry="30" fill="url(#pad-shine)" />
-      <defs>
-        <radialGradient id="pad-shine" cx="35%" cy="28%" r="70%">
-          <stop offset="0" stopColor="#fff" stopOpacity=".35" />
-          <stop offset=".6" stopColor="#fff" stopOpacity="0" />
-        </radialGradient>
-      </defs>
-    </svg>
+    <span className="flap" style={{ "--dur": `${dur}ms` } as CSSProperties}>
+      <span className="flap-half flap-top">
+        <b>{s.cur}</b>
+      </span>
+      <span className="flap-half flap-bottom">
+        <b>{s.k ? s.prev : s.cur}</b>
+      </span>
+      {s.k > 0 && (
+        <>
+          <span key={`f${s.k}`} className="flap-half flap-top flap-fold">
+            <b>{s.prev}</b>
+          </span>
+          <span key={`u${s.k}`} className="flap-half flap-bottom flap-unfold">
+            <b>{s.cur}</b>
+          </span>
+        </>
+      )}
+    </span>
   );
 }
 
@@ -263,60 +305,81 @@ function GoalStage() {
   );
 }
 
-/** Crew: friends fly in from the corners and lock onto the crew badge. */
+/** Crew: four pieces (one per friend) snap together, then flip over into the crew badge. */
 function CrewStage() {
-  const people = [
-    { c: "#ff0078", t: "AK", from: [-170, -150], to: [0, -98] },
-    { c: "#46d483", t: "MJ", from: [170, -150], to: [98, 0] },
-    { c: "#ff8a3d", t: "RT", from: [170, 150], to: [0, 98] },
-    { c: "#b98cff", t: "SL", from: [-170, 150], to: [-98, 0] },
+  const pieces = [
+    { c: "#ff0078", q: "tl", fx: -190, fy: -170, r: -140 },
+    { c: "#46d483", q: "tr", fx: 190, fy: -170, r: 120 },
+    { c: "#ff8a3d", q: "bl", fx: -190, fy: 170, r: 110 },
+    { c: "#b98cff", q: "br", fx: 190, fy: 170, r: -130 },
+  ];
+  const members = [
+    { c: "#ff0078", t: "AK" },
+    { c: "#46d483", t: "MJ" },
+    { c: "#ff8a3d", t: "RT" },
+    { c: "#b98cff", t: "YOU" },
   ];
   return (
     <div className="st st-crew">
-      <svg className="links" viewBox="-130 -130 260 260">
-        {people.map((p, i) => (
-          <line key={i} x1="0" y1="0" x2={p.to[0]} y2={p.to[1]} style={{ animationDelay: `${0.75 + i * 0.05}s` }} />
-        ))}
-      </svg>
-      {people.map((p, i) => (
-        <span
-          key={p.t}
-          className="crew-ava"
-          style={
-            {
-              background: p.c,
-              "--fx": `${p.from[0]}px`,
-              "--fy": `${p.from[1]}px`,
-              "--tx": `${p.to[0]}px`,
-              "--ty": `${p.to[1]}px`,
-              "--d": `${i * 0.09}s`,
-            } as CSSProperties
-          }
-        >
-          {p.t}
+      <span className="forge">
+        <span className="forge-front">
+          {pieces.map((p, i) => (
+            <span
+              key={p.q}
+              className={`piece piece-${p.q}`}
+              style={{ background: p.c, "--fx": `${p.fx}px`, "--fy": `${p.fy}px`, "--r": `${p.r}deg`, "--d": `${i * 0.08}s` } as CSSProperties}
+            />
+          ))}
         </span>
-      ))}
-      <span className="crew-shield">
-        <Users strokeWidth={2.4} />
+        <span className="forge-back">
+          <Users strokeWidth={2.4} />
+        </span>
       </span>
-      <span className="ring" />
+      <span className="ring crew-ring" />
+      <span className="crew-row">
+        {members.map((m, i) => (
+          <span key={m.t} className={`crew-mini ${m.t === "YOU" ? "you" : ""}`} style={{ background: m.c, "--d": `${i * 0.07}s` } as CSSProperties}>
+            {m.t}
+          </span>
+        ))}
+      </span>
     </div>
   );
 }
 
-/** Top five: the podium rises and the trophy drops onto #1. */
+/** Top five: your row climbs the leaderboard past the others, into the gold top-five zone. */
 function TopStage() {
+  // Slots are leaderboard places 1–6. You start 6th and pass three players.
+  const rows = [
+    { id: "a", c: "#5ab0ff", w: 64, from: 1 },
+    { id: "b", c: "#46d483", w: 54, from: 2 },
+    { id: "c", c: "#ff8a3d", w: 70, from: 3, cls: "r3" },
+    { id: "d", c: "#b98cff", w: 48, from: 4, cls: "r4" },
+    { id: "e", c: "#f4f4f6", w: 58, from: 5, cls: "r5" },
+  ];
   return (
     <div className="st st-top">
-      <div className="podium-bars">
-        <span className="bar b2">2</span>
-        <span className="bar b1">1</span>
-        <span className="bar b3">3</span>
+      <div className="lb">
+        <span className="lb-zone">
+          <span className="lb-tag">Top 5</span>
+        </span>
+        {[1, 2, 3, 4, 5, 6].map((n) => (
+          <span key={n} className={`lb-num ${n <= 5 ? "in" : ""}`} style={{ "--slot": n - 1 } as CSSProperties}>
+            {n}
+          </span>
+        ))}
+        {rows.map((r, i) => (
+          <span key={r.id} className={`lb-row ${r.cls ?? ""}`} style={{ "--slot": r.from - 1, "--d": `${i * 0.05}s` } as CSSProperties}>
+            <i style={{ background: r.c }} />
+            <b style={{ width: `${r.w}%` }} />
+          </span>
+        ))}
+        <span className="lb-row lb-you" style={{ "--slot": 5, "--d": "0.25s" } as CSSProperties}>
+          <i />
+          <strong>YOU</strong>
+          <Trophy className="lb-trophy" strokeWidth={2.2} />
+        </span>
       </div>
-      <span className="trophy">
-        <Trophy strokeWidth={2} />
-      </span>
-      <span className="shine" />
     </div>
   );
 }

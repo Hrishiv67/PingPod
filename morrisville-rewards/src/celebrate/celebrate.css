@@ -202,75 +202,210 @@
   }
 }
 
-/* ── Sessions: rally → badge ── */
-.st-sessions {
-  --hit: 104px;
-}
-.pad {
-  width: 62px;
-  height: 104px;
-  transform-origin: 50% 85%;
-}
-.pad-l {
-  justify-self: start;
+/* ── Sessions: split-flap scoreboard ── */
+.scoreboard {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  padding: 24px 16px 16px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, #1c1c21, #0b0b0e);
+  border: 1px solid #2c2c33;
+  box-shadow:
+    0 34px 60px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  transform: perspective(800px) rotateX(10deg);
   animation:
-    pad-l 1.25s linear both,
-    cel-fade-out 0.3s var(--climax) ease-in forwards;
+    sb-in 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.15) both,
+    sb-slam 0.55s var(--climax) cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
-.pad-r {
-  justify-self: end;
-  animation:
-    pad-r 1.25s linear both,
-    cel-fade-out 0.3s var(--climax) ease-in forwards;
-}
-@keyframes pad-l {
-  0% { transform: rotate(-36deg); }
-  7% { transform: rotate(-12deg); }
-  30% { transform: rotate(-16deg); }
-  34% { transform: rotate(-36deg); }
-  41% { transform: rotate(-12deg); }
-  56% { transform: rotate(-16deg); }
-  60% { transform: rotate(-36deg); }
-  67%, 100% { transform: rotate(-14deg); }
-}
-@keyframes pad-r {
-  0%, 14% { transform: rotate(16deg); }
-  18% { transform: rotate(36deg); }
-  25% { transform: rotate(12deg); }
-  44% { transform: rotate(16deg); }
-  48% { transform: rotate(36deg); }
-  55%, 100% { transform: rotate(14deg); }
-}
-@keyframes cel-fade-out {
-  to {
+@keyframes sb-in {
+  from {
     opacity: 0;
-    transform: scale(0.6);
+    transform: perspective(800px) rotateX(60deg) translateY(40px) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: perspective(800px) rotateX(10deg);
   }
 }
-.ball {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #fff, #e8e2e6 60%, #b9aeb5);
-  box-shadow: 0 0 18px rgba(255, 255, 255, 0.5);
-  animation: rally 1.25s linear both;
+@keyframes sb-slam {
+  0% {
+    transform: perspective(800px) rotateX(10deg) scale(1);
+  }
+  25% {
+    transform: perspective(800px) rotateX(0deg) scale(1.08);
+    box-shadow:
+      0 0 80px color-mix(in srgb, var(--accent) 55%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+  60% {
+    transform: perspective(800px) rotateX(3deg) scale(0.98);
+  }
+  100% {
+    transform: perspective(800px) rotateX(0deg) scale(1);
+    box-shadow:
+      0 0 46px color-mix(in srgb, var(--accent) 32%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
 }
-@keyframes rally {
-  0% { transform: translate(calc(var(--hit) * -1), -6px); }
-  9% { transform: translate(0, -44px); }
-  18% { transform: translate(var(--hit), -6px); }
-  26% { transform: translate(0, -38px); }
-  34% { transform: translate(calc(var(--hit) * -1), -6px); }
-  41% { transform: translate(0, -32px); }
-  48% { transform: translate(var(--hit), -6px); }
-  54% { transform: translate(0, -26px); }
-  60% { transform: translate(calc(var(--hit) * -1), -6px); }
-  80% { transform: translate(0, -70px) scale(1.3); opacity: 1; }
-  100% { transform: translate(0, 0) scale(3.2); opacity: 0; }
+.sb-led {
+  position: absolute;
+  top: 9px;
+  left: 28px;
+  right: 28px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+  opacity: 0.3;
+  animation:
+    led 0.5s 0.2s ease-in-out infinite alternate,
+    led-flash 0.6s var(--climax) forwards;
 }
-.st-sessions .st-medal {
-  opacity: 0;
-  animation: cel-pop 0.55s var(--climax) cubic-bezier(0.2, 1.4, 0.4, 1) both;
+@keyframes led {
+  to {
+    opacity: 0.7;
+  }
+}
+@keyframes led-flash {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 18px var(--accent);
+  }
+}
+.flap {
+  position: relative;
+  width: clamp(86px, 26vw, 110px);
+  height: clamp(118px, 35vw, 148px);
+  perspective: 500px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(96px, 29vw, 126px);
+  color: #fff;
+}
+.flap-half {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 50%;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.flap-top {
+  top: 0;
+  border-radius: 14px 14px 3px 3px;
+  background: linear-gradient(180deg, #2b2b32, #1e1e23);
+  transform-origin: 50% 100%;
+}
+.flap-bottom {
+  bottom: 0;
+  border-radius: 3px 3px 14px 14px;
+  background: linear-gradient(180deg, #16161a, #222228);
+  transform-origin: 50% 0;
+}
+.flap-half b {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 200%;
+  display: grid;
+  place-items: center;
+  line-height: 1;
+}
+.flap-top b {
+  top: 0;
+}
+/* The digits flash the accent color as the board lands, then settle on white with a soft glow. */
+.flap > .flap-half:not(.flap-fold):not(.flap-unfold) b {
+  animation: digit-land 0.9s var(--climax) ease-out forwards;
+}
+@keyframes digit-land {
+  0% {
+    color: #fff;
+  }
+  20% {
+    color: var(--accent);
+    text-shadow: 0 0 28px var(--accent);
+  }
+  100% {
+    color: #fff;
+    text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+}
+.flap-bottom b {
+  top: -100%;
+}
+/* The hinge: a dark split with a pin on each side. */
+.flap::after {
+  content: "";
+  position: absolute;
+  left: -3px;
+  right: -3px;
+  top: 50%;
+  height: 3px;
+  margin-top: -1.5px;
+  background: #060607;
+  z-index: 6;
+}
+.flap::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  right: -6px;
+  top: 50%;
+  height: 12px;
+  margin-top: -6px;
+  z-index: 7;
+  background:
+    radial-gradient(circle at 4px 6px, #44444d 3px, transparent 3.5px),
+    radial-gradient(circle at calc(100% - 4px) 6px, #44444d 3px, transparent 3.5px);
+}
+.flap-fold {
+  z-index: 3;
+  animation: fold calc(var(--dur) / 2) ease-in forwards;
+}
+.flap-unfold {
+  z-index: 4;
+  transform: rotateX(90deg);
+  animation: unfold calc(var(--dur) / 2) calc(var(--dur) / 2) ease-out forwards;
+}
+@keyframes fold {
+  from {
+    transform: rotateX(0deg);
+    filter: brightness(1);
+  }
+  to {
+    transform: rotateX(-90deg);
+    filter: brightness(0.5);
+  }
+}
+@keyframes unfold {
+  from {
+    transform: rotateX(90deg);
+    filter: brightness(0.6);
+  }
+  to {
+    transform: rotateX(0deg);
+    filter: brightness(1);
+  }
+}
+.sb-label {
+  align-self: end;
+  margin-bottom: 4%;
+  color: var(--text-2, #c9c9d1);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  animation: cel-rise 0.5s 0.35s ease-out both;
+}
+.sb-ring {
+  width: 250px;
+  height: 190px;
+  border-radius: 32px;
 }
 
 /* ── Hours: dial sweep + count ── */
@@ -461,128 +596,292 @@
   to { transform: scale(0.8); }
 }
 
-/* ── Crew: avatars fly in and lock on ── */
-.links {
-  width: 100%;
-  height: 100%;
+/* ── Crew: four pieces snap together, then flip into the crew badge ── */
+.forge {
+  width: 132px;
+  height: 132px;
+  transform-style: preserve-3d;
+  animation: forge-flip 0.5s 0.8s cubic-bezier(0.45, 0, 0.2, 1) both;
 }
-.links line {
-  stroke: var(--accent);
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-dasharray: 100;
-  stroke-dashoffset: 100;
-  opacity: 0.7;
-  animation: draw 0.35s ease-out both;
+@keyframes forge-flip {
+  0% {
+    transform: perspective(700px) rotateY(0deg) scale(1);
+  }
+  50% {
+    transform: perspective(700px) rotateY(90deg) scale(1.14);
+  }
+  100% {
+    transform: perspective(700px) rotateY(180deg) scale(1);
+  }
 }
-.crew-ava {
+.forge-front,
+.forge-back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.forge-front {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+.piece {
+  animation: piece-in 0.55s var(--d) cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+}
+.piece-tl {
+  border-radius: 32px 4px 4px 4px;
+}
+.piece-tr {
+  border-radius: 4px 32px 4px 4px;
+}
+.piece-bl {
+  border-radius: 4px 4px 4px 32px;
+}
+.piece-br {
+  border-radius: 4px 4px 32px 4px;
+}
+@keyframes piece-in {
+  from {
+    opacity: 0;
+    transform: translate(var(--fx), var(--fy)) rotate(var(--r)) scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* A flash along the seams the moment the pieces lock. */
+.forge-front::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 32px;
+  background:
+    linear-gradient(90deg, transparent 47%, #fff 50%, transparent 53%),
+    linear-gradient(0deg, transparent 47%, #fff 50%, transparent 53%);
+  opacity: 0;
+  animation: seam 0.4s 0.62s ease-out both;
+}
+@keyframes seam {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  35% {
+    opacity: 1;
+  }
+}
+.forge-back {
   display: grid;
   place-items: center;
-  width: 56px;
-  height: 56px;
+  transform: rotateY(180deg);
+  border-radius: 32px;
+  background: linear-gradient(145deg, #8acbff, #3b8de0);
+  color: #06121f;
+  box-shadow: 0 0 56px rgba(90, 176, 255, 0.55);
+}
+.forge-back svg {
+  width: 52%;
+  height: 52%;
+}
+.crew-ring {
+  width: 132px;
+  height: 132px;
+  border-radius: 36px;
+}
+.crew-row {
+  display: flex;
+  align-self: end;
+  margin-bottom: 3%;
+}
+.crew-mini {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  margin-left: -8px;
   border-radius: 50%;
   color: #0a0a0a;
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 19px;
-  box-shadow: 0 0 0 4px #050506;
-  animation: fly-in 0.65s var(--d) cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
-}
-@keyframes fly-in {
-  from { transform: translate(var(--fx), var(--fy)) rotate(-120deg) scale(0.6); opacity: 0; }
-  to { transform: translate(var(--tx), var(--ty)) rotate(0) scale(1); opacity: 1; }
-}
-.crew-shield {
-  display: grid;
-  place-items: center;
-  width: 96px;
-  height: 96px;
-  border-radius: 26px;
-  background: var(--accent);
-  color: #0a0a0a;
-  box-shadow: 0 0 36px color-mix(in srgb, var(--accent) 60%, transparent);
+  font-size: 14px;
+  box-shadow: 0 0 0 3px #050507;
   opacity: 0;
-  animation: cel-pop 0.5s 0.7s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+  animation: mini-in 0.45s calc(var(--climax) + var(--d)) cubic-bezier(0.2, 1.3, 0.4, 1) forwards;
 }
-.crew-shield svg {
-  width: 50%;
-  height: 50%;
+.crew-mini:first-child {
+  margin-left: 0;
 }
-.st-crew .ring {
-  border-radius: 30px;
-  width: 96px;
-  height: 96px;
+.crew-mini.you {
+  font-size: 11px;
+  box-shadow:
+    0 0 0 3px #050507,
+    0 0 0 5px #ff0078;
+}
+@keyframes mini-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
-/* ── Top five: podium + trophy ── */
-.podium-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  align-self: end;
-  margin-bottom: 8%;
+/* ── Top five: your row climbs the board into the gold zone ── */
+.lb {
+  --row: 42px;
+  --gap: 8px;
+  --step: calc(var(--row) + var(--gap));
+  width: min(300px, 82vw);
+  height: calc(6 * var(--row) + 5 * var(--gap));
 }
-.bar {
+.lb-num {
+  position: absolute;
+  left: 0;
+  top: calc(var(--slot) * var(--step));
   display: grid;
-  place-items: start center;
-  width: 70px;
-  padding-top: 8px;
-  border-radius: 12px 12px 4px 4px;
-  background: #1a1a1e;
-  border: 1px solid #2e2e34;
-  color: #8d8d98;
+  place-items: center;
+  width: 24px;
+  height: var(--row);
+  color: #55555f;
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 22px;
-  transform-origin: bottom;
-  animation: rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  font-size: 20px;
 }
-.b1 {
-  height: 110px;
-  animation-delay: 0.1s;
-  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 30%, #1a1a1e), #1a1a1e 70%);
-  color: var(--accent);
+.lb-num.in {
+  animation: num-gold 0.4s var(--climax) forwards;
 }
-.b2 {
-  height: 78px;
+@keyframes num-gold {
+  to {
+    color: var(--accent);
+  }
 }
-.b3 {
-  height: 56px;
-  animation-delay: 0.2s;
+.lb-row {
+  position: absolute;
+  left: 34px;
+  right: 0;
+  top: calc(var(--slot) * var(--step));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--row);
+  padding: 0 12px;
+  border-radius: 12px;
+  background: #16161a;
+  border: 1px solid #26262c;
+  animation: row-in 0.4s var(--d) ease-out both;
 }
-@keyframes rise {
-  from { transform: scaleY(0.1); opacity: 0; }
-  to { transform: none; opacity: 1; }
-}
-.trophy {
-  align-self: end;
-  margin-bottom: calc(8% + 112px);
-  width: 104px;
-  height: 104px;
-  color: var(--accent);
-  filter: drop-shadow(0 0 22px color-mix(in srgb, var(--accent) 70%, transparent));
-  animation: drop 0.6s 0.55s both;
-}
-.trophy svg {
-  width: 100%;
-  height: 100%;
-}
-@keyframes drop {
-  0% { transform: translateY(-260px); opacity: 0; animation-timing-function: cubic-bezier(0.5, 0, 1, 0.6); }
-  60% { transform: translateY(6px); opacity: 1; animation-timing-function: ease-out; }
-  80% { transform: translateY(-12px); }
-  100% { transform: none; opacity: 1; }
-}
-.st-top .shine {
-  width: 140px;
-  height: 140px;
-  align-self: end;
-  margin-bottom: calc(8% + 96px);
+.lb-row i {
+  flex: none;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 50%, transparent), transparent 65%);
+}
+.lb-row b {
+  height: 8px;
+  border-radius: 999px;
+  background: #33333b;
+}
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+}
+/* The three players you pass each drop one place as you go by. */
+.lb-row.r5 {
+  animation:
+    row-in 0.4s var(--d) ease-out both,
+    slot-4-5 0.22s 0.5s ease-in-out forwards;
+}
+.lb-row.r4 {
+  animation:
+    row-in 0.4s var(--d) ease-out both,
+    slot-3-4 0.22s 0.75s ease-in-out forwards;
+}
+.lb-row.r3 {
+  animation:
+    row-in 0.4s var(--d) ease-out both,
+    slot-2-3 0.22s 1s ease-in-out forwards;
+}
+.lb-you {
+  z-index: 2;
+  background: linear-gradient(90deg, rgba(255, 0, 120, 0.35), rgba(255, 0, 120, 0.12));
+  border-color: #ff0078;
+  box-shadow: 0 8px 24px rgba(255, 0, 120, 0.3);
+  animation:
+    row-in 0.4s var(--d) ease-out both,
+    slot-5-4 0.22s 0.5s ease-in-out forwards,
+    slot-4-3 0.22s 0.75s ease-in-out forwards,
+    slot-3-2 0.22s 1s ease-in-out forwards,
+    you-pulse 0.5s var(--climax) ease-out forwards;
+}
+.lb-you i {
+  background: #ff0078;
+}
+.lb-you strong {
+  font-family: var(--font-display);
+  font-size: 18px;
+  letter-spacing: 0.04em;
+}
+.lb-trophy {
+  margin-left: auto;
+  width: 24px;
+  height: 24px;
+  color: var(--accent);
   opacity: 0;
-  animation: cel-ring 0.9s var(--climax) ease-out forwards;
+  animation: cel-pop 0.45s calc(var(--climax) + 0.1s) cubic-bezier(0.2, 1.4, 0.4, 1) forwards;
+}
+@keyframes slot-4-5 { from { top: calc(4 * var(--step)); } to { top: calc(5 * var(--step)); } }
+@keyframes slot-3-4 { from { top: calc(3 * var(--step)); } to { top: calc(4 * var(--step)); } }
+@keyframes slot-2-3 { from { top: calc(2 * var(--step)); } to { top: calc(3 * var(--step)); } }
+@keyframes slot-5-4 { from { top: calc(5 * var(--step)); } to { top: calc(4 * var(--step)); } }
+@keyframes slot-4-3 { from { top: calc(4 * var(--step)); } to { top: calc(3 * var(--step)); } }
+@keyframes slot-3-2 { from { top: calc(3 * var(--step)); } to { top: calc(2 * var(--step)); } }
+@keyframes you-pulse {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+.lb-zone {
+  position: absolute;
+  left: 26px;
+  right: -8px;
+  top: -8px;
+  height: calc(5 * var(--step) - var(--gap) + 16px);
+  border: 2px solid var(--accent);
+  border-radius: 18px;
+  box-shadow:
+    0 0 30px color-mix(in srgb, var(--accent) 35%, transparent),
+    inset 0 0 24px color-mix(in srgb, var(--accent) 14%, transparent);
+  opacity: 0;
+  animation: zone-in 0.5s var(--climax) cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+@keyframes zone-in {
+  from {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.lb-tag {
+  position: absolute;
+  top: -13px;
+  right: 14px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #1a1205;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 /* ── Long rally: hourglass runs out ── */
