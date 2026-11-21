@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import LogoLoader from "../components/LogoLoader";
+import CrewBadge, { EMBLEMS } from "../components/CrewBadge";
+import PlayerCardSheet from "../components/PlayerCardSheet";
 import { Copy, Crown, MoreHorizontal, RefreshCw, Share2, Users } from "lucide-react";
 import { api, errorText } from "../lib/api";
+import { inviteLink } from "../lib/site";
 import { formatNumber } from "../lib/time";
-import type { CrewMember, CrewRow, MyCrew, Scope } from "../lib/types";
+import type { AvatarColor, CrewEmblem, CrewMember, CrewRow, MyCrew, Scope } from "../lib/types";
 import { useApp } from "../state";
 import {
   Avatar,
@@ -14,13 +17,12 @@ import {
   IconButton,
   InlineError,
   Sheet,
-  Skeleton,
   useToast,
 } from "../components/ui";
 
-export function inviteLink(code: string): string {
-  return `${window.location.origin}/join/${code}`;
-}
+const CREW_COLORS: AvatarColor[] = ["pink", "white", "blue", "green", "orange", "purple"];
+
+export { inviteLink } from "../lib/site";
 
 export default function Crew() {
   const { me, refresh, bump, version } = useApp();
@@ -68,7 +70,7 @@ function NoCrew({ onChanged }: { onChanged: () => Promise<void> }) {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState<"" | "create" | "join">("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState<{ kind: "create" | "join"; text: string } | null>(null);
   const [top, setTop] = useState<CrewRow[] | null>(null);
 
   useEffect(() => {
@@ -80,7 +82,7 @@ function NoCrew({ onChanged }: { onChanged: () => Promise<void> }) {
 
   async function run(kind: "create" | "join") {
     setBusy(kind);
-    setError("");
+    setError(null);
     try {
       if (kind === "create") await api.createCrew(name);
       else await api.joinCrew(code);
@@ -88,7 +90,7 @@ function NoCrew({ onChanged }: { onChanged: () => Promise<void> }) {
       await onChanged();
       window.scrollTo({ top: 0 });
     } catch (err) {
-      setError(errorText(err));
+      setError({ kind, text: shortCrewError(errorText(err), kind) });
     } finally {
       setBusy("");
     }
@@ -102,8 +104,6 @@ function NoCrew({ onChanged }: { onChanged: () => Promise<void> }) {
           Team up with {me.settings.crew_min_size}–{me.settings.crew_max_size} friends and add your minutes together.
         </p>
       </div>
-
-      {error && <InlineError>{error}</InlineError>}
 
       <section className="panel stack">
         <h2 style={{ fontSize: 24 }}>Join a crew</h2>
@@ -123,8 +123,11 @@ function NoCrew({ onChanged }: { onChanged: () => Promise<void> }) {
             maxLength={10}
             placeholder="ABCD2345"
             value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
-            hint="Got a link from a friend? Just open it."
+            onChange={(e) => {
+              setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""));
+              if (error?.kind === "join") setError(null);
+            }}
+            error={error?.kind === "join" ? error.text : undefined}
           />
           <Button type="submit" variant="primary" size="lg" block loading={busy === "join"} disabled={code.length < 6}>
             Join crew
@@ -147,7 +150,11 @@ function NoCrew({ onChanged }: { onChanged: () => Promise<void> }) {
             autoCapitalize="words"
             placeholder="e.g. Net Ninjas"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (error?.kind === "create") setError(null);
+            }}
+            error={error?.kind === "create" ? error.text : undefined}
           />
           <Button type="submit" variant="secondary" size="lg" block loading={busy === "create"} disabled={name.trim().length < 3}>
             Create crew
@@ -160,7 +167,7 @@ function NoCrew({ onChanged }: { onChanged: () => Promise<void> }) {
           <h2>Top crews this week</h2>
         </div>
         {top === null ? (
-          <Skeleton count={3} height={60} />
+          <LogoLoader label="Loading crews" />
         ) : top.length === 0 ? (
           <div className="list empty-row">No crews on the board yet this week.</div>
         ) : (
@@ -168,12 +175,10 @@ function NoCrew({ onChanged }: { onChanged: () => Promise<void> }) {
             {top.map((c) => (
               <div key={c.crew_id} className="rank-row">
                 <span className="rank-num num">{c.rank}</span>
-                <span className="crew-badge">
-                  <Users size={18} />
-                </span>
+                <CrewBadge emblem={c.emblem} color={c.color} size={38} />
                 <span className="rank-name">
                   <strong>{c.name}</strong>
-                  <span>{c.members} members</span>
+                  <span>{c.motto || `${c.members} members`}</span>
                 </span>
                 <span className="rank-value num">
                   {formatNumber(c.minutes)}
@@ -193,6 +198,7 @@ function CrewView({ crew, onChanged }: { crew: MyCrew; onChanged: () => Promise<
   const [manage, setManage] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [member, setMember] = useState<CrewMember | null>(null);
+  const [profile, setProfile] = useState<CrewMember | null>(null);
   const needed = Math.max(0, crew.min_members - crew.members.length);
   const avg = crew.members.length ? Math.round(crew.total_minutes / crew.members.length) : 0;
   const link = inviteLink(crew.invite_code);
@@ -231,7 +237,13 @@ function CrewView({ crew, onChanged }: { crew: MyCrew; onChanged: () => Promise<
             </Button>
           )}
         </div>
-        <h1>{crew.name}</h1>
+        <div className="crew-title">
+          <CrewBadge emblem={crew.emblem} color={crew.color} size={56} />
+          <div style={{ minWidth: 0 }}>
+            <h1>{crew.name}</h1>
+            {crew.motto && <p className="crew-motto">{crew.motto}</p>}
+          </div>
+        </div>
         {crew.hidden_by_admin && <Chip tone="warn">Hidden from public boards by staff</Chip>}
         <div className="stat-strip three">
           <div className="stat-cell">
@@ -256,6 +268,7 @@ function CrewView({ crew, onChanged }: { crew: MyCrew; onChanged: () => Promise<
             </span>
           </div>
         </div>
+        <p className="small-print">Crew minutes count play from when each member joined.</p>
         {needed > 0 && (
           <div className="invite-banner">
             <Users size={20} aria-hidden />
@@ -293,8 +306,16 @@ function CrewView({ crew, onChanged }: { crew: MyCrew; onChanged: () => Promise<
           {[...crew.members]
             .sort((a, b) => b.minutes - a.minutes)
             .map((m) => (
-              <div key={m.user_id} className={`member-row ${m.is_me ? "me" : ""}`}>
-                <Avatar name={m.display_name} color={m.avatar_color} size={40} />
+              <div
+                key={m.user_id}
+                className={`member-row tappable ${m.is_me ? "me" : ""}`}
+                role="button"
+                tabIndex={0}
+                aria-label={`Open ${m.display_name}'s profile`}
+                onClick={() => setProfile(m)}
+                onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setProfile(m)}
+              >
+                <Avatar name={m.display_name} color={m.avatar_color} path={m.avatar_path} size={42} />
                 <span className="rank-name">
                   <strong>
                     {m.display_name} {m.is_me && <span className="you-tag">YOU</span>}
@@ -307,7 +328,13 @@ function CrewView({ crew, onChanged }: { crew: MyCrew; onChanged: () => Promise<
                     <small>min</small>
                   </span>
                   {crew.is_owner && !m.is_me && (
-                    <IconButton label={`Options for ${m.display_name}`} onClick={() => setMember(m)}>
+                    <IconButton
+                      label={`Options for ${m.display_name}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMember(m);
+                      }}
+                    >
                       <MoreHorizontal size={20} />
                     </IconButton>
                   )}
@@ -323,6 +350,7 @@ function CrewView({ crew, onChanged }: { crew: MyCrew; onChanged: () => Promise<
 
       {manage && <ManageSheet crew={crew} onClose={() => setManage(false)} onChanged={onChanged} />}
       {member && <MemberSheet member={member} onClose={() => setMember(null)} onChanged={onChanged} />}
+      {profile && <PlayerCardSheet userId={profile.user_id} name={profile.display_name} onClose={() => setProfile(null)} />}
       {leaving && (
         <ConfirmSheet
           title="Leave crew?"
@@ -353,15 +381,37 @@ function CrewView({ crew, onChanged }: { crew: MyCrew; onChanged: () => Promise<
 function ManageSheet({ crew, onClose, onChanged }: { crew: MyCrew; onClose: () => void; onChanged: () => Promise<void> }) {
   const toast = useToast();
   const [name, setName] = useState(crew.name);
-  const [busy, setBusy] = useState<"" | "rename" | "code">("");
+  const [color, setColor] = useState<AvatarColor>(crew.color ?? "pink");
+  const [emblem, setEmblem] = useState<CrewEmblem>(crew.emblem ?? "users");
+  const [motto, setMotto] = useState(crew.motto ?? "");
+  const [busy, setBusy] = useState<"" | "save" | "code">("");
   const [error, setError] = useState("");
-  async function run(kind: "rename" | "code") {
-    setBusy(kind);
+  const nameChanged = name.trim() !== crew.name;
+  const lookChanged = color !== (crew.color ?? "pink") || emblem !== (crew.emblem ?? "users") || motto.trim() !== (crew.motto ?? "");
+  const nameOk = name.trim().length >= 3;
+
+  // One Save for everything on this sheet: name and look go together, so nothing gets lost.
+  async function save() {
+    setBusy("save");
     setError("");
     try {
-      if (kind === "rename") await api.renameCrew(name);
-      else await api.regenerateCrewCode();
-      toast(kind === "rename" ? "Crew renamed." : "New invite code ready. The old one no longer works.");
+      if (nameChanged) await api.renameCrew(name);
+      if (lookChanged) await api.setCrewStyle({ color, emblem, motto });
+      toast("Crew saved.");
+      await onChanged();
+      onClose();
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      setBusy("");
+    }
+  }
+  async function newCode() {
+    setBusy("code");
+    setError("");
+    try {
+      await api.regenerateCrewCode();
+      toast("New invite code ready. The old one no longer works.");
       await onChanged();
       onClose();
     } catch (err) {
@@ -376,18 +426,56 @@ function ManageSheet({ crew, onClose, onChanged }: { crew: MyCrew; onClose: () =
         className="stack-sm"
         onSubmit={(e) => {
           e.preventDefault();
-          void run("rename");
+          if ((nameChanged || lookChanged) && nameOk) void save();
         }}
       >
+        <div className="crew-look-preview">
+          <CrewBadge emblem={emblem} color={color} size={56} />
+          <div style={{ minWidth: 0 }}>
+            <strong>{name.trim() || crew.name}</strong>
+            {motto.trim() && <span>{motto.trim()}</span>}
+          </div>
+        </div>
         <Field label="Crew name" maxLength={24} value={name} onChange={(e) => setName(e.target.value)} />
-        <Button type="submit" variant="secondary" block loading={busy === "rename"} disabled={name.trim() === crew.name || name.trim().length < 3}>
-          Save name
+        <span className="label">Color</span>
+        <div className="swatches" role="radiogroup" aria-label="Crew color">
+          {CREW_COLORS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              role="radio"
+              aria-checked={color === c}
+              aria-label={c}
+              className={`swatch avatar-${c} ${color === c ? "on" : ""}`}
+              onClick={() => setColor(c)}
+            />
+          ))}
+        </div>
+        <span className="label">Emblem</span>
+        <div className="emblem-grid" role="radiogroup" aria-label="Crew emblem">
+          {EMBLEMS.map(({ value, label, Icon }) => (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={emblem === value}
+              aria-label={label}
+              className={`emblem-pick ${emblem === value ? "on" : ""}`}
+              onClick={() => setEmblem(value)}
+            >
+              <Icon size={22} />
+            </button>
+          ))}
+        </div>
+        <Field label="Motto" maxLength={60} placeholder="Optional · e.g. Every Tuesday" value={motto} onChange={(e) => setMotto(e.target.value)} />
+        <Button type="submit" variant="primary" size="lg" block loading={busy === "save"} disabled={!(nameChanged || lookChanged) || !nameOk}>
+          Save changes
         </Button>
       </form>
       <div className="stack-sm">
         <span className="label">Invite code</span>
         <p className="small-print">The old code stops working. Members stay in.</p>
-        <Button variant="secondary" block icon={<RefreshCw size={16} />} loading={busy === "code"} onClick={() => void run("code")}>
+        <Button variant="secondary" block icon={<RefreshCw size={16} />} loading={busy === "code"} onClick={() => void newCode()}>
           Make a new invite code
         </Button>
       </div>
@@ -433,4 +521,10 @@ function MemberSheet({ member, onClose, onChanged }: { member: CrewMember; onClo
       </div>
     </Sheet>
   );
+}
+
+/** Keep the message under the box short: a wrong code is just "Wrong code". */
+function shortCrewError(text: string, kind: "create" | "join") {
+  if (kind === "join" && /code|not found|didn.t work|invalid/i.test(text)) return "Wrong code. Check it and try again.";
+  return text;
 }

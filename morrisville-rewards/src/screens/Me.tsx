@@ -1,6 +1,28 @@
 import { useCallback, useEffect, useState } from "react";
 import LogoLoader from "../components/LogoLoader";
-import { Award, ChevronRight, KeyRound, LogOut, ShieldCheck, Trash2 } from "lucide-react";
+import PhotoCropper from "../components/PhotoCropper";
+import {
+  Award,
+  CalendarCheck,
+  Camera,
+  ChevronRight,
+  CircleHelp,
+  Clock,
+  Crown,
+  ExternalLink,
+  Flame,
+  Hourglass,
+  KeyRound,
+  LogOut,
+  Medal,
+  Play,
+  ShieldCheck,
+  Star,
+  Trash2,
+  Trophy,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import { api, errorText } from "../lib/api";
 import { Link } from "../lib/router";
 import { formatDateTime, formatDay, formatDuration, formatNumber, formatTime } from "../lib/time";
@@ -15,7 +37,6 @@ import {
   InlineError,
   ProgressBar,
   Sheet,
-  Skeleton,
   StatusChip,
   Toggle,
   useToast,
@@ -24,7 +45,7 @@ import { ColorPicker, nicknameProblem } from "./Onboarding";
 import { SessionRow } from "./Home";
 
 export default function MeScreen() {
-  const { me, refresh, signOut, version, bump } = useApp();
+  const { me, refresh, signOut, version, bump, showTutorial } = useApp();
   const toast = useToast();
   const p = me.profile!;
   const s = me.stats!;
@@ -56,9 +77,12 @@ export default function MeScreen() {
   return (
     <div className="page">
       <section className="profile-head">
-        <Avatar name={p.display_name} color={p.avatar_color} size={68} />
+        <button type="button" className="profile-photo" onClick={() => setEditing(true)} aria-label="Change photo">
+          <Avatar name={p.display_name} color={p.avatar_color} path={p.avatar_path} size={72} />
+        </button>
         <div style={{ minWidth: 0 }}>
           <h1>{p.display_name}</h1>
+          {p.bio && <p className="profile-bio">{p.bio}</p>}
           <div className="profile-chips">
             {p.hidden_by_admin ? (
               <Chip tone="warn">Hidden by staff</Chip>
@@ -67,7 +91,12 @@ export default function MeScreen() {
             ) : (
               <Chip>Private</Chip>
             )}
-            {me.crew && <Chip>{me.crew.name}</Chip>}
+            {p.email_verified_at && <Chip tone="ok">Email verified</Chip>}
+            {me.crew && (
+              <Link to="/crew" className="chip chip-crew">
+                {me.crew.name}
+              </Link>
+            )}
           </div>
         </div>
         <Button variant="secondary" size="sm" className="profile-edit" onClick={() => setEditing(true)}>
@@ -105,20 +134,19 @@ export default function MeScreen() {
           <span className="stat-label">Streak</span>
           <span className="stat-value num">
             {s.current_streak}
-            <small>{s.current_streak === 1 ? "wk" : "wks"}</small>
+            <small>{s.current_streak === 1 ? "day" : "days"}</small>
           </span>
         </div>
         <div className="stat-cell">
           <span className="stat-label">Best streak</span>
           <span className="stat-value num">
             {s.longest_streak}
-            <small>{s.longest_streak === 1 ? "wk" : "wks"}</small>
+            <small>{s.longest_streak === 1 ? "day" : "days"}</small>
           </span>
         </div>
       </section>
 
       <Achievements version={version} />
-      <Spindex />
       <History version={version} />
       <Requests version={version} />
 
@@ -149,7 +177,7 @@ export default function MeScreen() {
           <h2>Account</h2>
         </div>
         <div className="list settings-list">
-          {me.admin_role && (
+          {(me.admin_role || me.staff_needs_password) && (
             <Link to="/admin" className="settings-link">
               <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
                 <ShieldCheck size={18} style={{ color: "var(--pink)" }} /> Staff dashboard
@@ -157,12 +185,28 @@ export default function MeScreen() {
               <ChevronRight size={18} />
             </Link>
           )}
-          <button className="settings-link" onClick={() => setPw(true)}>
+          {me.admin_role && (
+            <button className="settings-link" onClick={() => setPw(true)}>
+              <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <KeyRound size={18} /> Change staff password
+              </span>
+              <ChevronRight size={18} />
+            </button>
+          )}
+          <button className="settings-link" onClick={showTutorial}>
             <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <KeyRound size={18} /> Change password
+              <CircleHelp size={18} /> How it works
             </span>
             <ChevronRight size={18} />
           </button>
+          {me.settings.survey_url && (
+            <a className="settings-link" href={me.settings.survey_url} target="_blank" rel="noopener noreferrer">
+              <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <ExternalLink size={18} /> Research survey
+              </span>
+              <ChevronRight size={18} />
+            </a>
+          )}
           <button className="settings-link" onClick={() => void signOut()}>
             <span style={{ display: "flex", gap: 10, alignItems: "center" }}>
               <LogOut size={18} /> Sign out
@@ -177,7 +221,7 @@ export default function MeScreen() {
       </section>
 
       <footer className="app-foot">
-        Morrisville Rewards · Beta — a four-week PingPod Morrisville pilot, separate from the PingPod app and booking.
+        A PingPod Morrisville pilot, separate from the PingPod app and booking.
       </footer>
 
       {editing && <EditProfileSheet onClose={() => setEditing(false)} />}
@@ -193,11 +237,83 @@ function EditProfileSheet({ onClose }: { onClose: () => void }) {
   const p = me.profile!;
   const [name, setName] = useState(p.display_name);
   const [color, setColor] = useState<AvatarColor>(p.avatar_color);
+  const [bio, setBio] = useState(p.bio ?? "");
   const [busy, setBusy] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [cropping, setCropping] = useState<File | null>(null);
   const [error, setError] = useState("");
   const problem = nicknameProblem(name);
+
+  async function savePhoto(photo: Blob) {
+    setPhotoBusy(true);
+    setError("");
+    try {
+      await api.uploadAvatar(photo);
+      await refresh();
+      bump();
+      setCropping(null);
+      toast("Photo updated.");
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+  async function dropPhoto() {
+    setPhotoBusy(true);
+    setError("");
+    try {
+      await api.removeAvatar();
+      await refresh();
+      bump();
+      toast("Photo removed.");
+    } catch (err) {
+      setError(errorText(err));
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  if (cropping)
+    return (
+      <Sheet title="Crop photo" onClose={() => setCropping(null)}>
+        <PhotoCropper file={cropping} busy={photoBusy} onCancel={() => setCropping(null)} onConfirm={(b) => void savePhoto(b)} />
+        {error && <InlineError>{error}</InlineError>}
+      </Sheet>
+    );
+
   return (
     <Sheet title="Edit profile" onClose={onClose}>
+      <div className="photo-edit">
+        <span className="photo-edit-avatar">
+          <Avatar name={name || p.display_name} color={color} path={p.avatar_path} size={88} />
+          {photoBusy && <span className="photo-edit-busy"><LogoLoader size={18} label="Saving photo" /></span>}
+        </span>
+        <div className="photo-edit-actions">
+          <label className={`btn btn-secondary btn-md ${photoBusy ? "is-disabled" : ""}`}>
+            <Camera size={16} aria-hidden /> {p.avatar_path ? "Change photo" : "Add a photo"}
+            <input
+              type="file"
+              accept="image/*"
+              hidden
+              disabled={photoBusy}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) {
+                  setError("");
+                  setCropping(f);
+                }
+                e.target.value = "";
+              }}
+            />
+          </label>
+          {p.avatar_path && (
+            <button type="button" className="link-btn" disabled={photoBusy} onClick={() => void dropPhoto()}>
+              Remove photo
+            </button>
+          )}
+        </div>
+      </div>
       <form
         className="stack"
         onSubmit={async (e) => {
@@ -212,6 +328,7 @@ function EditProfileSheet({ onClose }: { onClose: () => void }) {
               show_on_leaderboard: p.show_on_leaderboard,
               show_spindex: p.show_spindex,
             });
+            if (bio.trim() !== (p.bio ?? "")) await api.saveBio(bio);
             await refresh();
             bump();
             toast("Profile saved.");
@@ -224,7 +341,21 @@ function EditProfileSheet({ onClose }: { onClose: () => void }) {
       >
         <Field label="Nickname" maxLength={20} value={name} onChange={(e) => setName(e.target.value)} error={name && problem ? problem : undefined} />
         <div className="stack-sm">
-          <span className="label">Avatar color</span>
+          <label className="label" htmlFor="bio">
+            Bio
+          </label>
+          <textarea
+            id="bio"
+            className="input"
+            rows={2}
+            maxLength={140}
+            placeholder="Optional · e.g. Backhand loops, Tuesday nights"
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+          />
+        </div>
+        <div className="stack-sm">
+          <span className="label">Color</span>
           <ColorPicker value={color} onChange={setColor} name={name} />
         </div>
         {error && <InlineError>{error}</InlineError>}
@@ -235,6 +366,21 @@ function EditProfileSheet({ onClose }: { onClose: () => void }) {
     </Sheet>
   );
 }
+
+// Each milestone gets its own icon so the list doesn't read as one repeated ribbon.
+const BADGE_ICON: Record<string, LucideIcon> = {
+  first_session: Play,
+  first_hour: Clock,
+  minutes_300: Medal,
+  minutes_600: Star,
+  minutes_1200: Crown,
+  long_session: Hourglass,
+  streak_3: Flame,
+  streak_7: Flame,
+  crew_joined: Users,
+  regular: CalendarCheck,
+  weekly_top5: Trophy,
+};
 
 const BADGE_ORDER = (a: Achievement, b: Achievement) =>
   Number(Boolean(b.earned_at)) - Number(Boolean(a.earned_at)) || b.progress / b.target - a.progress / a.target;
@@ -250,6 +396,7 @@ function Achievements({ version }: { version: number }) {
       .catch((err) => setError(errorText(err)));
   }, []);
   useEffect(load, [load, version]);
+  const [all, setAll] = useState(false);
   const earned = items?.filter((a) => a.earned_at).length ?? 0;
   return (
     <section className="section">
@@ -267,10 +414,16 @@ function Achievements({ version }: { version: number }) {
         <LogoLoader label="Loading milestones" />
       ) : (
         <div className="badges">
-          {[...items].sort(BADGE_ORDER).map((a) => (
+          {[...items]
+            .sort(BADGE_ORDER)
+            .slice(0, all ? items.length : 4)
+            .map((a) => (
             <div key={a.code} className={`badge ${a.earned_at ? "earned" : ""}`}>
               <span className="badge-icon">
-                <Award size={20} />
+                {(() => {
+                  const Icon = BADGE_ICON[a.code] ?? Award;
+                  return <Icon size={20} />;
+                })()}
               </span>
               <span className="badge-text">
                 <strong>{a.title}</strong>
@@ -288,125 +441,10 @@ function Achievements({ version }: { version: number }) {
           ))}
         </div>
       )}
-    </section>
-  );
-}
-
-function Spindex() {
-  const { me, refresh, bump } = useApp();
-  const toast = useToast();
-  const claim = me.spindex ?? null;
-  const [open, setOpen] = useState(false);
-  const [rating, setRating] = useState(claim ? String(claim.rating) : "");
-  const [note, setNote] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [removing, setRemoving] = useState(false);
-  const value = Number(rating);
-  const valid = rating !== "" && Number.isInteger(value) && value >= 0 && value <= 3000;
-  return (
-    <section className="section">
-      <div className="section-head">
-        <h2>SPINDEX</h2>
-      </div>
-      <div className="panel stack-sm">
-        {claim ? (
-          <>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-              <span className="spindex-value num">{claim.rating}</span>
-              {claim.status === "verified" ? (
-                <Chip tone="ok">Verified by staff{claim.verified_at ? ` · ${formatDay(claim.verified_at.slice(0, 10))}` : ""}</Chip>
-              ) : (
-                <Chip tone="warn">Self-reported SPINDEX</Chip>
-              )}
-            </div>
-            <p className="small-print">
-              {claim.status === "verified"
-                ? "Checked by PingPod staff. A new number goes back to self-reported."
-                : "Want it verified? Show your SPINDEX at the front desk."}
-            </p>
-            <div className="row-2">
-              <Button variant="secondary" onClick={() => setOpen(true)}>
-                Update
-              </Button>
-              <Button variant="ghost" onClick={() => setRemoving(true)}>
-                Remove
-              </Button>
-            </div>
-          </>
-        ) : (
-          <>
-            <p>Have a SPINDEX rating? Add it — it goes on the separate SPINDEX board.</p>
-            <Button variant="secondary" onClick={() => setOpen(true)}>
-              Add my SPINDEX
-            </Button>
-          </>
-        )}
-        <p className="small-print">Not connected to SPINDEX or PodPlay — ratings you enter show as self-reported.</p>
-      </div>
-      {open && (
-        <Sheet title="Your SPINDEX" onClose={() => setOpen(false)}>
-          <form
-            className="stack"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (!valid) return setError("SPINDEX ratings run from 0 to 3000.");
-              setBusy(true);
-              setError("");
-              try {
-                await api.submitSpindex(value, note.trim() || undefined);
-                await refresh();
-                bump();
-                toast("SPINDEX saved as self-reported.");
-                setOpen(false);
-              } catch (err) {
-                setError(errorText(err));
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            <Field
-              label="Rating (0–3000)"
-              type="number"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              min={0}
-              max={3000}
-              value={rating}
-              onChange={(e) => setRating(e.target.value)}
-            />
-            <Field
-              label="Where's it from? (optional)"
-              maxLength={200}
-              placeholder="e.g. SPINDEX app, Nov 2026"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-            {claim?.status === "verified" && (
-              <p className="small-print">Saving a new number replaces your verified rating with a self-reported one.</p>
-            )}
-            {error && <InlineError>{error}</InlineError>}
-            <Button type="submit" variant="primary" size="lg" block loading={busy} disabled={!rating}>
-              Save as self-reported
-            </Button>
-          </form>
-        </Sheet>
-      )}
-      {removing && (
-        <ConfirmSheet
-          title="Remove SPINDEX?"
-          body={<p>Your rating will disappear from your profile and the SPINDEX board.</p>}
-          confirmLabel="Remove rating"
-          danger
-          onClose={() => setRemoving(false)}
-          onConfirm={async () => {
-            await api.removeSpindex();
-            await refresh();
-            bump();
-            toast("SPINDEX removed.");
-          }}
-        />
+      {items && items.length > 4 && (
+        <button type="button" className="link-btn quiet" onClick={() => setAll((v) => !v)}>
+          {all ? "Show less" : `Show all ${items.length}`}
+        </button>
       )}
     </section>
   );
@@ -425,6 +463,24 @@ function History({ version }: { version: number }) {
       .catch((err) => setError(errorText(err)));
   }, [limit]);
   useEffect(load, [load, version]);
+  // Arrived from Home ("History" or a recent session): scroll here, and open that session.
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!rows || !(hash === "#history" || hash.startsWith("#session-"))) return;
+    let tries = 0;
+    let t = 0;
+    const go = () => {
+      const el = document.getElementById("history");
+      if (el && el.offsetParent !== null) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        const hit = hash.startsWith("#session-") ? rows.find((r) => r.id === hash.slice(9)) : undefined;
+        if (hit) setOpen(hit);
+        window.history.replaceState(null, "", window.location.pathname);
+      } else if (tries++ < 15) t = window.setTimeout(go, 150);
+    };
+    t = window.setTimeout(go, 50);
+    return () => window.clearTimeout(t);
+  }, [rows]);
   return (
     <section className="section" id="history">
       <div className="section-head">
@@ -433,7 +489,7 @@ function History({ version }: { version: number }) {
       {error ? (
         <InlineError onRetry={load}>{error}</InlineError>
       ) : !rows ? (
-        <Skeleton count={3} height={64} />
+        <LogoLoader label="Loading history" />
       ) : rows.length === 0 ? (
         <div className="list empty-row">No sessions yet.</div>
       ) : (
@@ -457,8 +513,9 @@ function History({ version }: { version: number }) {
 
 function SessionSheet({ s, onClose }: { s: PlaySession; onClose: () => void }) {
   const toast = useToast();
-  const { bump } = useApp();
+  const { bump, refresh } = useApp();
   const [asking, setAsking] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -524,10 +581,31 @@ function SessionSheet({ s, onClose }: { s: PlaySession; onClose: () => void }) {
         </form>
       ) : (
         s.status !== "cancelled" && (
-          <Button variant="secondary" block onClick={() => setAsking(true)}>
-            Request a correction
-          </Button>
+          <div className="stack-sm">
+            <Button variant="secondary" block onClick={() => setAsking(true)}>
+              Request a correction
+            </Button>
+            <button type="button" className="link-btn quiet" onClick={() => setRemoving(true)}>
+              Remove this session
+            </button>
+          </div>
         )
+      )}
+      {removing && (
+        <ConfirmSheet
+          title="Remove this session?"
+          body={<p>These {s.minutes} minutes stop counting on the leaderboard, your streak and your crew.</p>}
+          confirmLabel="Remove session"
+          danger
+          onClose={() => setRemoving(false)}
+          onConfirm={async () => {
+            await api.removeSession(s.id);
+            toast("Session removed.");
+            await refresh();
+            bump();
+            onClose();
+          }}
+        />
       )}
     </Sheet>
   );
@@ -571,12 +649,12 @@ function PasswordSheet({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   return (
-    <Sheet title="Change password" onClose={onClose}>
+    <Sheet title="Change staff password" onClose={onClose}>
       <form
         className="stack"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (pw.length < 6) return setError("Use at least 6 characters.");
+          if (pw.length < 8) return setError("Use at least 8 characters.");
           setBusy(true);
           setError("");
           try {
@@ -589,7 +667,7 @@ function PasswordSheet({ onClose }: { onClose: () => void }) {
           }
         }}
       >
-        <Field label="New password" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} hint="At least 6 characters" />
+        <Field label="New password" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} hint="At least 8 characters. Staff accounts sign in with email and password." />
         {error && <InlineError>{error}</InlineError>}
         <Button type="submit" variant="primary" size="lg" block loading={busy}>
           Save password

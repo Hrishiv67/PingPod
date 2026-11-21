@@ -2,7 +2,7 @@
 
 For Joe and the Morrisville team. No technical knowledge needed.
 
-App: **https://pingpod-morrisville-rewards.vercel.app**  ·  Staff area: **/admin**  ·
+App: **https://www.pingpodrewards.site**  ·  Staff area: **/admin**  ·
 iPad board: **/display**  ·  Printable QR sign: **/poster**
 
 This is a four-week Morrisville pilot that sits alongside the official PingPod app. It does not
@@ -11,19 +11,51 @@ handle bookings, door entry or payments, and it never asks for anyone's PingPod 
 ## What customers do
 
 1. Scan the QR code at the front desk or on a table. The app opens in Safari — no download.
-2. First visit: enter an email and create a password, then pick a public nickname and choose
-   whether to appear on the leaderboards.
+2. First visit: type an email and tap **Continue** (no password, no confirmation email), then pick
+   a public nickname and choose whether to appear on the leaderboards. Next time, the same email
+   gets them straight back in, on any phone.
 3. Tap **Start playing** when they begin and **Finish** when they're done. The timer keeps running
    if they lock the phone or close Safari; reopening the app shows it again.
-4. Forgot to start the timer? **Log past play**: pick the day (up to 7 days back) and 30 / 60 / 90 /
+4. Forgot to start the timer? **Log past session**: pick the day (up to 7 days back) and 30 / 60 / 90 /
    120 minutes or a custom amount.
 5. Finished and logged sessions count right away — there's no approval step. We trust players to
    log their own time; staff only step in to fix obvious mistakes.
 6. Friends can form a **crew** (2–8 people) and share an invite link or code.
+7. **How it works**: six quick slides show players everything once (new players right after picking
+   a nickname), ending with the research survey ask. Anyone can reopen them from **Me → How it works**
+   or the sign-in page.
+8. **Weekly Rally** on Home: a flame for each day played this week, plus an optional weekly goal
+   (hours and days). The goal planner starts with the CDC's 150-minutes-a-week guideline as a
+   suggestion, then the player picks their own.
+9. **Milestone pop-ups**: a full-screen celebration when a player reaches a milestone, right after
+   a timer finish or a logged session: first session, 10/25/50 sessions, 1/5/10/20 hours, a 3- or
+   7-day streak, a 2-hour session, or this week's goal. Joining a crew and finishing a week in the
+   top five get one too. Each shows once per player. Preview them all at `/celebrations`.
 
 Returning customers stay signed in, so they just open the app and tap Start playing.
 
+## Research survey
+
+The "How it works" slides end with "One quick favor": a short anonymous survey for our research
+(**Take the survey** or **Maybe later**; Skip jumps straight to it). Every player sees this once,
+existing players included. After that, a pink survey card stays on Home; once it's been opened it
+turns into a plain gray card ("Research survey · Thanks for helping") that's still there to tap. It's
+also under **Me → Research survey**. Change or remove the link in **Settings → Research survey**. In
+Google Forms, keep "Collect email addresses" off so answers stay anonymous.
+
+## Photos, bios and crew mottos
+
+Players can add a profile photo (shown on the leaderboard, crew pages and the iPad) and a short bio;
+crew owners can pick a crew color, emblem and motto. If anything is inappropriate: **Players → Manage →
+Remove photo / Clear bio**, or **Crews → Manage → Clear motto**. Every change is in the activity log.
+
 ## Becoming staff
+
+- Players sign in with just their email, so anyone who knows an email can open that player's
+  account. That's fine for a leaderboard, but not for staff tools: **staff accounts need their own
+  password** (8+ characters). The staff screen asks for it when you unlock it. After that, typing
+  your email on the sign-in screen asks for that password (players never see a password box).
+  Until a staff password is set, the database keeps staff tools shut.
 
 - The first owner opens **/admin** while signed in and enters the one-time staff code they were
   given privately. Codes work once.
@@ -74,14 +106,28 @@ as friendly competition rather than an audited record.
 
 ## SPINDEX ratings
 
-Players can add their SPINDEX rating (0–3000). It shows as **Self-reported** everywhere until staff
-verify it. The app is not connected to SPINDEX, PodPlay or PingPod accounts and never calculates
+SPINDEX is just for fun in this pilot. Players add their rating (0–3000) on Home, and the SPINDEX
+board (app and iPad) lists everyone by rating, highest first, with no verified / self-reported
+labels. The app is not connected to SPINDEX, PodPlay or PingPod accounts and never calculates
 SPINDEX.
 
-To verify one (**Admin → More → SPINDEX ratings**): only after you have seen proof in person (for example the
-player shows their SPINDEX profile in the official app). Write how you checked
-("Saw SPINDEX app at front desk 11/20"). You can't verify your own rating. Decline anything you
-can't confirm.
+If a real prize ever depends on SPINDEX, check the top ratings in person first. **Admin → More →
+SPINDEX ratings** still lets staff mark a rating verified (write how you checked, e.g. "Saw SPINDEX
+app at front desk 11/20"); players don't see the difference.
+
+## Timer location check
+
+Optional. When it's on, **Start playing** only works on a phone that's at PingPod. Logging a past
+session still works from anywhere.
+
+1. Stand inside PingPod with your phone and open **Admin → Settings → Timer location check**.
+2. Tap **Use this spot** (allow location when the phone asks), then **Save**.
+3. Turn on **Timer only starts at PingPod** and **Save** again.
+
+"How close players must be" defaults to 300 m, which covers the building and the parking lot. Phones
+indoors can be 50–100 m off, so the app also allows for the phone's own accuracy (up to 150 m).
+Players' locations are only compared with the venue's, never saved. If people have trouble starting
+the timer (location turned off, older phones), switch it off; nothing else changes.
 
 ## Player requests
 
@@ -94,7 +140,7 @@ that person's sessions and ratings).
 
 ## The iPad scoreboard
 
-1. On the front-desk iPad, open Safari to **https://pingpod-morrisville-rewards.vercel.app/display**.
+1. On the front-desk iPad, open Safari to **https://www.pingpodrewards.site/display**.
 2. Share → **Add to Home Screen**, then open it from the home screen (full screen, no browser bar).
 3. Settings → Accessibility → **Guided Access** on; triple-click the side/home button to lock the
    iPad to the board.
@@ -102,7 +148,7 @@ that person's sessions and ratings).
 5. **Never sign in as staff on the iPad.** The board needs no login and shows only public nicknames,
    their stats and crew names.
 
-It rotates through most minutes this week, current streaks, top crews and weekly highlights, and
+Players can tap a board (Minutes, SPINDEX, Crews, Streaks, Longest, This week), switch Today / Week / Month and scroll the list. When nobody touches it for about 45 seconds it goes back to rotating through the boards on its own, and
 refreshes itself within seconds when anyone finishes or logs a session. The small "Updated" time in the corner shows freshness;
 if the internet drops it says the data may be out of date instead of pretending to be live.
 
@@ -121,7 +167,8 @@ address set in Settings, so it never points to a test address. Reprint if that a
 | Logging past sessions → How far back | 7 days | How far back players can log |
 | Logging past sessions → Longest session | 180 min | Longest single session a player can log |
 | Crews → Largest crew / Members needed | 8 / 2 | Size limit, and members needed to appear on the board |
-| iPad display → Seconds per screen, Screens to show | 15 s, all 6 screens (minutes, streaks, longest session, crew rankings, highest SPINDEX, this week) | Rotation on the front-desk board |
+| iPad display → Seconds per screen, Screens to show | 15 s, all 6 screens (minutes, highest SPINDEX, crew rankings, daily streaks, longest session, this week) | Rotation on the front-desk board |
+| Timer location check | Off, 300 m | Only start timers at PingPod (see above) |
 | Rewards → Show rewards to players | Off | Master switch for prizes |
 | **Advanced** (tap to open) | — | QR address, venue name, shortest session (5 min), daily limit (300 min), which leaderboards players see |
 
@@ -159,7 +206,8 @@ compare against; report the real numbers.
 
 ## What the app does not prove
 
-App activity is not proof that someone was physically at PingPod. A timer only measures time
-between two taps, and logged entries are self-reported. That's fine for a fun, trust-based pilot.
+App activity is not proof that someone was physically at PingPod. With the timer location check on,
+a timer was started on a phone near PingPod (a determined person can fake a phone's location), and
+logged entries are always self-reported. That's fine for a fun, trust-based pilot.
 If a physical prize is ever attached to a ranking, check the top entries against booking records
 before awarding it.

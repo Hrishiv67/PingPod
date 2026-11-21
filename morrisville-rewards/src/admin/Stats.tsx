@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Download } from "lucide-react";
 import { api, errorText, type ExportKind } from "../lib/api";
 import type { Analytics, WeeklyRow } from "../lib/types";
-import { Button, InlineError, ProgressBar, Skeleton, useToast } from "../components/ui";
+import { Button, InlineError, ProgressBar, useToast } from "../components/ui";
+import LogoLoader from "../components/LogoLoader";
 import { formatDay, formatNumber, venueDate } from "../lib/time";
 import { SectionHead, downloadText, toCsv, useLoad } from "./shared";
 
@@ -52,7 +53,7 @@ export default function Stats() {
         }
       />
       {loading && !data ? (
-        <Skeleton height={96} count={3} />
+        <LogoLoader label="Loading stats" />
       ) : error ? (
         <InlineError onRetry={reload}>{error}</InlineError>
       ) : data ? (
@@ -106,7 +107,7 @@ function Kpi({ label, value, goal, foot }: { label: string; value: number; goal?
       <span className="adm-kpi-label">{label}</span>
       <strong className="num">
         {formatNumber(value)}
-        {goal != null && <small> / {goal}</small>}
+        {goal != null && <small className="kpi-goal">goal {goal}</small>}
       </strong>
       {goal != null && <ProgressBar value={value} max={goal} label={`${label} toward the goal of ${goal}`} />}
       {foot && <span className="adm-kpi-foot">{foot}</span>}

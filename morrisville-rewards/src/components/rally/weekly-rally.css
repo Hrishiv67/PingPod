@@ -1,0 +1,547 @@
+/* Weekly Rally card on Home: matches the app's panels (dark surface, thin line, PingPod pink). */
+.rally-card, .rally-dialog {
+  --rally-accent: #ff83b3;
+  --rally-line: var(--line, #2a2a2f);
+  --rally-muted: var(--text-2, #c9c9d1);
+  box-sizing: border-box;
+  color: #fff;
+  color-scheme: dark;
+  font: inherit;
+}
+.rally-card {
+  border: 1px solid var(--rally-line);
+  border-radius: var(--r, 18px);
+  background: var(--surface, #111113);
+  overflow: hidden;
+}
+.rally-card button { font: inherit; cursor: pointer; }
+
+.rally-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 14px 18px 6px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.rally-head { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.rally-title {
+  font-family: var(--font-display, system-ui);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+.rally-sub { color: var(--rally-muted); font-size: 14px; }
+.rally-rank {
+  font-family: var(--font-display, system-ui);
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--pink, #ff0078);
+}
+.rally-chevron {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin: 0 2px 4px 2px;
+  border: solid var(--muted, #9a9aa5);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  transition: transform 0.2s;
+}
+.rally-toggle[aria-expanded="true"] .rally-chevron { transform: rotate(225deg); margin-bottom: -4px; }
+
+.rally-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  margin: 0;
+  padding: 8px 12px 14px;
+  list-style: none;
+}
+.rally-week li {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  color: var(--muted, #9a9aa5);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.rally-week svg { color: #3a3a42; }
+.rally-flame-cutout { fill: var(--surface, #111113); }
+.rally-week .rally-played { color: #fff; }
+.rally-week .rally-played svg { color: var(--pink, #ff0078); filter: drop-shadow(0 0 6px rgba(255, 0, 120, 0.45)); }
+.rally-week .rally-today > span { color: #fff; text-decoration: underline; text-decoration-color: var(--pink, #ff0078); text-underline-offset: 4px; text-decoration-thickness: 2px; }
+
+/* No goal yet: one obvious button. With a goal: the whole progress block is tappable (Edit). */
+.rally-cta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: calc(100% - 28px);
+  margin: 0 14px 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--line, #2a2a2f);
+  border-radius: 12px;
+  background: var(--surface-2, #19191c);
+  color: #fff;
+  text-align: left;
+  transition: transform 0.12s, background-color 0.2s;
+}
+.rally-cta:active { transform: scale(0.985); background: var(--surface-3, #232327); }
+.rally-cta-icon { display: grid; place-items: center; flex: none; width: 24px; height: 24px; color: var(--pink, #ff0078); }
+.rally-cta-text { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.rally-cta-text strong { font-size: 16px; font-weight: 700; }
+.rally-cta-text span { color: var(--rally-muted); font-size: 13.5px; }
+.rally-cta-arrow { flex: none; color: var(--pink, #ff0078); font-size: 20px; font-weight: 700; }
+
+.rally-goal {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 2px 18px 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.rally-goal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--rally-muted); font-size: 14px; font-weight: 600; }
+.rally-goal-edit {
+  flex: none;
+  padding: 4px 12px;
+  border: 1px solid var(--line-strong, #3a3a40);
+  border-radius: 999px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+.rally-goal:active .rally-goal-edit { background: var(--surface-3, #232327); }
+.rally-bar { display: block; height: 8px; border-radius: 999px; background: var(--surface-3, #232327); overflow: hidden; }
+.rally-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--pink, #ff0078); transition: width 0.6s cubic-bezier(.2,.7,.2,1); }
+.rally-goal-line { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; color: var(--rally-muted); font-size: 14px; }
+.rally-goal-line strong { color: var(--rally-accent); font-weight: 700; }
+.rally-card.is-hit { border-color: var(--pink-line, rgba(255, 0, 120, 0.45)); }
+.rally-card.is-hit .rally-goal-line strong { color: var(--pink, #ff0078); }
+.rally-note { margin: 0; color: var(--muted, #9a9aa5); font-size: 13px; }
+
+.rally-details { display: grid; gap: 14px; padding: 14px 18px 18px; border-top: 1px solid var(--rally-line); }
+.rally-details[hidden] { display: none; }
+.rally-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.rally-facts div { display: grid; gap: 2px; }
+.rally-facts dt { color: var(--muted, #9a9aa5); font-size: 13px; font-weight: 600; }
+.rally-facts dd { margin: 0; font-family: var(--font-display, system-ui); font-size: 22px; font-weight: 800; }
+
+.rally-dialog {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: auto;
+  background: #080809;
+}
+.rally-dialog::backdrop { background: #080809; }
+.rally-dialog * { box-sizing: border-box; }
+.rally-flow {
+  width: min(100%, 520px);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  margin: auto;
+  padding: max(16px, env(safe-area-inset-top)) 20px max(16px, env(safe-area-inset-bottom));
+}
+.rally-flow-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.rally-step { margin-left: auto; color: var(--muted, #9a9aa5); font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.rally-flow-brand { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 750; }
+.rally-close {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid #303033;
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
+  font: 23px system-ui;
+  cursor: pointer;
+}
+/* The opening shot owns the viewport. The rest of the planner has a reading column. */
+.rally-dialog[data-intro="true"] .rally-flow { width: 100%; padding: 0; }
+.rally-dialog[data-intro="true"] .rally-flow-top {
+  position: absolute;
+  z-index: 2;
+  top: max(14px, env(safe-area-inset-top));
+  right: max(14px, env(safe-area-inset-right));
+}
+.rally-dialog[data-intro="true"] .rally-flow-brand { display: none; }
+.rally-dialog[data-intro="true"] .rally-close { background: #080809bb; }
+/* The table rim lines up with the light under the incoming ball. */
+.rally-intro { position: absolute; inset: 0; overflow: hidden; cursor: pointer; }
+.rally-intro[data-revealed="true"] { cursor: default; }
+.rally-screen, .rally-film, .rally-lockup { position: absolute; inset: 0; width: 100%; height: 100%; }
+.rally-screen { isolation: isolate; }
+/* Smooth start: the dialog and the table fade in; when the ball lands, the table fades out over the
+   same pink glow the logo sits in, so nothing pops. */
+.rally-dialog[open] { animation: rally-dialog-in .3s ease-out both; }
+@keyframes rally-dialog-in { from { opacity: 0; } }
+.rally-intro { background: radial-gradient(ellipse 75% 48% at 50% 47%, #2a0e1d 0%, #100a12 62%, #080809 100%); }
+.rally-film { display: block; animation: rally-film-in .5s ease-out both; transition: opacity .6s cubic-bezier(.4,0,.2,1); }
+@keyframes rally-film-in { from { opacity: 0; transform: scale(1.03); } }
+.rally-intro[data-revealed="true"] .rally-film { opacity: 0; }
+.rally-intro[data-bounce="true"] .rally-film { transition-duration: .5s; }
+.rally-lockup {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: clamp(17px, 3dvh, 26px);
+  padding: 0 16px 12dvh;
+  opacity: 0;
+  pointer-events: none;
+}
+.rally-intro[data-revealed="true"] .rally-lockup { opacity: 1; }
+.rally-ball-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: clamp(120px, min(49vw, 37dvh), 246px);
+  aspect-ratio: 1;
+  isolation: isolate;
+}
+.rally-ball-rim {
+  position: absolute;
+  z-index: -1;
+  inset: -55% -85%;
+  background:
+    radial-gradient(ellipse 42% 1.7% at 50% 78%, #ff91bd55, transparent 95%),
+    radial-gradient(ellipse 30% 15% at 50% 79%, #ec388d34, transparent 95%),
+    radial-gradient(ellipse 45% 46% at 50% 53%, #79244956, transparent 86%);
+  opacity: 0;
+}
+.rally-brand-ball {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 50%;
+  isolation: isolate;
+  transform-origin: center;
+  background:
+    radial-gradient(ellipse at 27% 18%, #fff 0%, transparent 45%),
+    radial-gradient(ellipse at 31% 24%, #fdfaf7 7%, #f5efeb 33%, #d6ccd3 56%, #907a91 73%, #3c263d 90%, #251227 100%);
+  box-shadow: inset 0 -3px 10px #f899bf85, 0 9px 32px #f8589b26;
+  opacity: 0;
+}
+.rally-brand-ball::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background-image: radial-gradient(#5b3f4b44 0.35px, transparent 0.7px);
+  background-size: 2.4px 2.4px;
+  opacity: .58;
+  content: "";
+}
+.rally-brand-ball::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(ellipse at 30% 19%, #fff6 0%, transparent 42%),
+    linear-gradient(155deg, transparent 47%, #54244c4d 80%, #f6b4ce42 100%);
+  pointer-events: none;
+  content: "";
+}
+.rally-ball-ink {
+  --pink: #e9006b;
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #241927;
+  mix-blend-mode: multiply;
+}
+.rally-ball-ink :is(svg, img) { display: block; width: 61%; height: auto; }
+.rally-lockup-title {
+  margin: 0;
+  color: #fff;
+  font: 800 clamp(36px, 9vw, 63px)/.97 var(--font-display, system-ui);
+  letter-spacing: -.025em;
+  text-align: center;
+  opacity: 0;
+}
+.rally-intro[data-revealed="true"] .rally-ball-rim { animation: rally-rim-arrive .82s ease-out both; }
+.rally-intro[data-revealed="true"] .rally-brand-ball { animation: rally-ball-arrive .94s cubic-bezier(.2,.72,.24,1) both; }
+.rally-intro[data-revealed="true"] .rally-ball-ink { animation: rally-ink-turn .98s cubic-bezier(.2,.72,.24,1) both; }
+.rally-intro[data-revealed="true"] .rally-lockup-title { animation: rally-title-in .7s .38s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes rally-title-in { from { opacity: 0; transform: translateY(16px); letter-spacing: .02em; } to { opacity: 1; transform: none; } }
+@keyframes rally-rim-arrive {
+  0% { opacity: 0; transform: scaleX(.14); }
+  42% { opacity: .9; }
+  to { opacity: 1; transform: scaleX(1); }
+}
+@keyframes rally-ball-arrive {
+  0% { opacity: 1; transform: translate3d(var(--rally-arrival-x, 45vw), var(--rally-arrival-y, 9dvh), 0) scale(var(--rally-arrival-scale, .15)); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+/* Carry the projected ball's last direction into the reveal before easing into the lockup. */
+.rally-intro[data-bounce="true"][data-revealed="true"] .rally-brand-ball {
+  animation: rally-bounce-settle .92s both;
+}
+@keyframes rally-bounce-settle {
+  0% {
+    opacity: 1;
+    transform: translate3d(var(--rally-arrival-x), var(--rally-arrival-y), 0) scale(var(--rally-arrival-scale));
+    animation-timing-function: cubic-bezier(.25, .3, .6, 1);
+  }
+  14% {
+    transform: translate3d(calc(var(--rally-arrival-x) + var(--rally-tangent-x)), calc(var(--rally-arrival-y) + var(--rally-tangent-y)), 0)
+      scale(calc(var(--rally-arrival-scale) + .09));
+    animation-timing-function: cubic-bezier(.32, 0, .24, 1);
+  }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+@keyframes rally-ink-turn {
+  from { opacity: 0; transform: perspective(350px) translateX(40%) rotateY(-78deg) rotateZ(24deg); }
+  23% { opacity: 0; }
+  to { opacity: 1; transform: perspective(350px) translateX(0) rotateY(0) rotateZ(-8deg); }
+}
+@keyframes rally-lockup-type {
+  from { clip-path: inset(100% 0 0); opacity: 0; transform: translateY(10px); }
+  to { clip-path: inset(0); opacity: 1; transform: none; }
+}
+.rally-intro-copy {
+  position: absolute;
+  left: 50%;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  width: min(calc(100% - 40px), 330px);
+  visibility: hidden;
+  opacity: 0;
+  transform: translateX(-50%);
+}
+.rally-intro[data-revealed="true"] .rally-intro-copy {
+  animation: rally-continue-in .5s .75s cubic-bezier(.2,.8,.2,1) forwards;
+}
+@keyframes rally-continue-in {
+  from { visibility: visible; opacity: 0; transform: translate(-50%, 9px); }
+  to { visibility: visible; opacity: 1; transform: translate(-50%, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rally-film { transition: none; }
+  .rally-intro[data-revealed="true"] :is(.rally-ball-rim,.rally-brand-ball,.rally-ball-ink,.rally-lockup-title,.rally-intro-copy),
+  .rally-intro[data-bounce="true"][data-revealed="true"] .rally-brand-ball {
+    animation: none;
+    opacity: 1;
+    visibility: visible;
+  }
+}
+@media (max-height: 380px) and (orientation: landscape) {
+  .rally-lockup { padding-bottom: 15dvh; gap: 11px; }
+  .rally-ball-stage { width: 30dvh; }
+  .rally-lockup-title { font-size: 30px; }
+}
+.rally-scene h2 {
+  margin: 0 0 12px;
+  font: 850 clamp(39px, 10vw, 66px)/.99 var(--font-display, system-ui);
+  letter-spacing: -.04em;
+  text-wrap: balance;
+}
+.rally-primary {
+  width: 100%;
+  min-height: 49px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 9px;
+  background: #fcf5f8;
+  color: #171016;
+  font: inherit;
+  font-weight: 770;
+  cursor: pointer;
+}
+.rally-primary:disabled { background: #29262a; color: #b8adb5; cursor: default; }
+.rally-quiet {
+  justify-self: start;
+  min-height: 44px;
+  padding-inline: 0;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  font: inherit;
+  cursor: pointer;
+}
+.rally-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Fade outgoing content without restarting the animation on its children. */
+.rally-scenes { opacity: 1; transition: opacity .16s ease-in; }
+.rally-scenes[data-changing="true"] { opacity: 0; }
+.rally-scenes[data-changing="true"][data-committed="true"] { transition-delay: .32s; }
+
+.rally-seam {
+  height: 2px;
+  margin-top: 12px;
+  background: #2b262c;
+}
+.rally-seam span {
+  display: block;
+  width: 14%;
+  height: 100%;
+  background: #ff4f95;
+  transition: width .9s cubic-bezier(.22,.72,.24,1);
+}
+.rally-seam[data-scene="guide"] span { width: 32%; }
+.rally-seam[data-scene="hours"] span { width: 56%; }
+.rally-seam[data-scene="days"] span { width: 83%; }
+.rally-seam[data-scene="saved"] span { width: 100%; }
+.rally-scene {
+  display: grid;
+  gap: 13px;
+  padding-top: clamp(28px, 7dvh, 62px);
+  animation: rally-scene-open .65s cubic-bezier(.21,.72,.21,1) both;
+}
+.rally-scene h2 { margin: 0 0 5px; font-size: clamp(34px, 8.3vw, 56px); }
+.rally-scene h2:focus { outline: none; }
+@keyframes rally-scene-open { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+/* The benchmark and the player's plan share a bar that divides into play days. */
+.rally-scene .rally-stat {
+  --rally-benchmark: #d4ff89;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 3px 13px;
+  margin: 0;
+}
+.rally-stat-number {
+  color: var(--rally-benchmark);
+  font: 900 clamp(87px, 25vw, 153px)/.86 var(--font-display, system-ui);
+  letter-spacing: .005em;
+  animation: rally-number-in 1s .08s cubic-bezier(.19,.76,.2,1) both;
+}
+@keyframes rally-number-in {
+  from { clip-path: inset(100% 0 0); transform: translateY(17px); opacity: 0; }
+  to { clip-path: inset(0); transform: none; opacity: 1; }
+}
+.rally-stat-unit { font: 800 clamp(17px, 4.5vw, 24px)/1.2 var(--font-display, system-ui); letter-spacing: 0; animation: rally-scene-open .65s .33s both; }
+.rally-stat-source { max-width: 36ch; margin: 0; color: var(--text-2, #c9c9d1); font-size: 15.5px; line-height: 1.5; animation: rally-scene-open .65s .35s both; }
+.rally-stat-source a { color: #fff; text-underline-offset: 3px; }
+.rally-activity-example { margin-top: 10px; }
+.rally-activity-example p { margin: 8px 0 0; font-size: 15px; animation: rally-scene-open .6s .9s both; }
+.rally-scene-activity .rally-primary { margin-top: 5px; animation: rally-scene-open .6s 1.05s both; }
+
+.rally-split {
+  --split-color: #ff83b3;
+  --split-surface: #1d151d;
+  position: relative;
+  isolation: isolate;
+  flex-basis: 100%;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 4px;
+}
+.rally-split[data-example="true"] { --split-color: #d4ff89; --split-surface: #080809; height: 9px; }
+.rally-split-fill { position: absolute; inset: 0; border-radius: inherit; background: var(--split-color); transform-origin: left; animation: rally-time-fill .65s .16s cubic-bezier(.2,.7,.24,1) both; }
+.rally-split[data-example="true"] .rally-split-fill { animation-delay: .45s; }
+.rally-split-cut {
+  position: absolute;
+  inset: 0 auto;
+  width: 5px;
+  background: var(--split-surface);
+  transform: translateX(-50%) scaleX(0);
+  transition: left .62s cubic-bezier(.22,.72,.25,1), transform .38s cubic-bezier(.22,.72,.25,1);
+}
+.rally-split-cut[data-active="true"] { transform: translateX(-50%) scaleX(1); }
+.rally-split[data-example="true"] .rally-split-cut[data-active="true"] { animation: rally-cut-time .37s .85s both; }
+@keyframes rally-time-fill { from { transform: scaleX(.12); opacity: .25; } to { transform: scaleX(1); opacity: 1; } }
+@keyframes rally-cut-time { from { transform: translateX(-50%) scaleX(0); } to { transform: translateX(-50%) scaleX(1); } }
+.rally-personal { margin: 0; color: var(--rally-muted); font-size: 14px; }
+.rally-personal strong { color: #fff; font: 800 25px var(--font-display, system-ui); }
+.rally-hour-form { display: grid; gap: 9px; }
+.rally-hours { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.rally-hours label > span, .rally-days label > span {
+  border: 1px solid #403841;
+  border-radius: 11px;
+  background: #151216;
+  color: #fff;
+  cursor: pointer;
+}
+.rally-hours label { position: relative; overflow: hidden; border-radius: 11px; }
+.rally-hours input { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.rally-hours label > span { display: grid; gap: 4px; min-height: 78px; align-content: center; padding: 10px 14px; text-align: left; }
+.rally-hours strong { font: 850 35px/.95 var(--font-display, system-ui); }
+.rally-hours label > span > span { color: var(--rally-muted); font: 13px var(--font, system-ui); }
+.rally-hours label:hover > span, .rally-hours input:focus-visible + span { border-color: #ff83b3; }
+.rally-hours input:focus-visible + span { outline: 2px solid #fff; outline-offset: -3px; }
+.rally-hours input:checked + span { border-color: #ff83b3; background: #2c1827; }
+.rally-custom { display: block; }
+.rally-custom input {
+  width: 100%;
+  height: 100%;
+  min-height: 49px;
+  padding: 6px 10px;
+  border: 1px solid #403841;
+  border-radius: 9px;
+  background: #151216;
+  color: #fff;
+  font: 16px system-ui;
+}
+.rally-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.rally-days label { position: relative; }
+.rally-days input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; margin: 0; cursor: pointer; }
+.rally-days label > span { display: grid; place-items: center; min-height: 47px; font-weight: 750; }
+.rally-days input:checked + span { background: #ff93bd; color: #23111b; border-color: #ff93bd; }
+.rally-days input:focus-visible + span { outline: 2px solid #fff; outline-offset: 2px; }
+.rally-days input:disabled + span { opacity: .34; }
+.rally-plan { display: flex; flex-wrap: wrap; align-items: baseline; gap: 1px 8px; padding: 13px 13px 12px; border: 1px solid #513447; border-radius: 12px; background: linear-gradient(135deg, #261824, #141116 76%); }
+.rally-plan-label { flex-basis: 100%; color: var(--rally-muted); font-size: 13px; }
+.rally-plan > strong { color: #ffadca; font: 850 clamp(29px, 8vw, 43px)/1.12 var(--font-display, system-ui); animation: rally-scene-open .37s cubic-bezier(.22,.7,.26,1) both; }
+.rally-plan > span { color: #fff; font-size: 14px; }
+.rally-plan p { flex-basis: 100%; margin: 6px 0 0; color: #fff; font-size: 13px; line-height: 1.5; }
+.rally-plan p strong { color: #fff3fa; }
+.rally-scene-saved { align-content: start; }
+.rally-scene-saved p { margin: 0 0 8px; color: #fff; }
+.rally-saved-mark { display: grid; width: 52px; height: 52px; place-items: center; border: 1px solid #61384e; border-radius: 50%; background: #261622; color: #ff9fc2; }
+.rally-saved-mark svg { width: 25px; height: 25px; }
+.rally-saved-mark .rally-flame-cutout { fill: #261622; }
+/* A picked hour tile fills before carrying the same pink time bar into play days. */
+.rally-hours label:nth-of-type(1) { animation: rally-scene-open .66s .13s both; }
+.rally-hours label:nth-of-type(2) { animation: rally-scene-open .66s .23s both; }
+.rally-hours label:nth-of-type(3) { animation: rally-scene-open .66s .33s both; }
+.rally-hours label:nth-of-type(4) { animation: rally-scene-open .66s .43s both; }
+.rally-scene-hours .rally-personal { animation: rally-number-in .75s both; }
+.rally-scene-hours .rally-custom { animation: rally-scene-open .65s .4s both; }
+.rally-hours label[data-committed="true"]::after,
+.rally-custom[data-selected="true"]::after {
+  position: absolute;
+  inset: auto 0 0;
+  height: 4px;
+  background: #ff83b3;
+  transform-origin: left;
+  animation: rally-time-fill .54s ease-out both;
+  content: "";
+}
+.rally-custom[data-selected="true"] { position: relative; }
+.rally-plan .rally-split { margin-bottom: 8px; }
+.rally-days label > span { transition: background-color .28s, border-color .28s, color .28s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rally-scenes, .rally-seam span, .rally-split-cut, .rally-days label > span { transition: none; }
+  .rally-scene, .rally-scene *,.rally-scene *::after { animation: none !important; }
+}
+
+.rally-card .rally-quiet { color: var(--muted, #9a9aa5); }
+
+/* Planner copy */
+.rally-eyebrow { margin: 0; color: var(--pink, #ff0078); font-size: 13px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; animation: rally-scene-open .6s both; }
+.rally-fine { margin: 0; color: var(--muted, #9a9aa5); font-size: 14px; line-height: 1.45; }
+.rally-scene-activity .rally-fine { animation: rally-scene-open .6s 1s both; }
+.rally-scene-saved strong { color: #fff; }
+.rally-plan > strong + p { margin-top: 8px; }
+
+/* Days screen detail: the math in grey, then a one-line pace tip */
+.rally-plan .rally-math { margin: 2px 0 0; color: var(--rally-muted); font-size: 14px; }
+.rally-plan .rally-pace { margin: 8px 0 0; padding-top: 10px; border-top: 1px solid #3a2a36; color: #fff; font-size: 14px; }

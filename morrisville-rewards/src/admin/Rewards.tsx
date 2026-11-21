@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Gift, Plus } from "lucide-react";
 import { api, errorText } from "../lib/api";
 import type { Reward } from "../lib/types";
-import { Button, Chip, EmptyState, InlineError, Sheet, Skeleton, Toggle, useToast } from "../components/ui";
+import { Button, Chip, EmptyState, InlineError, Sheet, Toggle, useToast } from "../components/ui";
+import LogoLoader from "../components/LogoLoader";
 import { formatDateTime } from "../lib/time";
 import { Note, OwnerOnly, SectionHead, useLoad } from "./shared";
 
@@ -34,7 +35,7 @@ export default function Rewards({ isOwner, rewardsVisible }: { isOwner: boolean;
       {!isOwner && <OwnerOnly>Only an owner can create or change rewards.</OwnerOnly>}
 
       {loading && !data ? (
-        <Skeleton height={100} count={2} />
+        <LogoLoader label="Loading rewards" />
       ) : error ? (
         <InlineError onRetry={reload}>{error}</InlineError>
       ) : !data?.length ? (

@@ -72,7 +72,8 @@ export function relativeDay(day: string, today: string = venueDate()): string {
 }
 
 export function formatDay(day: string): string {
-  return shortDay.format(new Date(`${day}T12:00:00Z`));
+  const d = new Date(`${day}T12:00:00Z`);
+  return Number.isNaN(d.getTime()) ? "" : shortDay.format(d);
 }
 
 const timeFmt = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: VENUE_TZ });

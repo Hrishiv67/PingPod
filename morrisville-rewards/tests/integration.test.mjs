@@ -308,7 +308,7 @@ describe("PingPod Morrisville Rewards · live backend", { skip: !ready }, () => 
 
   it("achievements are derived from real activity", async () => {
     const list = await ok(users.a.rpc("get_my_achievements"));
-    assert.equal(list.length, 10);
+    assert.equal(list.length, 11);
     const by = Object.fromEntries(list.map((x) => [x.code, x]));
     assert.equal(by.first_session.progress, 1);
     assert.ok(by.first_session.earned_at);
@@ -318,6 +318,8 @@ describe("PingPod Morrisville Rewards · live backend", { skip: !ready }, () => 
     assert.equal(by.regular.target, 5);
     assert.equal(by.regular.progress, 3, "today, yesterday and a week ago");
     assert.equal(by.regular.earned_at, null);
+    assert.equal(by.streak_3.progress, 2, "daily streak: yesterday and today in a row");
+    assert.equal(by.streak_7.target, 7);
     assert.ok(by.minutes_300.progress <= 300 && by.minutes_300.progress >= 270);
     const d = await ok(users.d.rpc("get_my_achievements"));
     assert.ok(d.every((x) => x.progress === 0 && x.earned_at === null));

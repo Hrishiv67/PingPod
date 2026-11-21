@@ -8,18 +8,18 @@ _Last updated: 2026-11-19 · branch `morrisville-rewards-starter` · app in `mor
 2. Backend: Supabase project **pingpod-morrisville** (ref `apojuerjhvyzjmpanqih`, us-east-1, free plan). Migrations 0100–0900 in `supabase/migrations/` are applied. New DB work = new numbered migration + re-run the grant/revoke block (see README).
 3. Frontend data access goes only through `src/lib/api.ts` (`api.*`). Types: `src/lib/types.ts`. Rules live in SQL, not React.
 4. Product decision (Nov 19): **players' time counts immediately**. There's no approval queue, and staff only fix or remove mistakes. Don't reintroduce verification UI unless the pilot owner asks.
-5. A native Swift app is planned on the same backend. Keep RPC names and signatures stable, and document changes in `docs/API.md` and `docs/SWIFT_INTEGRATION.md`.
+5. Keep RPC names and signatures stable and document changes in `docs/API.md`.
 
 ## Done and tested
 
 | Area | Status | How it was tested |
 | --- | --- | --- |
 | Schema, RLS, permissions, rate limits, audit log | Done | Live API suite (RLS, denied writes, anon limits); Supabase security advisor |
-| Email + password accounts, persistent login, sign out, password change, delete account | Done | Live browser E2E (sign in, reload, sign out persists); API suite (deletion) |
+| Email-only sign-in for every player (no password, no confirmation email; accounts made with a password earlier were switched in the database), persistent login, sign out, delete account; staff keep a real password enforced in the database | Done | Live browser E2E (sign in, reload, sign out persists); API suite (deletion) |
 | Nickname onboarding, avatar color, leaderboard opt-in, privacy toggles | Done | Browser E2E + API suite (case-insensitive uniqueness, blocked words) |
 | Server-timed sessions: start/finish/cancel, one active, idempotent retries, offline finish queue, 90-min check-in, 3-hour auto-stop | Done | API suite; rollback SQL time-logic test (DST, clamping, auto-close); browser E2E (timer restored after reload, 54-min finish) |
 | Log past play (7-day backdate, 5–180 min, duplicate + daily-cap checks) | Done | API suite; browser E2E (duplicate rejected with message) |
-| Leaderboards: minutes (week/month/all), streaks, longest session, SPINDEX, crews; deterministic tie-breaks | Done | API suite; browser E2E (two devices see the same board) |
+| Leaderboards: minutes (week/month/all), SPINDEX (second tab), crews, daily streaks, longest session; deterministic tie-breaks | Done | API suite; browser E2E (two devices see the same board) |
 | Crews: create, invite link/code, join, leave, rename, transfer, remove, new code; membership-history attribution | Done | Browser E2E (2 phones, combined 114 min); API suite; SQL boundary tests |
 | Milestones (10, derived from activity) | Done | API suite; demo tests |
 | SPINDEX: self-reported by default, staff can verify with a note; never computed or imported | Done | API suite; browser E2E ("Self-reported SPINDEX" label) |
@@ -32,10 +32,32 @@ _Last updated: 2026-11-19 · branch `morrisville-rewards-starter` · app in `mor
 Latest results (2026-11-19): `npm test` 22/22 pass · `tsc` clean · `npm run build` clean (no warnings) · live API suite 17/17 pass · rollback-only SQL time-logic test 18/18 pass · live browser E2E (2 phones + staff + iPad) passed · iPhone SE / 15 Pro Max walkthrough with no overflow or errors · production smoke test of `/`, `/join/*`, `/display`, `/poster` passed. Test accounts were removed afterwards; the live database starts empty.
 
 ## UX refinement pass (2026-11-19)
-- Welcome: smaller headline, form above the fold on small iPhones, clear disabled buttons, visible "Forgot password?".
+- Welcome: one email field and **Continue** ("No password needed"). Streaks are daily (days in a row; 3- and 7-day milestones).
+- Profiles: photo (resized on the phone, public `avatars` bucket, staff can remove) and a short bio; tap any player on the
+  leaderboard or in a crew for their profile card. Crews: owner picks color, emblem and motto (shown on boards and the iPad).
+  Players can remove one of their own sessions. A little more spacing, less repeated text, and the PingPod logo loader
+  wherever something loads. Live check: logging updates the iPad instantly; last week's minutes drop off the weekly board.
+- Photo crop (drag to move, pinch/slider to zoom, round preview) before upload. Leaderboard is a full numbered list (no
+  podium) with a "where you stand" card: your rank of everyone, the gap to the next spot up, and Find me. Same for crews.
+- Research survey: new players see a one-time "Quick favor?" card on Home linking to an anonymous Google Form (nothing about
+  the player is added to the link); it stays as "Research survey" on the profile. Owners change or clear the link in
+  Admin → Settings → Research survey (`pilot_settings.survey_url`). Shown as a one-time pop-up, then a small card at the bottom of Home until opened.
+- SPINDEX tile on Home (tap to add or update). Nicknames are unique ignoring capitals, spaces and punctuation
+  ("Hrishiv" = "hrishiv." = "Hri shiv"), enforced by a database index.
+- iPad display is touch-friendly: board tabs, Today / Week / Month, scrollable lists (top 50), calmer sizes, no filler
+  text; it resumes rotating after ~45 s hands-off. Boards everywhere support a "day" period.
+- Home is back to four tiles plus a slim SPINDEX row; the survey is a one-time pop-up plus one quiet line at the bottom.
+- First time Rankings, Crew or Me opens in a visit, the PingPod loader shows for 0.8 s.
+- Sign-in suggests fixes for mistyped domains ("gmial.com" → "gmail.com") and blocks domains that can't receive
+  email (DNS check). It can't prove someone owns the inbox; only an emailed code can.
+- Swift guide removed (no native app planned).
+- iPad always rotates (TV mode) with a progress bar; long lists scroll themselves; a tapped board stays up 30 s.
+- Optional email verification ("eligible for possible future rewards"): blue card at the bottom of Home, 6-digit code
+  or emailed link; recorded server-side only when the session proves an OTP sign-in (confirm_email_verified).
+- Survey line stays at the bottom of Home after it's opened (quieter).
 - Home: Start playing / Log past session first, one compact stats strip, recent sessions; the active timer has its own focused view.
 - Less repeated grey text on Rankings, Crew and Me.
-- iPad `/display`: back to the original layout (large QR panel beside the board) by request. Six boards rotate: most minutes, longest streaks, longest session, crew rankings, highest SPINDEX (new; verified ratings marked) and this week. Category-specific labels and units, pilot dates in the header, an invitation row under short lists, and each empty board shows its own message.
+- iPad `/display`: back to the original layout (large QR panel beside the board) by request. Six boards rotate: most minutes, highest SPINDEX (second, by request; verified ratings marked), crew rankings, daily streaks, longest session and this week. Category-specific labels and units, pilot dates in the header, an invitation row under short lists, and each empty board shows its own message.
 - `/admin`: Sessions · Players · Crews · Stats · Settings, with the rest under More; plain labels; staff notes are optional.
 - Tested: demo walkthrough at iPhone SE/14/Pro Max/desktop, display states at iPad portrait/landscape/TV, admin against mocked data, and a live two-phone + iPad run on the real database (test accounts deleted afterwards). Not yet tested: admin against live data, physical devices.
 
@@ -54,5 +76,4 @@ Latest results (2026-11-19): `npm test` 22/22 pass · `tsc` clean · `npm run bu
 - Physical rewards are built but **off** until Joe approves terms (an approval note is required to enable one).
 - Optional match XP (+20/+60/+10) is not built (deferred by request).
 - No push notifications; the 90-minute check-in shows in the app only.
-- Swift integration guide was written but not compiled here (no Xcode in this environment).
 - Not tested on a physical iPhone/iPad; tested in Playwright's iPhone/iPad emulation.

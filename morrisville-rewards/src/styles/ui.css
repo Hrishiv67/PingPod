@@ -130,7 +130,7 @@
   height: 24px;
   padding: 0 9px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -163,6 +163,16 @@
   font-weight: 800;
   letter-spacing: 0.02em;
   color: #000;
+}
+.avatar.has-photo {
+  overflow: hidden;
+  background: var(--surface-3);
+}
+.avatar.has-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 .avatar-pink {
   background: var(--pink);
@@ -457,6 +467,13 @@ textarea.input {
   display: grid;
   gap: 8px;
 }
+/* A single paragraph flows as one sentence (an email address inside it stays inline). */
+p.sheet-text {
+  display: block;
+}
+.sheet-text strong {
+  overflow-wrap: anywhere;
+}
 @media (min-width: 640px) {
   .sheet-backdrop {
     align-items: center;
@@ -484,11 +501,11 @@ textarea.input {
 
 .stack-sm {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 .stack {
   display: grid;
-  gap: 16px;
+  gap: 18px;
 }
 
 /* Toasts */
@@ -524,4 +541,18 @@ textarea.input {
 }
 .toast-bad svg {
   color: #c62828;
+}
+
+/* Wrong code / password: a quick sideways shake. */
+.field input.shake {
+  animation: field-shake 0.32s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+@keyframes field-shake {
+  15%, 85% { transform: translateX(-2px); }
+  30%, 70% { transform: translateX(5px); }
+  45% { transform: translateX(-7px); }
+  60% { transform: translateX(7px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .field input.shake { animation: none; }
 }

@@ -43,7 +43,6 @@ export default function ResetPassword() {
           </Button>
         </form>
       </main>
-      <footer className="welcome-foot">Morrisville Rewards · Beta</footer>
     </div>
   );
 }

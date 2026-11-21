@@ -35,15 +35,16 @@
 
 /* Shell */
 .app {
+  min-height: 100vh;
   min-height: 100dvh;
-  padding-bottom: calc(var(--nav-h) + var(--safe-bottom) + 24px);
+  padding-bottom: calc(var(--nav-h) + var(--safe-bottom) + var(--vv-bottom, 0px) + 24px);
 }
 .app-header {
   position: sticky;
   top: 0;
   z-index: 30;
   padding: calc(var(--safe-top) + 8px) calc(var(--gutter) + var(--safe-right)) 8px calc(var(--gutter) + var(--safe-left));
-  background: rgba(0, 0, 0, 0.88);
+  background: rgba(0, 0, 0, 0.97);
   backdrop-filter: saturate(140%) blur(12px);
   -webkit-backdrop-filter: saturate(140%) blur(12px);
   border-bottom: 1px solid var(--line);
@@ -63,6 +64,7 @@
   min-height: 44px;
 }
 .header-avatar {
+  text-decoration: none;
   border: 0;
   padding: 0;
   background: none;
@@ -75,13 +77,13 @@
 .page {
   max-width: 720px;
   margin: 0 auto;
-  padding: 20px calc(var(--gutter) + var(--safe-right)) 0 calc(var(--gutter) + var(--safe-left));
+  padding: 26px calc(var(--gutter) + var(--safe-right)) 0 calc(var(--gutter) + var(--safe-left));
   display: grid;
-  gap: 24px;
+  gap: 32px;
 }
 .page-title {
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 .page-title h1 {
   font-size: 36px;
@@ -91,7 +93,7 @@
 }
 .section {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 .section-head {
   display: flex;
@@ -106,7 +108,7 @@
   border-radius: var(--r);
   background: var(--surface);
   border: 1px solid var(--line);
-  padding: 18px;
+  padding: 20px;
 }
 .list {
   border-radius: var(--r);
@@ -138,6 +140,7 @@
   left: 0;
   right: 0;
   bottom: 0;
+  bottom: var(--vv-bottom, 0px); /* stays on screen in kiosk apps (see lib/viewportFit) */
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   padding: 6px calc(8px + var(--safe-right)) calc(6px + var(--safe-bottom)) calc(8px + var(--safe-left));
@@ -155,7 +158,7 @@
   border-radius: 12px;
   color: var(--muted);
   text-decoration: none;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 700;
   letter-spacing: 0.02em;
 }
@@ -170,7 +173,7 @@
   z-index: 41;
   left: 0;
   right: 0;
-  bottom: calc(var(--nav-h) + var(--safe-bottom));
+  bottom: calc(var(--nav-h) + var(--safe-bottom) + var(--vv-bottom, 0px));
   padding: 8px 16px;
   background: var(--warn);
   color: #000;
@@ -398,8 +401,8 @@
   align-content: center;
   gap: 2px;
   min-width: 0;
-  min-height: 74px;
-  padding: 12px 14px;
+  min-height: 80px;
+  padding: 14px 16px;
   background: var(--surface);
   color: inherit;
   text-decoration: none;
@@ -408,7 +411,7 @@ a.stat-cell:active {
   background: var(--surface-2);
 }
 .stat-label {
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -457,6 +460,9 @@ a.stat-cell:active {
   background: transparent;
   text-align: left;
 }
+button.session-row {
+  grid-template-columns: 40px 1fr auto auto;
+}
 button.session-row:active {
   background: var(--surface-2);
 }
@@ -487,7 +493,7 @@ button.session-row:active {
 }
 .session-min small {
   font-family: var(--font);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--muted);
   margin-left: 2px;
@@ -584,6 +590,31 @@ button.session-row:active {
   flex: none;
   margin-top: 2px;
 }
+.spindex-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-color: var(--pink-line);
+  color: var(--text);
+  text-decoration: none;
+}
+.spindex-prompt > span {
+  display: grid;
+  gap: 2px;
+}
+.spindex-prompt strong {
+  color: var(--pink);
+}
+.spindex-prompt span span {
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+.spindex-prompt svg {
+  flex: none;
+  color: var(--pink);
+}
 .podium {
   display: grid;
   grid-template-columns: 1fr 1.15fr 1fr;
@@ -632,7 +663,7 @@ button.session-row:active {
   font-size: 32px;
 }
 .podium-unit {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.1em;
   color: var(--muted);
@@ -640,11 +671,11 @@ button.session-row:active {
 }
 .rank-row {
   display: grid;
-  grid-template-columns: 36px 36px 1fr auto;
+  grid-template-columns: 34px 38px 1fr auto;
   align-items: center;
-  gap: 10px;
-  min-height: 60px;
-  padding: 8px 14px;
+  gap: 12px;
+  min-height: 66px;
+  padding: 10px 16px;
 }
 .rank-row.me {
   background: var(--pink-soft);
@@ -682,14 +713,14 @@ button.session-row:active {
   display: block;
   margin-top: 3px;
   font-family: var(--font);
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--muted);
   text-transform: uppercase;
 }
 .you-tag {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.08em;
   color: var(--pink);
@@ -697,17 +728,240 @@ button.session-row:active {
 .crew-badge {
   display: grid;
   place-items: center;
+  flex: none;
   width: 36px;
   height: 36px;
   border-radius: 10px;
   background: var(--surface-3);
-  color: var(--text);
+  color: #000;
+}
+.crew-badge.avatar-pink { background: var(--pink); }
+.crew-badge.avatar-white { background: #fff; }
+.crew-badge.avatar-blue { background: #5ab0ff; }
+.crew-badge.avatar-green { background: #46d483; }
+.crew-badge.avatar-orange { background: #ff9b3d; }
+.crew-badge.avatar-purple { background: #b38cff; }
+
+/* Tappable rows and podium spots (open a player's profile) */
+button.rank-row,
+button.podium-spot {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+button.podium-spot {
+  text-align: center;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+button.podium-spot.first {
+  border-color: var(--pink-line);
+  background: linear-gradient(180deg, rgba(255, 0, 120, 0.16), var(--surface) 70%);
+}
+button.rank-row.me {
+  background: var(--pink-soft);
+}
+.tappable {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease;
+}
+.tappable:active,
+button.podium-spot:active {
+  background: var(--surface-2);
+}
+
+/* Player profile card */
+.player-card {
+  display: grid;
+  gap: 20px;
+}
+.player-card-head {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.player-card-who {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.player-card-bio {
+  color: var(--text-2);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.player-card-crew {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+.player-card-crew .crew-badge svg {
+  width: 13px;
+  height: 13px;
+}
+.verified-tick {
+  color: var(--ok);
+  margin-left: 4px;
+  vertical-align: -2px;
+}
+
+/* Crew look */
+.crew-title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+.crew-title h1 {
+  overflow-wrap: anywhere;
+}
+.crew-motto {
+  margin-top: 4px;
+  color: var(--text-2);
+}
+.crew-look-preview {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: var(--r);
+  background: var(--surface-2);
+}
+.crew-look-preview > div {
+  display: grid;
+  gap: 2px;
+}
+.crew-look-preview span {
+  color: var(--text-2);
+  font-size: 14px;
+}
+.swatches {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.swatch {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 0;
+  cursor: pointer;
+  box-shadow: 0 0 0 0 transparent;
+  transition: box-shadow 0.15s ease;
+}
+.swatch.on {
+  box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px #fff;
+}
+.emblem-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.emblem-pick {
+  display: grid;
+  place-items: center;
+  height: 52px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.emblem-pick.on {
+  border-color: var(--pink);
+  background: var(--pink-soft);
+  color: var(--pink);
+}
+
+/* Profile photo */
+.profile-photo {
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.profile-bio {
+  margin-top: 4px;
+  color: var(--text-2);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.chip-crew {
+  text-decoration: none;
+}
+.photo-edit {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.photo-edit-avatar {
+  position: relative;
+  display: inline-grid;
+}
+.photo-edit-busy {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+}
+.photo-edit-busy .logo-loader {
+  padding: 0;
+}
+.photo-edit-actions {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+}
+.photo-edit-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.photo-edit-actions .btn.is-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.link-btn.quiet {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 14px;
+  justify-self: center;
+}
+#history {
+  scroll-margin-top: 76px;
+}
+.session-chevron {
+  flex: none;
+  color: var(--muted);
+  margin-left: -4px;
 }
 .rank-gap {
   padding: 6px 14px;
   font-size: 13px;
   color: var(--muted);
   text-align: center;
+}
+/* SPINDEX board: "Verified by staff" and "Self-reported" sections */
+.rank-heading {
+  padding: 18px 16px 8px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+[role="listitem"]:first-child > .rank-heading {
+  padding-top: 12px;
 }
 
 /* Crew */
@@ -730,11 +984,11 @@ button.session-row:active {
 }
 .member-row {
   display: grid;
-  grid-template-columns: 40px 1fr auto;
+  grid-template-columns: 42px 1fr auto;
   align-items: center;
-  gap: 12px;
-  min-height: 60px;
-  padding: 8px 14px;
+  gap: 14px;
+  min-height: 66px;
+  padding: 10px 16px;
 }
 .member-row .rank-value {
   font-size: 22px;
@@ -808,7 +1062,7 @@ button.session-row:active {
   line-height: 1.2;
 }
 .badge-text span {
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--muted);
   line-height: 1.3;
 }
@@ -817,7 +1071,7 @@ button.session-row:active {
   margin-top: 2px;
 }
 .spindex-value {
-  font-size: 56px;
+  font-size: 64px;
   line-height: 1;
 }
 .settings-list .toggle-row,
@@ -1147,4 +1401,450 @@ button.session-row:active {
     opacity: 0;
     transform: scale(0.96);
   }
+}
+
+/* Photo crop */
+.cropper {
+  display: grid;
+  justify-items: center;
+  gap: 22px;
+}
+.cropper-frame {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--r);
+  background: var(--surface-2);
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+.cropper-frame:active {
+  cursor: grabbing;
+}
+.cropper-frame canvas {
+  display: block;
+}
+.cropper-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.55);
+  outline: 2px solid rgba(255, 255, 255, 0.85);
+  outline-offset: -2px;
+  pointer-events: none;
+}
+.cropper-zoom {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 300px;
+  color: var(--muted);
+}
+.cropper-zoom input {
+  flex: 1;
+  accent-color: var(--pink);
+}
+.cropper-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+}
+
+/* Leaderboard: where you stand + ranked list */
+.your-spot {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 16px 18px;
+  border-radius: var(--r);
+  border: 1px solid var(--pink-line);
+  background: linear-gradient(90deg, var(--pink-soft), var(--surface) 75%);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.your-spot.empty {
+  display: block;
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--text-2);
+  cursor: default;
+}
+.your-spot-rank {
+  display: grid;
+  justify-items: start;
+  font-size: 40px;
+  line-height: 0.95;
+  color: var(--pink);
+}
+.your-spot-rank small {
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.your-spot-text {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.your-spot-text strong {
+  font-size: 22px;
+  line-height: 1.1;
+}
+.your-spot-text strong small {
+  margin-left: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.your-spot-text > span {
+  font-size: 14px;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.your-spot-find {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pink);
+  white-space: nowrap;
+}
+.rank-row.top .rank-num {
+  color: #fff;
+}
+.rank-row.top-1 .rank-num,
+.rank-row.top-1 .rank-value {
+  color: var(--pink);
+}
+.rank-row.top-1 {
+  box-shadow: inset 3px 0 0 var(--pink);
+}
+.rank-row.me {
+  box-shadow: inset 3px 0 0 var(--pink);
+}
+@keyframes rank-flash {
+  0%,
+  40% {
+    background: rgba(255, 0, 120, 0.32);
+  }
+}
+.rank-row.flash {
+  animation: rank-flash 1.4s ease;
+}
+
+/* Research survey ask */
+.survey-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: var(--r);
+  border: 1px dashed var(--line-strong);
+  background: var(--surface);
+}
+.survey-card-text {
+  display: grid;
+  gap: 4px;
+}
+.survey-card-text strong {
+  font-size: 17px;
+}
+.survey-card-text span {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+.survey-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.survey-card-actions .btn {
+  text-decoration: none;
+}
+
+/* Home stats: three on top, SPINDEX + crew below */
+.stat-strip.home-strip {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+.stat-strip.home-strip > .stat-cell {
+  grid-column: span 2;
+}
+.stat-strip.home-strip > .stat-cell:nth-child(n + 4) {
+  grid-column: span 3;
+}
+button.stat-cell {
+  border: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+button.stat-cell:active {
+  background: var(--surface-2);
+}
+.survey-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+.survey-card .btn {
+  text-decoration: none;
+  white-space: nowrap;
+}
+a.btn-block {
+  display: flex;
+  justify-content: center;
+  text-decoration: none;
+}
+
+/* Home: slim SPINDEX row + survey line */
+.result-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 18px;
+  margin-top: 4px;
+  color: var(--text-2);
+}
+.result-stats strong {
+  color: var(--text);
+  font-size: 20px;
+}
+.stat-note {
+  font-size: 13px;
+  color: var(--text-2);
+}
+.spindex-add {
+  text-align: left;
+}
+.spindex-prompt.has {
+  border-color: var(--line);
+  background: var(--surface);
+}
+.spindex-row-text {
+  display: flex !important;
+  align-items: baseline;
+  gap: 12px;
+}
+.spindex-row-text strong {
+  font-size: 24px;
+  color: var(--text) !important;
+}
+.spindex-row-cta {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--pink);
+}
+.survey-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 0 4px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+}
+.survey-line svg {
+  color: var(--muted);
+}
+
+/* First visit to a tab: PingPod loader for 0.8 s, then the screen fades in */
+.tab-loader {
+  display: grid;
+  place-items: center;
+  min-height: calc(100dvh - 190px);
+}
+.tab-loader .logo-loader {
+  animation-delay: 0s;
+}
+.tab-reveal {
+  animation: tab-reveal 0.3s ease;
+}
+@keyframes tab-reveal {
+  from {
+    opacity: 0;
+  }
+}
+button.spindex-prompt {
+  width: 100%;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* "Did you mean …@gmail.com?" */
+.email-suggest {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: var(--r);
+  border: 1px solid var(--pink-line);
+  background: var(--pink-soft);
+  font-size: 14.5px;
+}
+.email-suggest-actions {
+  display: flex;
+  gap: 12px;
+}
+.email-suggest-actions .link-btn {
+  padding: 4px 0;
+  min-height: 32px;
+}
+
+/* Optional email verification (blue, so it reads apart from the pink actions) */
+.verify-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 16px 18px;
+  border-radius: var(--r);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.verify-card > svg {
+  color: #5ab0ff;
+}
+.verify-card > span {
+  display: grid;
+  gap: 2px;
+}
+.verify-card strong {
+  color: #8cc8ff;
+}
+.verify-card span span {
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+.survey-line.done {
+  opacity: 0.7;
+}
+
+/* "Checking you're at PingPod…" while the timer asks for the phone's location */
+.locating {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--text-2);
+  font-size: 14px;
+}
+.locating svg {
+  color: var(--pink);
+}
+/* SPINDEX card on Home: a subtle yellow outline so it reads apart from the pink actions */
+.spindex-card {
+  display: grid;
+  gap: 16px;
+  border-color: rgba(255, 190, 61, 0.45);
+  background: var(--surface);
+}
+.spindex-empty {
+  margin: 0;
+  color: var(--text-2);
+}
+
+/* Research survey on Home: pink until it's opened, then a plain card that's still easy to find */
+.survey-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--pink-line);
+  border-radius: var(--r);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+.survey-card:active {
+  background: var(--surface-2);
+}
+.survey-card-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--pink);
+  color: var(--on-pink);
+}
+.survey-card-text {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.survey-card-text strong {
+  font-size: 16px;
+}
+.survey-card-text span {
+  color: var(--text-2);
+  font-size: 14px;
+}
+.survey-card > svg {
+  flex: none;
+  color: var(--pink);
+}
+.survey-card.done {
+  border-color: var(--line);
+  background: var(--surface);
+}
+.survey-card.done .survey-card-icon {
+  background: var(--surface-3);
+  color: var(--text-2);
+}
+.survey-card.done > svg {
+  color: var(--muted);
+}
+
+.welcome-how {
+  justify-self: center;
+  margin-top: 4px;
+}
+
+/* The survey card is a button now (the survey opens in the app). */
+button.survey-card {
+  width: 100%;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Small "?" in the header: reopens "How it works". */
+.header-help {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-left: auto;
+  margin-right: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.header-help:active {
+  background: var(--surface-2);
 }

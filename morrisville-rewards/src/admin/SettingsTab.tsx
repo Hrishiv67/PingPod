@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, errorText } from "../lib/api";
 import type { BoardKey, DisplaySlide, Scope, Settings } from "../lib/types";
-import { Button, InlineError, Skeleton, Toggle, useToast } from "../components/ui";
+import { Button, InlineError, Toggle, useToast } from "../components/ui";
+import LogoLoader from "../components/LogoLoader";
 import { formatDateTime } from "../lib/time";
+import { currentFix, LocationError } from "../lib/geo";
+import { SURVEY } from "../lib/survey";
 import { Note, OwnerOnly, SectionHead } from "./shared";
 
 type NumKey =
@@ -14,7 +17,8 @@ type NumKey =
   | "daily_minutes_cap"
   | "crew_min_size"
   | "crew_max_size"
-  | "display_rotation_seconds";
+  | "display_rotation_seconds"
+  | "geofence_m";
 
 const NUM_FIELDS: Record<NumKey, { label: string; unit: string; min: number; max: number; hint?: string }> = {
   max_session_minutes: { label: "Stop timers after", unit: "min", min: 30, max: 480, hint: "A timer left running stops here and gets flagged." },
@@ -26,23 +30,30 @@ const NUM_FIELDS: Record<NumKey, { label: string; unit: string; min: number; max
   crew_min_size: { label: "Members needed to show on the board", unit: "players", min: 1, max: 10 },
   crew_max_size: { label: "Largest crew", unit: "players", min: 2, max: 30 },
   display_rotation_seconds: { label: "Seconds per screen", unit: "sec", min: 8, max: 60 },
+  geofence_m: {
+    label: "How close players must be",
+    unit: "m",
+    min: 50,
+    max: 5000,
+    hint: "300 m covers the building and parking lot. Phones indoors can be off by 50–100 m.",
+  },
 };
 
 const SLIDES: { value: DisplaySlide; label: string }[] = [
   { value: "minutes", label: "Most minutes this week" },
-  { value: "streaks", label: "Longest streaks" },
-  { value: "longest", label: "Longest session this week" },
-  { value: "crews", label: "Crew rankings" },
   { value: "spindex", label: "Highest SPINDEX" },
+  { value: "crews", label: "Crew rankings" },
+  { value: "streaks", label: "Daily streaks" },
+  { value: "longest", label: "Longest session this week" },
   { value: "highlights", label: "This week's highlights" },
 ];
 
 const BOARDS: { value: BoardKey; label: string }[] = [
   { value: "minutes", label: "Minutes" },
-  { value: "streaks", label: "Streaks" },
-  { value: "longest", label: "Longest session" },
   { value: "spindex", label: "SPINDEX" },
   { value: "crews", label: "Crews" },
+  { value: "streaks", label: "Daily streaks" },
+  { value: "longest", label: "Longest session" },
 ];
 
 type Draft = {
@@ -56,10 +67,14 @@ type Draft = {
   display_slides: DisplaySlide[];
   boards_enabled: BoardKey[];
   rewards_enabled: boolean;
+  survey_url: string;
+  geofence_enabled: boolean;
+  venue_lat: number | null;
+  venue_lng: number | null;
 } & Record<NumKey, string>;
 
 function toDraft(s: Settings): Draft {
-  const nums = Object.fromEntries(Object.keys(NUM_FIELDS).map((k) => [k, String(s[k as NumKey])])) as Record<NumKey, string>;
+  const nums = Object.fromEntries(Object.keys(NUM_FIELDS).map((k) => [k, String(s[k as NumKey] ?? "")])) as Record<NumKey, string>;
   return {
     ...nums,
     venue_name: s.venue_name,
@@ -72,6 +87,10 @@ function toDraft(s: Settings): Draft {
     display_slides: [...s.display_slides],
     boards_enabled: [...s.boards_enabled],
     rewards_enabled: s.rewards_enabled,
+    survey_url: s.survey_url ?? "",
+    geofence_enabled: Boolean(s.geofence_enabled),
+    venue_lat: s.venue_lat ?? null,
+    venue_lng: s.venue_lng ?? null,
   };
 }
 
@@ -91,6 +110,8 @@ export default function SettingsTab({
   const [loadError, setLoadError] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [locating, setLocating] = useState(false);
+  const [spotNote, setSpotNote] = useState("");
   const toast = useToast();
 
   async function load() {
@@ -126,6 +147,12 @@ export default function SettingsTab({
     }
     if (!sameList(draft.display_slides, base.display_slides)) p.display_slides = draft.display_slides;
     if (!sameList(draft.boards_enabled, base.boards_enabled)) p.boards_enabled = draft.boards_enabled;
+    if (draft.survey_url.trim() !== (base.survey_url ?? "")) p.survey_url = draft.survey_url.trim();
+    if (draft.venue_lat !== (base.venue_lat ?? null) || draft.venue_lng !== (base.venue_lng ?? null)) {
+      p.venue_lat = draft.venue_lat;
+      p.venue_lng = draft.venue_lng;
+    }
+    if (draft.geofence_enabled !== Boolean(base.geofence_enabled)) p.geofence_enabled = draft.geofence_enabled;
     return p as Partial<Settings>;
   }, [base, draft]);
 
@@ -137,7 +164,7 @@ export default function SettingsTab({
       })
     : [];
 
-  if (!draft || !base) return <section className="adm-section"><SectionHead title="Settings" /><Skeleton height={64} count={6} /></section>;
+  if (!draft || !base) return <section className="adm-section"><SectionHead title="Settings" /><LogoLoader label="Loading settings" /></section>;
 
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setDraft((d) => (d ? { ...d, [k]: v } : d));
   const toggleIn = <T extends string>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
@@ -215,6 +242,53 @@ export default function SettingsTab({
           </div>
         </Group>
 
+        <Group title="Timer location check">
+          <p className="field-hint" style={{ marginTop: 0 }}>
+            When this is on, "Start playing" only works on a phone at PingPod. The phone's location is only compared with the
+            spot below, never saved. Logging a past session still works from anywhere.
+          </p>
+          <div className="adm-geo">
+            <div>
+              <strong>{draft.venue_lat != null && draft.venue_lng != null ? "PingPod location set" : "PingPod location not set"}</strong>
+              <div className="field-hint">
+                {draft.venue_lat != null && draft.venue_lng != null
+                  ? `${draft.venue_lat.toFixed(5)}, ${draft.venue_lng.toFixed(5)}${spotNote ? ` · ${spotNote}` : ""}`
+                  : "Stand inside PingPod and tap Use this spot."}
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              loading={locating}
+              disabled={disabled}
+              onClick={async () => {
+                setLocating(true);
+                setError("");
+                try {
+                  const fix = await currentFix(20_000);
+                  setDraft((d) => (d ? { ...d, venue_lat: Number(fix.lat.toFixed(6)), venue_lng: Number(fix.lng.toFixed(6)) } : d));
+                  setSpotNote(`accurate to about ${Math.round(fix.accuracy)} m. Save to keep it.`);
+                } catch (err) {
+                  setError(err instanceof LocationError && err.kind === "denied" ? "Allow location for this site, then try again." : errorText(err));
+                } finally {
+                  setLocating(false);
+                }
+              }}
+            >
+              Use this spot
+            </Button>
+          </div>
+          {num("geofence_m")}
+          <Toggle
+            checked={draft.geofence_enabled}
+            disabled={disabled || draft.venue_lat == null || draft.venue_lng == null}
+            onChange={(v) => set("geofence_enabled", v)}
+            label="Timer only starts at PingPod"
+            description="Turn it off any time if players have trouble starting the timer."
+          />
+        </Group>
+
         <Group title="Logging past sessions">
           <div className="adm-grid-fields">
             {num("backdate_days")}
@@ -247,7 +321,11 @@ export default function SettingsTab({
               </label>
             ))}
           </fieldset>
-          <p className="field-hint">Screens with no results yet are skipped automatically. Don't sign in on the front-desk iPad.</p>
+          <p className="field-hint">Empty screens show their own invitation until someone's on them. Don't sign in on the front-desk iPad.</p>
+        </Group>
+
+        <Group title="Research survey">
+          <SurveyExport />
         </Group>
 
         <Group title="Rewards">
@@ -328,3 +406,50 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+
+/** The in-app survey's answers (anonymous) as a CSV file, one row per response. */
+function SurveyExport() {
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+  async function download() {
+    setBusy(true);
+    setNote("");
+    try {
+      const rows = await api.admin.surveyResponses();
+      if (!rows.length) {
+        setNote("No responses yet.");
+        return;
+      }
+      const qs = SURVEY.map((q) => q.id);
+      const cell = (v: unknown) => {
+        const s = Array.isArray(v) ? v.join("; ") : v == null ? "" : String(v);
+        return `"${s.replace(/"/g, '""')}"`;
+      };
+      const head = ["submitted", ...SURVEY.flatMap((q) => ["other" in q && q.other ? [q.text, `${q.text} (other)`] : [q.text]])];
+      const lines = rows.map((r) => [r.created_at, ...qs.flatMap((id) => {
+        const q = SURVEY.find((x) => x.id === id)!;
+        return "other" in q && q.other ? [r.answers[id], r.answers[`${id}_other`]] : [r.answers[id]];
+      })].map(cell).join(","));
+      const blob = new Blob([[head.map(cell).join(","), ...lines].join("\n")], { type: "text/csv" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `pingpod-survey-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      setNote(`${rows.length} response${rows.length === 1 ? "" : "s"} downloaded.`);
+    } catch (err) {
+      setNote(errorText(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="stack-sm">
+      <p className="field-hint">Players take the survey in the app. Answers are anonymous (not linked to accounts).</p>
+      <Button variant="secondary" loading={busy} onClick={() => void download()}>
+        Download responses (CSV)
+      </Button>
+      {note && <p className="field-hint">{note}</p>}
+    </div>
+  );
+}

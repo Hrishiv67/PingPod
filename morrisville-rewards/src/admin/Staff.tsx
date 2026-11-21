@@ -2,7 +2,8 @@ import { useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { api } from "../lib/api";
 import type { StaffMember, StaffRole } from "../lib/types";
-import { Avatar, Button, Chip, ConfirmSheet, EmptyState, InlineError, Skeleton, useToast } from "../components/ui";
+import { Avatar, Button, Chip, ConfirmSheet, EmptyState, InlineError, useToast } from "../components/ui";
+import LogoLoader from "../components/LogoLoader";
 import { formatDateTime } from "../lib/time";
 import { OwnerOnly, SectionHead, useLoad } from "./shared";
 
@@ -20,7 +21,7 @@ export default function Staff({ isOwner, myId }: { isOwner: boolean; myId: strin
       </p>
       {!isOwner && <OwnerOnly>Only an owner can change staff access.</OwnerOnly>}
       {loading && !data ? (
-        <Skeleton height={72} count={2} />
+        <LogoLoader label="Loading staff" />
       ) : error ? (
         <InlineError onRetry={reload}>{error}</InlineError>
       ) : !data?.length ? (

@@ -1,12 +1,18 @@
 // Shapes returned by the Supabase functions in supabase/migrations.
-// Keep in sync with docs/API.md (the iOS app uses the same contract).
+// Keep in sync with docs/API.md.
 
 export type SessionStatus = "active" | "pending" | "approved" | "rejected" | "cancelled";
 export type Method = "timer" | "manual";
 export type Scope = "verified" | "community";
-export type Period = "week" | "month" | "all";
+export type Period = "day" | "week" | "month" | "all";
 export type Metric = "minutes" | "streaks" | "longest" | "spindex";
 export type AvatarColor = "pink" | "white" | "blue" | "green" | "orange" | "purple";
+export type CrewEmblem = "users" | "flame" | "bolt" | "crown" | "target" | "rocket" | "star" | "shield";
+export interface CrewStyle {
+  color?: AvatarColor;
+  emblem?: CrewEmblem;
+  motto?: string | null;
+}
 export type StaffRole = "owner" | "staff";
 
 export const AVATAR_COLORS: AvatarColor[] = ["pink", "white", "blue", "green", "orange", "purple"];
@@ -18,6 +24,18 @@ export interface Profile {
   show_on_leaderboard: boolean;
   show_spindex: boolean;
   hidden_by_admin: boolean;
+  bio?: string | null;
+  /** Set once the player proved they own their email with a one-time code (optional; for rewards). */
+  email_verified_at?: string | null;
+  /** Path in the public "avatars" storage bucket; build the URL with avatarUrl(). */
+  avatar_path?: string | null;
+  /** Weekly Rally goal: play days per week (1–7) and minutes per week. Both null = no goal. */
+  weekly_goal_days?: number | null;
+  weekly_goal_minutes?: number | null;
+  /** When the player finished the in-app research survey (answers themselves are anonymous). */
+  survey_done_at?: string | null;
+  /** When the player first closed "How it works" (shown once per player). */
+  tutorial_seen_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -63,6 +81,13 @@ export interface Settings {
   display_slides: DisplaySlide[];
   boards_enabled: BoardKey[];
   rewards_enabled: boolean;
+  /** Research survey link shown to new players and on the profile (null = off). */
+  survey_url?: string | null;
+  /** Timer location check: the venue's coordinates (set by staff from the venue), radius, on/off. */
+  venue_lat?: number | null;
+  venue_lng?: number | null;
+  geofence_m?: number;
+  geofence_enabled?: boolean;
   updated_at?: string;
 }
 
@@ -107,6 +132,8 @@ export interface Me {
   server_now: string;
   profile: Profile | null;
   admin_role?: StaffRole | null;
+  /** On the staff list but still signing in with just an email: staff tools need a password first. */
+  staff_needs_password?: boolean;
   active_session?: PlaySession | null;
   crew?: CrewSummary | null;
   spindex?: SpindexClaim | null;
@@ -124,9 +151,10 @@ export interface LeaderRow {
   sessions: number | null;
   detail: string | null;
   is_me: boolean;
+  avatar_path?: string | null;
 }
 
-export interface CrewRow {
+export interface CrewRow extends CrewStyle {
   rank: number;
   crew_id: string;
   name: string;
@@ -141,13 +169,14 @@ export interface CrewMember {
   user_id: string;
   display_name: string;
   avatar_color: AvatarColor;
+  avatar_path?: string | null;
   is_owner: boolean;
   is_me: boolean;
   joined_at: string;
   minutes: number;
 }
 
-export interface MyCrew {
+export interface MyCrew extends CrewStyle {
   id: string;
   name: string;
   invite_code: string;
@@ -162,10 +191,28 @@ export interface MyCrew {
   members: CrewMember[];
 }
 
-export interface CrewPreview {
+export interface CrewPreview extends CrewStyle {
   name: string;
   members: number;
   max_members: number;
+}
+
+export interface PlayerCard {
+  user_id: string;
+  display_name: string;
+  avatar_color: AvatarColor;
+  avatar_path: string | null;
+  bio: string | null;
+  member_since: string;
+  is_me: boolean;
+  crew: { name: string; color: AvatarColor; emblem: CrewEmblem; motto: string | null } | null;
+  week_minutes: number;
+  total_minutes: number;
+  sessions: number;
+  current_streak: number;
+  longest_streak: number;
+  rank_week: number | null;
+  spindex: { rating: number; verified: boolean } | null;
 }
 
 export interface Achievement {
@@ -203,13 +250,14 @@ export interface DisplayPlayer {
   rank: number;
   display_name: string;
   avatar_color: AvatarColor;
+  avatar_path?: string | null;
   value: number;
   sessions?: number;
   secondary?: number;
   detail?: string;
 }
 
-export interface DisplayCrew {
+export interface DisplayCrew extends CrewStyle {
   rank: number;
   name: string;
   minutes: number;
@@ -276,6 +324,9 @@ export interface AdminPlayer {
   created_at: string;
   last_sign_in_at: string | null;
   avatar_color: AvatarColor | null;
+  avatar_path?: string | null;
+  bio?: string | null;
+  email_verified_at?: string | null;
   show_on_leaderboard: boolean | null;
   hidden_by_admin: boolean | null;
   hidden_reason: string | null;
@@ -287,7 +338,7 @@ export interface AdminPlayer {
   spindex: { rating: number; status: string } | null;
 }
 
-export interface AdminCrew {
+export interface AdminCrew extends CrewStyle {
   id: string;
   name: string;
   invite_code: string;

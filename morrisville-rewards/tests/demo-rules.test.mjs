@@ -2,7 +2,7 @@
 // It should enforce the same rules and messages as the database functions.
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { demoApi as api, resetDemo } from "../src/lib/demo.ts";
+import { demoApi as api, resetDemo, setDemoSettings } from "../src/lib/demo.ts";
 import { addDays, venueDate } from "../src/lib/time.ts";
 
 const today = venueDate();
@@ -14,6 +14,35 @@ async function signedInWithProfile(name = "Demo Player") {
 }
 
 beforeEach(() => resetDemo());
+
+test("email-only sign-in creates the account, then signs straight back in", async () => {
+  await assert.rejects(api.enterWithEmail("not-an-email"), /doesn't look right/);
+  assert.equal(await api.enterWithEmail("  New.Player@Example.com "), "in");
+  assert.equal((await api.getUser())?.email, "new.player@example.com");
+  await api.signOut();
+  assert.equal(await api.enterWithEmail("new.player@example.com"), "in");
+  assert.ok(await api.getUser());
+});
+
+test("an account that had a password before signs straight in with just the email", async () => {
+  await api.signUp("old@example.com", "secret1");
+  await api.signOut();
+  assert.equal(await api.enterWithEmail("old@example.com"), "in");
+  assert.equal((await api.getUser())?.email, "old@example.com");
+});
+
+test("streaks count days in a row and survive until a full day is missed", async () => {
+  await signedInWithProfile();
+  for (const d of [-3, -2, -1]) await api.logSession({ played_on: addDays(today, d), minutes: 30, client_request_id: rid() });
+  let me = await api.getMe();
+  assert.equal(me.stats.current_streak, 3, "played through yesterday: still alive today");
+  assert.equal(me.stats.longest_streak, 3);
+  await api.logSession({ played_on: today, minutes: 30, client_request_id: rid() });
+  me = await api.getMe();
+  assert.equal(me.stats.current_streak, 4);
+  const streak3 = (await api.achievements()).find((a) => a.code === "streak_3");
+  assert.ok(streak3?.earned_at, "three-day streak earned");
+});
 
 test("sign up validates and signs in; sign in checks the password", async () => {
   await assert.rejects(api.signUp("not-an-email", "secret1"), /doesn't look right/);
@@ -133,24 +162,23 @@ test("crews: create, invite rules, sample crew join, leave", async () => {
   await assert.rejects(api.renameCrew("New Name"), /Only the crew owner/);
 });
 
-test("SPINDEX is range-checked and always self-reported in demo", async () => {
+test("SPINDEX is range-checked and shows on every board scope", async () => {
   await signedInWithProfile("Rated Riley");
   await assert.rejects(api.submitSpindex(4000), /0 to 3000/);
   await api.submitSpindex(1450, "From the SPINDEX app");
   const me = await api.getMe();
-  assert.equal(me.spindex?.status, "unverified");
-  assert.equal(me.spindex?.source, "self_reported");
-  const verified = await api.leaderboard("spindex", "all", "verified");
-  assert.ok(!verified.some((r) => r.is_me));
-  const community = await api.leaderboard("spindex", "all", "community");
-  assert.equal(community.find((r) => r.is_me)?.detail, "self_reported");
+  assert.equal(me.spindex?.rating, 1450);
+  for (const scope of ["verified", "community"]) {
+    const rows = await api.leaderboard("spindex", "all", scope);
+    assert.equal(rows.find((r) => r.is_me)?.value, 1450, `on the ${scope} board`);
+  }
 });
 
-test("achievements: ten codes with progress", async () => {
+test("achievements: eleven codes with progress", async () => {
   await signedInWithProfile();
   await api.logSession({ played_on: today, minutes: 75, client_request_id: rid() });
   const list = await api.achievements();
-  assert.equal(list.length, 10);
+  assert.equal(list.length, 11);
   const byCode = Object.fromEntries(list.map((a) => [a.code, a]));
   assert.ok(byCode.first_session.earned_at);
   assert.ok(byCode.first_hour.earned_at);
@@ -169,4 +197,99 @@ test("delete account wipes the demo user", async () => {
   await api.deleteAccount();
   assert.equal(await api.getUser(), null);
   await assert.rejects(api.signIn("player@example.com", "secret1"), /don't match/);
+});
+
+test("bio: optional, 140 characters max, friendly", async () => {
+  await signedInWithProfile();
+  await api.saveBio("Backhand loops, Tuesday nights");
+  assert.equal((await api.getMe()).profile.bio, "Backhand loops, Tuesday nights");
+  await assert.rejects(api.saveBio("x".repeat(141)), /140 characters/);
+  await assert.rejects(api.saveBio("total shit player"), /friendly/);
+  await api.saveBio("   ");
+  assert.equal((await api.getMe()).profile.bio, null);
+});
+
+test("removing a session stops it counting everywhere", async () => {
+  await signedInWithProfile();
+  const s = await api.logSession({ played_on: today, minutes: 45, client_request_id: rid() });
+  assert.equal((await api.getMe()).stats.week_verified + (await api.getMe()).stats.week_pending, 45);
+  await api.removeSession(s.id);
+  const me = await api.getMe();
+  assert.equal(me.stats.week_verified + me.stats.week_pending, 0);
+  const board = await api.leaderboard("minutes", "week", "community");
+  assert.ok(!board.some((r) => r.is_me), "off the board");
+  await api.removeSession(s.id); // idempotent
+});
+
+test("crew look: owner picks color, emblem and motto; members can't", async () => {
+  await signedInWithProfile();
+  await api.createCrew("Look Testers");
+  await api.setCrewStyle({ color: "blue", emblem: "bolt", motto: "  Every Tuesday  " });
+  const crew = await api.myCrew("week", "community");
+  assert.equal(crew.color, "blue");
+  assert.equal(crew.emblem, "bolt");
+  assert.equal(crew.motto, "Every Tuesday");
+  await assert.rejects(api.setCrewStyle({ color: "gold", emblem: "bolt", motto: "" }), /crew colors/);
+  await assert.rejects(api.setCrewStyle({ color: "blue", emblem: "dragon", motto: "" }), /crew emblems/);
+  await assert.rejects(api.setCrewStyle({ color: "blue", emblem: "bolt", motto: "y".repeat(61) }), /60 characters/);
+  await api.leaveCrew();
+  await api.joinCrew("DEMO2027"); // a sample crew someone else owns
+  await assert.rejects(api.setCrewStyle({ color: "pink", emblem: "users", motto: "" }), /owner/i);
+});
+
+test("player card: public players open; stats come from their sessions", async () => {
+  await signedInWithProfile();
+  const top = (await api.leaderboard("minutes", "week", "community"))[0];
+  const card = await api.playerCard(top.user_id);
+  assert.equal(card.display_name, top.display_name);
+  assert.equal(card.week_minutes, top.value);
+  assert.equal(card.rank_week, top.rank);
+  assert.equal(card.is_me, false);
+  const mine = await api.playerCard((await api.getUser()).id);
+  assert.equal(mine.is_me, true);
+});
+
+test("saving the profile keeps the bio and photo", async () => {
+  await signedInWithProfile();
+  await api.saveBio("Lefty");
+  await api.saveProfile({ display_name: "Renamed Player", avatar_color: "blue", show_on_leaderboard: true, show_spindex: true });
+  assert.equal((await api.getMe()).profile.bio, "Lefty");
+});
+
+test("SPINDEX board is just for fun: sorted by rating, every rating counts", async () => {
+  await signedInWithProfile("High Claim");
+  await api.submitSpindex(2999);
+  const rows = await api.leaderboard("spindex", "all", "verified");
+  assert.equal(rows[0].display_name, "High Claim", "highest rating is #1, verified or not");
+  assert.ok(rows.every((r, i) => i === 0 || rows[i - 1].value >= r.value), "sorted by rating");
+  const display = await api.displayData();
+  assert.equal(display.highlights.top_spindex?.display_name, "High Claim");
+});
+
+test("timer location check: off by default, then only starts near PingPod", async () => {
+  await signedInWithProfile();
+  const start = await api.startSession(rid());
+  assert.equal(start.status, "active", "no check until staff turn it on");
+  await api.cancelSession(start.id);
+  setDemoSettings({ geofence_enabled: true, venue_lat: 35.8235, venue_lng: -78.8256, geofence_m: 300 });
+  await assert.rejects(api.startSession(rid()), /Turn on location/);
+  await assert.rejects(api.startSession(rid(), { lat: 35.8335, lng: -78.8256, accuracy: 20 }), /starts when you're at/);
+  const near = await api.startSession(rid(), { lat: 35.825, lng: -78.8256, accuracy: 30 });
+  assert.equal(near.status, "active", "167 m away is inside the 300 m radius");
+});
+
+test("weekly goals save on the profile and can be cleared", async () => {
+  await signedInWithProfile();
+  await api.saveWeeklyGoals(4, 120);
+  let me = await api.getMe();
+  assert.equal(me.profile.weekly_goal_days, 4);
+  assert.equal(me.profile.weekly_goal_minutes, 120);
+  await assert.rejects(api.saveWeeklyGoals(4, null), /both hours and days/);
+  await assert.rejects(api.saveWeeklyGoals(1, 2000), /more time than those days/);
+  await api.saveProfile({ display_name: "Demo Player", avatar_color: "blue", show_on_leaderboard: true, show_spindex: true });
+  me = await api.getMe();
+  assert.equal(me.profile.weekly_goal_days, 4, "editing the profile keeps the goal");
+  await api.saveWeeklyGoals(null, null);
+  me = await api.getMe();
+  assert.equal(me.profile.weekly_goal_days, null);
 });

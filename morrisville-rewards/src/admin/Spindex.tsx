@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Gauge } from "lucide-react";
 import { api } from "../lib/api";
 import type { AdminSpindex } from "../lib/types";
-import { Avatar, Button, Chip, ConfirmSheet, EmptyState, InlineError, Skeleton, useToast } from "../components/ui";
+import { Avatar, Button, Chip, ConfirmSheet, EmptyState, InlineError, useToast } from "../components/ui";
+import LogoLoader from "../components/LogoLoader";
 import { formatDateTime } from "../lib/time";
 import { ActionSheet, FilterChips, SectionHead, useLoad } from "./shared";
 
@@ -41,7 +42,7 @@ export default function Spindex({ myId, onChanged }: { myId: string; onChanged: 
         />
       </div>
       {loading && !data ? (
-        <Skeleton height={110} count={3} />
+        <LogoLoader label="Loading ratings" />
       ) : error ? (
         <InlineError onRetry={reload}>{error}</InlineError>
       ) : !data?.length ? (

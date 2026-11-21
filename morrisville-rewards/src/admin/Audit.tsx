@@ -1,7 +1,8 @@
 import { ScrollText } from "lucide-react";
 import { api } from "../lib/api";
 import type { AuditEntry } from "../lib/types";
-import { EmptyState, InlineError, Skeleton } from "../components/ui";
+import { EmptyState, InlineError } from "../components/ui";
+import LogoLoader from "../components/LogoLoader";
 import { formatDateTime } from "../lib/time";
 import { SectionHead, useLoad } from "./shared";
 
@@ -81,7 +82,7 @@ export default function Audit() {
     <section className="adm-section">
       <SectionHead title="Activity log" sub="Changes made by staff, newest first." />
       {loading && !data ? (
-        <Skeleton height={56} count={6} />
+        <LogoLoader label="Loading activity" />
       ) : error ? (
         <InlineError onRetry={reload}>{error}</InlineError>
       ) : !data?.length ? (

@@ -6,6 +6,7 @@ import type { AdminApi, Api, AuthEvent, AuthUser, LogInput, ProfileInput } from 
 import type {
   Achievement,
   AvatarColor,
+  CrewEmblem,
   CrewMember,
   CrewPreview,
   CrewRow,
@@ -16,6 +17,7 @@ import type {
   MyCrew,
   Period,
   PlaySession,
+  PlayerCard,
   Profile,
   Scope,
   Settings,
@@ -24,6 +26,9 @@ import type {
   SupportRequest,
 } from "./types";
 import { VENUE_TZ, addDays, venueDate, weekStart } from "./time.ts";
+import { emailKey, normalizeEmail } from "./emailKey.ts";
+import { squareJpegDataUrl } from "./image.ts";
+import { atVenue, needsLocation } from "./geo.ts";
 
 const STORAGE_KEY = "pingpod-morrisville-demo-v2";
 const AUTH_EVENT = "pingpod-demo-auth";
@@ -34,7 +39,7 @@ const hasWindow = typeof window !== "undefined";
 
 const DEFAULT_SETTINGS: Settings = {
   venue_name: "PingPod Morrisville",
-  public_app_url: "https://pingpod-morrisville-rewards.vercel.app",
+  public_app_url: "https://www.pingpodrewards.site",
   pilot_start: null,
   pilot_end: null,
   max_session_minutes: 180,
@@ -49,14 +54,25 @@ const DEFAULT_SETTINGS: Settings = {
   default_board_scope: "community",
   display_scope: "community",
   display_rotation_seconds: 15,
-  display_slides: ["minutes", "streaks", "longest", "crews", "spindex", "highlights"],
-  boards_enabled: ["minutes", "streaks", "longest", "spindex", "crews"],
+  display_slides: ["minutes", "spindex", "crews", "streaks", "longest", "highlights"],
+  boards_enabled: ["minutes", "spindex", "crews", "streaks", "longest"],
   rewards_enabled: false,
+  survey_url: "https://docs.google.com/forms/d/e/1FAIpQLSfZQ5hXNSCOuRfwqnv_CcqE36TBGtMDO-XlPapmkmmfj_y86Q/viewform",
+  venue_lat: null,
+  venue_lng: null,
+  geofence_m: 300,
+  geofence_enabled: false,
 };
+// Sample mode has no staff tools; tests can still change settings (e.g. turn on the location check).
+let settingsOverride: Partial<Settings> = {};
+export function setDemoSettings(patch: Partial<Settings>) {
+  settingsOverride = { ...settingsOverride, ...patch };
+}
 const settings = (): Settings => ({
   ...DEFAULT_SETTINGS,
   display_slides: [...DEFAULT_SETTINGS.display_slides],
   boards_enabled: [...DEFAULT_SETTINGS.boards_enabled],
+  ...settingsOverride,
 });
 
 const BLOCKED_TERMS = [
@@ -74,7 +90,11 @@ interface StoredCrew {
   owner_id: string | null;
   archived_at: string | null;
   created_at: string;
+  color?: AvatarColor;
+  emblem?: CrewEmblem;
+  motto?: string | null;
 }
+const EMBLEMS: CrewEmblem[] = ["users", "flame", "bolt", "crown", "target", "rocket", "star", "shield"];
 interface StoredMembership {
   crew_id: string;
   user_id: string;
@@ -147,6 +167,7 @@ function emit(name: string, detail?: unknown) {
 /** Test helper: wipe demo data (also used by "delete account"). */
 export function resetDemo() {
   memory = null;
+  settingsOverride = {};
   try {
     if (typeof localStorage !== "undefined") localStorage.removeItem(STORAGE_KEY);
   } catch {
@@ -262,9 +283,9 @@ const SAMPLE_PLAYERS: SamplePlayer[] = [
   { id: "sample-taylor", name: "Sample · Taylor", color: "blue", weekly: [45, 0, 0, 0, 0, 0], perWeek: 1 },
 ];
 const SAMPLE_CREWS = [
-  { id: "sample-crew-1", name: "Sample · Spin Doctors", invite_code: "DEMO2027", members: ["sample-riley", "sample-jordan", "sample-casey"] },
-  { id: "sample-crew-2", name: "Sample · Net Gains", invite_code: "NETGAINS", members: ["sample-sam", "sample-alex"] },
-  { id: "sample-crew-3", name: "Sample · Topspin Club", invite_code: "TOPSPIN8", members: ["sample-morgan", "sample-taylor"] },
+  { id: "sample-crew-1", name: "Sample · Spin Doctors", invite_code: "DEMO2027", members: ["sample-riley", "sample-jordan", "sample-casey"], color: "blue" as AvatarColor, emblem: "bolt" as CrewEmblem, motto: "Spin it to win it" },
+  { id: "sample-crew-2", name: "Sample · Net Gains", invite_code: "NETGAINS", members: ["sample-sam", "sample-alex"], color: "green" as AvatarColor, emblem: "target" as CrewEmblem, motto: null },
+  { id: "sample-crew-3", name: "Sample · Topspin Club", invite_code: "TOPSPIN8", members: ["sample-morgan", "sample-taylor"], color: "orange" as AvatarColor, emblem: "flame" as CrewEmblem, motto: "Every Tuesday" },
 ];
 const SAMPLE_JOINED = () => iso(Date.now() - 120 * DAY);
 
@@ -324,6 +345,8 @@ interface BoardPlayer {
   id: string;
   name: string;
   color: AvatarColor;
+  avatar: string | null;
+  bio: string | null;
   public: boolean;
   showSpindex: boolean;
   sessions: PlaySession[];
@@ -337,6 +360,8 @@ function players(s: Stored): BoardPlayer[] {
     id: p.id,
     name: p.name,
     color: p.color,
+    avatar: null,
+    bio: null,
     public: true,
     showSpindex: true,
     sessions: samples.get(p.id) ?? [],
@@ -350,6 +375,8 @@ function players(s: Stored): BoardPlayer[] {
       id: s.account.id,
       name: s.profile.display_name,
       color: s.profile.avatar_color,
+      avatar: s.profile.avatar_path ?? null,
+      bio: s.profile.bio ?? null,
       public: s.profile.show_on_leaderboard && !s.profile.hidden_by_admin,
       showSpindex: s.profile.show_spindex,
       sessions: s.sessions,
@@ -364,6 +391,7 @@ const statuses = (scope: Scope) => (scope === "community" ? ["approved", "pendin
 
 function periodStart(period: Period | "all"): string {
   const today = venueDate();
+  if (period === "day") return today;
   if (period === "week") return weekStart(today);
   if (period === "month") return `${today.slice(0, 8)}01`;
   if (period === "all") return "2000-01-01";
@@ -375,27 +403,31 @@ const cmpTime = (a: string | null, b: string | null) =>
   a === b ? 0 : a === null ? 1 : b === null ? -1 : Date.parse(a) - Date.parse(b);
 
 function streakInfo(days: string[], today = venueDate()) {
-  const weeks = [...new Set(days.map(weekStart))].sort();
+  // Daily streaks: days in a row with a counted session. Alive if the last day is today or yesterday.
+  const unique = [...new Set(days)].sort();
   const runs: { len: number; last: string }[] = [];
   let run = 0;
   let prev: string | null = null;
-  let thirdWeek: string | null = null;
-  for (const w of weeks) {
-    if (prev && addDays(prev, 7) === w) run += 1;
+  let thirdDay: string | null = null;
+  let seventhDay: string | null = null;
+  for (const d of unique) {
+    if (prev && addDays(prev, 1) === d) run += 1;
     else {
       if (prev) runs.push({ len: run, last: prev });
       run = 1;
     }
-    if (run === 3 && !thirdWeek) thirdWeek = w;
-    prev = w;
+    if (run === 3 && !thirdDay) thirdDay = d;
+    if (run === 7 && !seventhDay) seventhDay = d;
+    prev = d;
   }
   if (prev) runs.push({ len: run, last: prev });
-  const lastWeek = addDays(weekStart(today), -7);
+  const yesterday = addDays(today, -1);
   return {
-    cur: Math.max(0, ...runs.filter((r) => r.last >= lastWeek).map((r) => r.len)),
+    cur: Math.max(0, ...runs.filter((r) => r.last >= yesterday).map((r) => r.len)),
     longest: Math.max(0, ...runs.map((r) => r.len)),
-    weeks: weeks.length,
-    thirdWeek,
+    days: unique.length,
+    thirdDay,
+    seventhDay,
   };
 }
 
@@ -432,23 +464,24 @@ function board(s: Stored, metric: Metric, period: Period, scope: Scope): Ranked[
       const info = streakInfo(q.map((x) => x.played_on));
       if (info.cur <= 0) continue;
       const mins = q.reduce((a, x) => a + x.minutes, 0);
-      rows.push({ rank: 0, user_id: p.id, display_name: p.name, avatar_color: p.color, value: info.cur, secondary: info.longest, sessions: info.weeks, detail: null, tie: [], extra: [mins] });
+      rows.push({ rank: 0, user_id: p.id, display_name: p.name, avatar_color: p.color, value: info.cur, secondary: info.longest, sessions: info.days, detail: null, tie: [], extra: [mins] });
     }
     rows.sort((a, b) => b.value - a.value || (b.secondary ?? 0) - (a.secondary ?? 0) || b.extra[0] - a.extra[0] || byName(a.display_name, b.display_name) || a.user_id.localeCompare(b.user_id));
   } else if (metric === "spindex") {
     for (const p of eligible) {
       if (!p.spindex || !p.showSpindex) continue;
-      if (scope === "verified" && p.spindex.status !== "verified") continue;
       rows.push({
         rank: 0, user_id: p.id, display_name: p.name, avatar_color: p.color, value: p.spindex.rating, secondary: null, sessions: null,
         detail: p.spindex.status === "verified" ? "verified" : "self_reported", tie: [p.spindex.at], extra: [p.spindex.status === "verified" ? 1 : 0],
       });
     }
-    rows.sort((a, b) => b.value - a.value || b.extra[0] - a.extra[0] || cmpTime(a.tie[0], b.tie[0]) || byName(a.display_name, b.display_name) || a.user_id.localeCompare(b.user_id));
+    // Highest rating first (SPINDEX is just for fun: verified or not doesn't change the order).
+    rows.sort((a, b) => b.value - a.value || cmpTime(a.tie[0], b.tie[0]) || byName(a.display_name, b.display_name) || a.user_id.localeCompare(b.user_id));
   } else {
     fail("Unknown leaderboard.");
   }
-  rows = rows.map((r, i) => ({ ...r, rank: i + 1 }));
+  const photo = new Map(eligible.map((p) => [p.id, p.avatar]));
+  rows = rows.map((r, i) => ({ ...r, rank: i + 1, avatar_path: photo.get(r.user_id) ?? null }));
   return rows.map(({ tie: _tie, extra: _extra, ...r }) => r);
 }
 
@@ -461,6 +494,9 @@ interface CrewRecord {
   archived_at: string | null;
   created_at: string;
   sample: boolean;
+  color: AvatarColor;
+  emblem: CrewEmblem;
+  motto: string | null;
 }
 interface MembershipRecord {
   crew_id: string;
@@ -472,8 +508,8 @@ interface MembershipRecord {
 function crewRecords(s: Stored): CrewRecord[] {
   const joined = SAMPLE_JOINED();
   return [
-    ...SAMPLE_CREWS.map((c) => ({ id: c.id, name: c.name, invite_code: c.invite_code, owner_id: c.members[0], archived_at: null, created_at: joined, sample: true })),
-    ...s.crews.map((c) => ({ ...c, sample: false })),
+    ...SAMPLE_CREWS.map((c) => ({ id: c.id, name: c.name, invite_code: c.invite_code, owner_id: c.members[0], archived_at: null, created_at: joined, sample: true, color: c.color, emblem: c.emblem, motto: c.motto })),
+    ...s.crews.map((c) => ({ ...c, sample: false, color: c.color ?? ("pink" as AvatarColor), emblem: c.emblem ?? ("users" as CrewEmblem), motto: c.motto ?? null })),
   ];
 }
 
@@ -533,6 +569,9 @@ function crewBoard(s: Stored, period: Period, scope: Scope): CrewRanked[] {
       members,
       contributors: new Set(contrib.map((x) => x.user_id)).size,
       avg_minutes: Math.floor(minutes / members),
+      color: c.color,
+      emblem: c.emblem,
+      motto: c.motto,
       last,
     });
   }
@@ -608,7 +647,9 @@ function achievementsFor(s: Stored): Achievement[] {
     }
   }
   let top5Week: string | null = null;
+  const joinedDay = s.profile ? venueDate(new Date(s.profile.created_at)) : venueDate();
   for (const w of [...weekly.keys()].sort()) {
+    if (addDays(w, 7) <= joinedDay) continue; // weeks that ended before signing up don't count
     const totals = weekly.get(w)!;
     const mine = totals.get(uid);
     if (mine === undefined) continue;
@@ -629,8 +670,10 @@ function achievementsFor(s: Stored): Achievement[] {
     row("minutes_600", "600 club", "Reach 600 total minutes.", 600, Math.min(total, 600), reached[600]),
     row("minutes_1200", "Twenty hours", "Reach 1,200 total minutes.", 1200, Math.min(total, 1200), reached[1200]),
     row("long_session", "Long rally", "Play one session of 2 hours or more.", 120, Math.min(longest, 120), longAt),
-    row("streak_3", "Three-week streak", "Play at least once in three weeks in a row.", 3, Math.min(streak.longest, 3),
-      streak.thirdWeek ? venueDayStartIso(streak.thirdWeek) : null),
+    row("streak_3", "Three-day streak", "Play three days in a row.", 3, Math.min(streak.longest, 3),
+      streak.thirdDay ? venueDayStartIso(streak.thirdDay) : null),
+    row("streak_7", "Seven-day streak", "Play seven days in a row.", 7, Math.min(streak.longest, 7),
+      streak.seventhDay ? venueDayStartIso(streak.seventhDay) : null),
     row("crew_joined", "Crew up", "Create or join a crew.", 1, crewAt ? 1 : 0, crewAt),
     row("regular", "Regular", "Play on 5 different days.", 5, Math.min(days.length, 5), days[4] ?? null),
     row("weekly_top5", "Top five", "Finish a week in the top five for minutes.", 1, top5Week ? 1 : 0,
@@ -708,6 +751,7 @@ const adminReject = async (): Promise<never> => {
 };
 const demoAdmin: AdminApi = {
   claim: adminReject,
+  surveyResponses: async () => [],
   sessions: adminReject,
   reviewSession: adminReject,
   bulkApprove: adminReject,
@@ -774,6 +818,24 @@ export const demoApi: Api = {
     save(s);
     emitAuth("SIGNED_IN", authUser(s));
   },
+  async enterWithEmail(email) {
+    await delay();
+    const e = normalizeEmail(email ?? "");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) fail("That email address doesn't look right.");
+    const key = await emailKey(e);
+    let s = load();
+    if (s.account && s.account.email === e) {
+      s.account.pw = hashPw(key); // players never need a password, even if one was set before
+    } else {
+      // One demo account per browser: a different email starts a fresh demo.
+      if (s.account) s = fresh();
+      s.account = { id: `demo-${uuid()}`, email: e, pw: hashPw(key) };
+    }
+    s.signedIn = true;
+    save(s);
+    emitAuth("SIGNED_IN", authUser(s));
+    return "in";
+  },
   async signOut() {
     const s = load();
     s.signedIn = false;
@@ -816,7 +878,8 @@ export const demoApi: Api = {
     const s = load();
     const acct = requireUser(s);
     const name = validNickname(clean(input.display_name));
-    if (SAMPLE_PLAYERS.some((p) => p.name.toLowerCase() === name.toLowerCase())) fail("That nickname is taken. Try another.");
+    const nameKey = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (SAMPLE_PLAYERS.some((p) => nameKey(p.name) === nameKey(name))) fail("That nickname is taken. Try another.");
     if (s.profile && s.profile.display_name !== name) rateLimit(s, "rename", 5, DAY);
     const now = iso(Date.now());
     s.profile = {
@@ -826,6 +889,11 @@ export const demoApi: Api = {
       show_on_leaderboard: input.show_on_leaderboard ?? true,
       show_spindex: input.show_spindex ?? true,
       hidden_by_admin: false,
+      bio: s.profile?.bio ?? null,
+      avatar_path: s.profile?.avatar_path ?? null,
+      email_verified_at: s.profile?.email_verified_at ?? null,
+      weekly_goal_days: s.profile?.weekly_goal_days ?? null,
+      weekly_goal_minutes: s.profile?.weekly_goal_minutes ?? null,
       created_at: s.profile?.created_at ?? now,
       updated_at: now,
     };
@@ -833,7 +901,7 @@ export const demoApi: Api = {
     return { ...s.profile };
   },
 
-  async startSession(clientRequestId) {
+  async startSession(clientRequestId, at) {
     await delay();
     const s = load();
     const profile = requireProfile(s);
@@ -843,6 +911,11 @@ export const demoApi: Api = {
       if (same) return same;
     }
     if (s.sessions.some((x) => x.status === "active")) fail("You already have a session running.");
+    const cfg = settings();
+    if (needsLocation(cfg)) {
+      if (!at) fail(`Turn on location to start the timer. It only checks that you're at ${cfg.venue_name}.`);
+      if (!atVenue(cfg, at!)) fail(`The timer starts when you're at ${cfg.venue_name}.`);
+    }
     rateLimit(s, "start", 12, 60 * MINUTE);
     const row = newSession(profile.id, { client_request_id: clientRequestId || null });
     s.sessions.unshift(row);
@@ -1020,6 +1093,142 @@ export const demoApi: Api = {
     emitAuth("SIGNED_OUT", null);
   },
 
+  async removeSession(id) {
+    await delay();
+    const s = load();
+    requireUser(s);
+    const x = s.sessions.find((r) => r.id === id);
+    if (!x) fail("Session not found.");
+    if (x!.status === "active") fail("Finish or cancel the running timer instead.");
+    if (x!.status !== "cancelled") {
+      x!.status = "cancelled";
+      x!.review_reason = "Removed by player";
+      x!.reviewed_at = iso(Date.now());
+      save(s);
+    }
+  },
+  async markTutorialSeen() {
+    const s = load();
+    if (s.profile && !s.profile.tutorial_seen_at) {
+      s.profile.tutorial_seen_at = iso(Date.now());
+      save(s);
+    }
+  },
+  async submitSurvey(answers) {
+    await delay();
+    const s = load();
+    requireProfile(s);
+    if (!answers || !("q1" in answers)) fail("Please answer the first question.");
+    if (s.profile!.survey_done_at) fail("You already took the survey. Thank you!");
+    s.profile!.survey_done_at = iso(Date.now());
+    save(s);
+  },
+  async saveWeeklyGoals(days, minutes) {
+    await delay();
+    const s = load();
+    requireProfile(s);
+    if ((days == null) !== (minutes == null)) fail("Pick both hours and days, or clear the goal.");
+    if (days != null && (!Number.isInteger(days) || days < 1 || days > 7)) fail("Pick 1 to 7 days.");
+    if (minutes != null && (!Number.isInteger(minutes) || minutes < 15 || minutes > 10080)) fail("Pick between 15 minutes and 168 hours.");
+    if (days != null && minutes != null && minutes > days * 1440) fail("That's more time than those days have.");
+    s.profile!.weekly_goal_days = days;
+    s.profile!.weekly_goal_minutes = minutes;
+    save(s);
+  },
+  async saveBio(bio) {
+    await delay();
+    const s = load();
+    requireProfile(s);
+    const v = clean(bio);
+    if (v && v.length > 140) fail("Keep your bio to 140 characters.");
+    if (v && hasBlockedTerm(v)) fail("Please keep your bio friendly.");
+    s.profile!.bio = v;
+    save(s);
+  },
+  async uploadAvatar(file) {
+    const s = load();
+    requireProfile(s);
+    let dataUrl: string;
+    try {
+      dataUrl = await squareJpegDataUrl(file);
+    } catch (err) {
+      return fail(err instanceof Error ? err.message : "That photo couldn't be used.");
+    }
+    s.profile!.avatar_path = dataUrl;
+    save(s);
+  },
+  async removeAvatar() {
+    await delay();
+    const s = load();
+    requireProfile(s);
+    s.profile!.avatar_path = null;
+    save(s);
+  },
+  async playerCard(userId): Promise<PlayerCard> {
+    await delay();
+    const s = load();
+    const uid = requireUser(s).id;
+    const p = players(s).find((x) => x.id === userId);
+    if (!p) fail("Player not found.");
+    const me = userId === uid;
+    const mine = activeCrew(s);
+    const theirs = crewRecords(s).find(
+      (c) => c.archived_at === null && memberships(s).some((m) => m.crew_id === c.id && m.user_id === userId && m.left_at === null),
+    );
+    if (!me && !p!.public && !(mine && theirs && mine.id === theirs.id)) fail("This player keeps their profile private.");
+    const q = p!.sessions.filter((x) => x.status === "approved" || x.status === "pending");
+    const wk = weekStart(venueDate());
+    const streak = streakInfo(q.map((x) => x.played_on));
+    const rank = board(s, "minutes", "week", DEFAULT_SETTINGS.default_board_scope).find((r) => r.user_id === userId)?.rank ?? null;
+    return {
+      user_id: p!.id,
+      display_name: p!.name,
+      avatar_color: p!.color,
+      avatar_path: p!.avatar,
+      bio: p!.bio,
+      member_since: p!.createdAt ?? SAMPLE_JOINED(),
+      is_me: me,
+      crew: theirs ? { name: theirs.name, color: theirs.color, emblem: theirs.emblem, motto: theirs.motto } : null,
+      week_minutes: q.filter((x) => x.played_on >= wk).reduce((a, x) => a + x.minutes, 0),
+      total_minutes: q.reduce((a, x) => a + x.minutes, 0),
+      sessions: q.length,
+      current_streak: streak.cur,
+      longest_streak: streak.longest,
+      rank_week: rank,
+      spindex: p!.spindex && p!.showSpindex ? { rating: p!.spindex.rating, verified: p!.spindex.status === "verified" } : null,
+    };
+  },
+  async sendEmailCode() {
+    await delay();
+    requireProfile(load());
+  },
+  async verifyEmailCode(code) {
+    await delay();
+    const s = load();
+    requireProfile(s);
+    if (!/^\d{6}$/.test(code.trim())) fail("That code didn't work. Check it or send a new one.");
+    s.profile!.email_verified_at = iso(Date.now());
+    save(s);
+  },
+  async confirmEmailFromLink() {
+    return false;
+  },
+  async setCrewStyle({ color, emblem, motto }) {
+    await delay();
+    const s = load();
+    requireProfile(s);
+    const own = requireCrewOwner(s);
+    if (!AVATARS.includes(color)) fail("Pick one of the crew colors.");
+    if (!EMBLEMS.includes(emblem)) fail("Pick one of the crew emblems.");
+    const v = clean(motto);
+    if (v && v.length > 60) fail("Keep the motto to 60 characters.");
+    if (v && hasBlockedTerm(v)) fail("Please choose a different motto.");
+    own.color = color;
+    own.emblem = emblem;
+    own.motto = v;
+    save(s);
+  },
+
   async myCrew(period, scope): Promise<MyCrew | null> {
     await delay();
     const s = load();
@@ -1039,7 +1248,8 @@ export const demoApi: Api = {
         const minutes = sessionsOf(s, m.user_id)
           .filter((x) => st.includes(x.status) && x.played_on >= start && inMembership(x.ended_at, m.joined_at, m.left_at))
           .reduce((a, x) => a + x.minutes, 0);
-        return { user_id: m.user_id, display_name: name, avatar_color: color, is_owner: m.user_id === crew.owner_id, is_me: m.user_id === uid, joined_at: m.joined_at, minutes };
+        const avatar_path = sp ? null : (s.profile?.avatar_path ?? null);
+        return { user_id: m.user_id, display_name: name, avatar_color: color, avatar_path, is_owner: m.user_id === crew.owner_id, is_me: m.user_id === uid, joined_at: m.joined_at, minutes };
       })
       .sort((a, b) => cmpTime(a.joined_at, b.joined_at));
     const ranked = crewBoard(s, period, scope);
@@ -1050,6 +1260,9 @@ export const demoApi: Api = {
       is_owner: crew.owner_id === uid,
       created_at: crew.created_at,
       hidden_by_admin: false,
+      color: crew.color,
+      emblem: crew.emblem,
+      motto: crew.motto,
       min_members: DEFAULT_SETTINGS.crew_min_size,
       max_members: DEFAULT_SETTINGS.crew_max_size,
       rank: ranked.find((r) => r.crew_id === crew.id)?.rank ?? null,
@@ -1065,6 +1278,9 @@ export const demoApi: Api = {
     if (!c) return null;
     return {
       name: c.name,
+      color: c.color,
+      emblem: c.emblem,
+      motto: c.motto,
       members: memberships(s).filter((m) => m.crew_id === c.id && m.left_at === null).length,
       max_members: DEFAULT_SETTINGS.crew_max_size,
     };
@@ -1169,6 +1385,27 @@ export const demoApi: Api = {
       .filter((r) => r.rank <= cap || r.crew_id === mine)
       .map((r) => ({ ...r, is_mine: r.crew_id === mine }));
   },
+  async joinedPlayers(limit = 50) {
+    await delay();
+    const s = load();
+    return players(s)
+      .filter((p) => p.public)
+      .map((p, i) => ({ user_id: p.id, display_name: p.name, avatar_color: p.color, joined_at: p.createdAt ?? iso(Date.now() - (i + 1) * DAY) }))
+      .sort((a, b) => b.joined_at.localeCompare(a.joined_at))
+      .slice(0, limit);
+  },
+  async publicBoard(metric, period, scope, limit = 50) {
+    await delay();
+    return board(load(), metric, period, scope)
+      .slice(0, limit)
+      .map((r) => ({ ...r, is_me: false }));
+  },
+  async publicCrewBoard(period, scope, limit = 50) {
+    await delay();
+    return crewBoard(load(), period, scope)
+      .slice(0, limit)
+      .map((r) => ({ ...r, is_mine: false }));
+  },
   async displayData(): Promise<DisplayData> {
     await delay();
     const s = load();
@@ -1190,18 +1427,18 @@ export const demoApi: Api = {
       public_app_url: hasWindow ? window.location.origin : cfg.public_app_url,
       venue_name: cfg.venue_name,
       week_start: wk,
-      minutes: minutes.slice(0, 8).map((r) => ({ rank: r.rank, display_name: r.display_name, avatar_color: r.avatar_color, value: r.value, sessions: r.sessions ?? 0 })),
-      longest: longest.slice(0, 8).map((r) => ({ rank: r.rank, display_name: r.display_name, avatar_color: r.avatar_color, value: r.value, detail: r.detail ?? undefined })),
+      minutes: minutes.slice(0, 8).map((r) => ({ rank: r.rank, display_name: r.display_name, avatar_color: r.avatar_color, avatar_path: r.avatar_path ?? null, value: r.value, sessions: r.sessions ?? 0 })),
+      longest: longest.slice(0, 8).map((r) => ({ rank: r.rank, display_name: r.display_name, avatar_color: r.avatar_color, avatar_path: r.avatar_path ?? null, value: r.value, detail: r.detail ?? undefined })),
       streaks: board(s, "streaks", "all", scope)
         .slice(0, 8)
-        .map((r) => ({ rank: r.rank, display_name: r.display_name, avatar_color: r.avatar_color, value: r.value, secondary: r.secondary ?? 0 })),
+        .map((r) => ({ rank: r.rank, display_name: r.display_name, avatar_color: r.avatar_color, avatar_path: r.avatar_path ?? null, value: r.value, secondary: r.secondary ?? 0 })),
       spindex: board(s, "spindex", "all", scope)
         .slice(0, 8)
-        .map((r) => ({ rank: r.rank, display_name: r.display_name, avatar_color: r.avatar_color, value: r.value, detail: r.detail ?? undefined })),
+        .map((r) => ({ rank: r.rank, display_name: r.display_name, avatar_color: r.avatar_color, avatar_path: r.avatar_path ?? null, value: r.value, detail: r.detail ?? undefined })),
       crews: crews
         .filter((c) => c.minutes > 0)
         .slice(0, 6)
-        .map((c) => ({ rank: c.rank, name: c.name, minutes: c.minutes, members: c.members, avg_minutes: c.avg_minutes })),
+        .map((c) => ({ rank: c.rank, name: c.name, minutes: c.minutes, members: c.members, avg_minutes: c.avg_minutes, color: c.color, emblem: c.emblem, motto: c.motto })),
       highlights: {
         players: new Set(weekSessions.map((x) => x.user_id)).size,
         minutes: weekSessions.reduce((a, x) => a + x.minutes, 0),

@@ -1,53 +1,69 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import QRCode from "qrcode";
 import { Maximize, Minimize, RefreshCw } from "lucide-react";
-import { api, errorText } from "../lib/api";
-import type { DisplayCrew, DisplayData, DisplayPlayer, DisplaySlide, Settings } from "../lib/types";
+import { api, avatarUrl, errorText } from "../lib/api";
+import { emblemIcon } from "../components/CrewBadge";
+import LogoLoader from "../components/LogoLoader";
+import type { CrewRow, DisplayData, DisplaySlide, LeaderRow, Metric, Period, Scope } from "../lib/types";
 import { Logo, PingPodMark } from "../components/Logo";
-import { addDays, formatNumber, formatTime, timeAgo, venueDate } from "../lib/time";
+import { addDays, formatNumber, formatTime, venueDate } from "../lib/time";
 import { displayUrl, isLocalUrl, resolveAppUrl } from "./appUrl";
+import { tiePlaces } from "../lib/ranks";
 import "../styles/tokens.css";
 import "../styles/ui.css";
 import "./display.css";
 
+// In-venue iPad scoreboard (/display, /?display=1). Signed-out data only. It always rotates like a
+// TV board (long lists scroll themselves slowly). People can still tap a board, switch Today / Week /
+// Month or scroll: that board then stays up a little longer before the rotation carries on.
+
 const POLL_MS = 30_000;
 const LIVE_WINDOW_MS = 90_000;
 const PING_DEBOUNCE_MS = 2_000;
-const IDLE_MS = 3_000;
-const KNOWN_SLIDES: DisplaySlide[] = ["minutes", "streaks", "longest", "crews", "spindex", "highlights"];
+const CURSOR_IDLE_MS = 3_000;
+const TOUCH_DWELL_MS = 30_000; // how long a board someone picked stays up
+const ROWS = 50;
 
-const SETTINGS_POLL_MS = 5 * 60_000;
+/** "joined" is the temporary Players board (everyone signed up), shown first while it has rows. */
+type Board = DisplaySlide | "joined";
+type BoardPeriod = Extract<Period, "day" | "week" | "month">;
+const ORDER: Board[] = ["minutes", "spindex", "crews", "streaks", "longest", "highlights"];
+const TAB: Record<Board, string> = {
+  joined: "Players",
+  minutes: "Minutes",
+  spindex: "SPINDEX",
+  crews: "Crews",
+  streaks: "Streaks",
+  longest: "Longest",
+  highlights: "This week",
+};
+const TITLE: Record<Board, string> = {
+  joined: "Who's in",
+  minutes: "Most minutes",
+  spindex: "Highest SPINDEX",
+  crews: "Crew rankings",
+  streaks: "Daily streaks",
+  longest: "Longest session",
+  highlights: "This week",
+};
+const HAS_PERIOD: Board[] = ["minutes", "crews", "longest"];
+const PERIODS: { value: BoardPeriod; label: string }[] = [
+  { value: "day", label: "Today" },
+  { value: "week", label: "Week" },
+  { value: "month", label: "Month" },
+];
+const WHEN: Record<BoardPeriod, string> = { day: "today", week: "this week", month: "this month" };
 
-const dayFmt = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 const longDayFmt = new Intl.DateTimeFormat("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" });
-const weekdayFmt = new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "UTC" });
 const atNoon = (day: string) => new Date(`${day}T12:00:00Z`);
-/** "Nov 16–22" for the Monday-start week beginning on `day`. */
-function weekRange(day: string): string {
-  const a = dayFmt.format(atNoon(day));
-  const b = dayFmt.format(atNoon(addDays(day, 6)));
-  return a.split(" ")[0] === b.split(" ")[0] ? `${a}–${b.split(" ")[1]}` : `${a} – ${b}`;
+
+/** Today's date in Morrisville ("Saturday, Nov 21"). The screen re-renders every few seconds, so it rolls over at midnight. */
+function todayLine(): string {
+  return longDayFmt.format(atNoon(venueDate()));
 }
 
-/** Pilot status line ("Starts Monday, Nov 23" / "Week 2 of 4"), from the admin-set pilot dates. */
-function pilotLine(settings: Settings | null): string | null {
-  if (!settings?.pilot_start) return null;
-  const today = venueDate();
-  const start = settings.pilot_start;
-  if (today < start) return `Starts ${longDayFmt.format(atNoon(start))}`;
-  const end = settings.pilot_end;
-  if (end && today > end) return null;
-  const day = 86_400_000;
-  const week = Math.floor((atNoon(today).getTime() - atNoon(start).getTime()) / (7 * day)) + 1;
-  if (!end) return `Week ${week}`;
-  const weeks = Math.max(1, Math.ceil((atNoon(end).getTime() - atNoon(start).getTime() + day) / (7 * day)));
-  return `Week ${Math.min(week, weeks)} of ${weeks}`;
-}
+type Rows = { kind: "players"; rows: LeaderRow[] } | { kind: "crews"; rows: CrewRow[] };
 
-/**
- * In-venue iPad scoreboard (/display, /?display=1). Uses only the anonymous public client,
- * so it never shows private data even if someone once signed in on this iPad.
- */
 export default function Display() {
   const [data, setData] = useState<DisplayData | null>(null);
   const [lastSuccessAt, setLastSuccessAt] = useState<number | null>(null);
@@ -55,38 +71,25 @@ export default function Display() {
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(() => Date.now());
   const [online, setOnline] = useState(() => navigator.onLine);
-  const [slideIndex, setSlideIndex] = useState(0);
-  const [idle, setIdle] = useState(false);
+  const [cursorIdle, setCursorIdle] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const [board, setBoard] = useState<Board>("minutes");
+  const [period, setPeriod] = useState<BoardPeriod>("week");
+  const [manual, setManual] = useState(false);
+  const [touchStamp, setTouchStamp] = useState(0);
+  const [cache, setCache] = useState<Record<string, Rows>>({});
+  const [tick, setTick] = useState(0);
   const inflight = useRef(false);
-
-  // Pilot dates for the header line (anonymous read; a failure just hides it).
-  useEffect(() => {
-    let cancelled = false;
-    const fetchSettings = () =>
-      api
-        .publicSettings()
-        .then((next) => {
-          if (!cancelled) setSettings(next);
-        })
-        .catch(() => {});
-    void fetchSettings();
-    const id = window.setInterval(() => void fetchSettings(), SETTINGS_POLL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
-  }, []);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     if (inflight.current) return;
     inflight.current = true;
     try {
-      const next = await api.displayData();
-      setData(next);
+      setData(await api.displayData());
       setLastSuccessAt(Date.now());
       setError(null);
+      setTick((t) => t + 1);
     } catch (err) {
       setError(errorText(err));
     } finally {
@@ -95,13 +98,11 @@ export default function Display() {
     }
   }, []);
 
-  // Initial load, polling backup, refetch when the iPad wakes or reconnects.
+  // First load, polling backup, refetch when the iPad wakes or reconnects.
   useEffect(() => {
     void load();
     const poll = window.setInterval(() => void load(), POLL_MS);
-    const onVisible = () => {
-      if (document.visibilityState === "visible") void load();
-    };
+    const onVisible = () => document.visibilityState === "visible" && void load();
     const onOnline = () => {
       setOnline(true);
       void load();
@@ -118,7 +119,7 @@ export default function Display() {
     };
   }, [load]);
 
-  // Realtime "standings changed" pings (no data in the payload), debounced.
+  // Realtime "standings changed" pings, debounced.
   useEffect(() => {
     let timer: number | undefined;
     let unsubscribe: (() => void) | undefined;
@@ -128,7 +129,7 @@ export default function Display() {
         timer = window.setTimeout(() => void load(), PING_DEBOUNCE_MS);
       });
     } catch {
-      // Realtime unavailable (e.g. demo mode): polling still keeps the board fresh.
+      /* polling still keeps the board fresh */
     }
     return () => {
       window.clearTimeout(timer);
@@ -140,27 +141,48 @@ export default function Display() {
     };
   }, [load]);
 
-  // Clock for "Updated x ago" and the live/offline indicator.
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 10_000);
     return () => window.clearInterval(id);
   }, []);
 
-  // Board page: no page scroll or rubber-banding.
   useEffect(() => {
-    document.documentElement.classList.add("display-mode");
-    return () => document.documentElement.classList.remove("display-mode");
+    const root = document.documentElement;
+    root.classList.add("display-mode");
+    // Size the screen to the area actually visible. Kiosk apps and older iPad web views can report a
+    // taller page than the screen (or overlay a toolbar), which cut off the bottom; re-measure on
+    // rotate/resize.
+    const fit = () => {
+      const h = window.visualViewport?.height ?? window.innerHeight;
+      const w = window.visualViewport?.width ?? window.innerWidth;
+      root.style.setProperty("--app-h", `${Math.round(h)}px`);
+      root.style.setProperty("--app-w", `${Math.round(w)}px`);
+    };
+    fit();
+    const late = window.setTimeout(fit, 400); // after the rotation animation settles
+    window.addEventListener("resize", fit);
+    window.addEventListener("orientationchange", fit);
+    window.visualViewport?.addEventListener("resize", fit);
+    return () => {
+      window.clearTimeout(late);
+      window.removeEventListener("resize", fit);
+      window.removeEventListener("orientationchange", fit);
+      window.visualViewport?.removeEventListener("resize", fit);
+      root.classList.remove("display-mode");
+      root.style.removeProperty("--app-h");
+      root.style.removeProperty("--app-w");
+    };
   }, []);
 
   useWakeLock();
 
-  // Hide the cursor and the fullscreen button when nobody is touching the screen.
+  // Hide the cursor and fullscreen button when nobody is touching the screen.
   useEffect(() => {
-    let timer = window.setTimeout(() => setIdle(true), IDLE_MS);
+    let timer = window.setTimeout(() => setCursorIdle(true), CURSOR_IDLE_MS);
     const wake = () => {
-      setIdle(false);
+      setCursorIdle(false);
       window.clearTimeout(timer);
-      timer = window.setTimeout(() => setIdle(true), IDLE_MS);
+      timer = window.setTimeout(() => setCursorIdle(true), CURSOR_IDLE_MS);
     };
     const events = ["mousemove", "pointerdown", "touchstart", "keydown"] as const;
     events.forEach((e) => window.addEventListener(e, wake, { passive: true }));
@@ -176,23 +198,134 @@ export default function Display() {
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
 
-  // Every board the admin turned on, always in the rotation; an empty board shows its own invitation.
-  const slides = useMemo<DisplaySlide[]>(() => {
-    const wanted = (data?.slides?.length ? data.slides : KNOWN_SLIDES).filter((s): s is DisplaySlide => KNOWN_SLIDES.includes(s));
-    const unique = wanted.filter((s, i) => wanted.indexOf(s) === i);
-    return unique.length ? unique : ["minutes"];
-  }, [data?.slides]);
-
-  const rotationMs = Math.min(60, Math.max(8, Number(data?.rotation_seconds) || 15)) * 1000;
-  const current = slideIndex % slides.length;
-
-  // Calm rotation; restarts its timer whenever the slide or settings change.
+  // Keyed by content, so refreshing the data every 30 s doesn't restart the rotation timer.
+  const slidesKey = (data?.slides ?? []).join(",");
+  // Temporary Players board: everyone who has signed up, newest first (empty when staff turn it off).
+  const [joined, setJoined] = useState<LeaderRow[]>([]);
   useEffect(() => {
-    if (slides.length < 2) return;
-    const id = window.setTimeout(() => setSlideIndex((i) => (i + 1) % slides.length), rotationMs);
-    return () => window.clearTimeout(id);
-  }, [current, slides.length, rotationMs]);
+    let live = true;
+    api
+      .joinedPlayers(ROWS)
+      .then((rows) => {
+        if (!live) return;
+        setJoined(
+          rows.map((r, i) => ({
+            rank: i + 1,
+            user_id: r.user_id,
+            display_name: r.display_name,
+            avatar_color: r.avatar_color,
+            value: rows.length - i, // unique, so every row gets its own place number
+            secondary: null,
+            sessions: null,
+            detail: r.joined_at,
+            is_me: false,
+          })),
+        );
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [tick, data]);
+  const hasJoined = joined.length > 0;
+  // Open on the Players board when it first appears (unless someone already picked a board).
+  const shownJoined = useRef(false);
+  useEffect(() => {
+    if (hasJoined && !shownJoined.current) {
+      shownJoined.current = true;
+      if (!manual) setBoard("joined");
+    }
+  }, [hasJoined, manual]);
+  const boards = useMemo<Board[]>(() => {
+    const wanted = slidesKey ? (slidesKey.split(",") as Board[]) : ORDER;
+    const list = ORDER.filter((b) => wanted.includes(b));
+    const base: Board[] = list.length ? list : ["minutes"];
+    return hasJoined ? ["joined", ...base] : base;
+  }, [slidesKey, hasJoined]);
+  const current: Board = boards.includes(board) ? board : boards[0];
+  const scope: Scope = data?.scope ?? "community";
+  const rotationMs = Math.min(60, Math.max(8, Number(data?.rotation_seconds) || 15)) * 1000;
+  const boardPeriod: Period = HAS_PERIOD.includes(current) ? period : current === "highlights" ? "week" : "all";
+  const cacheKey = `${current}:${boardPeriod}`;
 
+  // Fetch the board being shown (and refresh it whenever the standings change).
+  useEffect(() => {
+    if (current === "highlights" || current === "joined" || !data) return;
+    let live = true;
+    const request =
+      current === "crews"
+        ? api.publicCrewBoard(boardPeriod, scope, ROWS).then((rows): Rows => ({ kind: "crews", rows }))
+        : api.publicBoard(current as Metric, boardPeriod, scope, ROWS).then((rows): Rows => ({ kind: "players", rows }));
+    request.then((r) => live && setCache((c) => ({ ...c, [cacheKey]: r }))).catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [current, boardPeriod, scope, cacheKey, tick, data]);
+
+  // Always rotating. A touch keeps the current board up for TOUCH_DWELL_MS, then rotation carries on.
+  const dwell = manual ? TOUCH_DWELL_MS : rotationMs;
+  useEffect(() => {
+    // While the Players board is on, nothing rotates: it stays up (the other tabs can still be tapped).
+    if (boards.length < 2 || (hasJoined && current === "joined")) return;
+    const id = window.setTimeout(() => {
+      // With the Players board on, a tapped tab returns to it; otherwise boards take turns.
+      setBoard(hasJoined ? "joined" : boards[(boards.indexOf(current) + 1) % boards.length]);
+      setPeriod("week");
+      setManual(false);
+    }, dwell);
+    return () => window.clearTimeout(id);
+  }, [current, period, touchStamp, dwell, boards, hasJoined]);
+
+  useEffect(() => {
+    listRef.current?.scrollTo({ top: 0 });
+  }, [current, boardPeriod]);
+
+  // TV mode: a list longer than the screen turns page by page during its turn (whole rows, so
+  // nobody's name sits half cut off), then the next board comes up.
+  const shownCount = cache[cacheKey]?.rows.length ?? 0;
+  useEffect(() => {
+    const el = listRef.current;
+    if (manual || !el) return;
+    const max = el.scrollHeight - el.clientHeight;
+    if (max < 24) return;
+    const first = el.querySelector<HTMLElement>(".row");
+    const list = el.querySelector<HTMLElement>(".rows");
+    const gap = list ? parseFloat(getComputedStyle(list).rowGap) || 0 : 0;
+    const rowStep = first ? first.getBoundingClientRect().height + gap : el.clientHeight;
+    const perPage = Math.max(1, Math.floor(el.clientHeight / rowStep) - 1); // one row stays on screen
+    const stops: number[] = [];
+    for (let y = perPage * rowStep; y < max; y += perPage * rowStep) stops.push(Math.round(y));
+    stops.push(max);
+    const MOVE = 900;
+    const HOLD_MIN = 3500;
+    // Fit as many pages as the board's turn allows, each held at least HOLD_MIN.
+    const fit = Math.max(1, Math.min(stops.length, Math.floor((dwell - HOLD_MIN) / (HOLD_MIN + MOVE))));
+    const pages = stops.slice(0, fit);
+    const hold = (dwell - pages.length * MOVE) / (pages.length + 1);
+    let raf = 0;
+    const timers: number[] = [];
+    const glide = (from: number, to: number) => {
+      const t0 = performance.now();
+      const frame = (t: number) => {
+        const p = Math.min(1, (t - t0) / MOVE);
+        el.scrollTop = from + (to - from) * (p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2);
+        if (p < 1) raf = requestAnimationFrame(frame);
+      };
+      raf = requestAnimationFrame(frame);
+    };
+    pages.forEach((y, k) => {
+      timers.push(window.setTimeout(() => glide(k ? pages[k - 1] : 0, y), hold * (k + 1) + MOVE * k));
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      timers.forEach((t) => window.clearTimeout(t));
+    };
+  }, [cacheKey, shownCount, manual, dwell]);
+
+  const touch = () => {
+    setManual(true);
+    setTouchStamp(Date.now());
+  };
   const appUrl = resolveAppUrl(data?.public_app_url);
   const qr = useQr(appUrl);
   const live = online && lastSuccessAt !== null && now - lastSuccessAt < LIVE_WINDOW_MS;
@@ -201,15 +334,14 @@ export default function Display() {
   if (!data) {
     return (
       <div className="display display-connecting">
-        <PingPodMark height={56} />
-        <h1>{loading ? "Loading the leaderboard…" : "Connecting to the leaderboard…"}</h1>
+        <LogoLoader size={56} label="Loading the leaderboard" />
         {!loading && (
           <>
+            <h1>Connecting to the leaderboard…</h1>
             <p>{online ? error ?? "We couldn't reach the leaderboard yet." : "This screen is offline. Check the Wi‑Fi."}</p>
             <button className="display-retry" onClick={() => void load()}>
               <RefreshCw size={20} aria-hidden /> Try again
             </button>
-            <p className="display-retry-note">Retrying automatically every 30 seconds.</p>
           </>
         )}
       </div>
@@ -217,69 +349,98 @@ export default function Display() {
   }
 
   const joinUrl = displayUrl(appUrl);
-  const pilot = pilotLine(settings);
+  const today = todayLine();
+  const shown: Rows | undefined = current === "joined" ? { kind: "players", rows: joined } : cache[cacheKey];
 
   return (
-    <div className={`display ${idle ? "is-idle" : ""}`}>
+    <div className={`display ${cursorIdle ? "is-idle" : ""}`} onPointerDown={touch}>
       <header className="display-head">
         <Logo size="lg" sub="MORRISVILLE" />
         <div className="display-status">
-          {api.mode === "demo" && <span className="display-demo">DEMO DATA</span>}
-          {pilot && <span className="display-pilot">{pilot}</span>}
+          {api.mode === "demo" && <span className="display-demo">DEMO</span>}
+          <span className="display-pilot">{today}</span>
           {live ? (
             <span className="display-live">
               <span className="display-live-dot" aria-hidden /> LIVE
             </span>
           ) : (
             <span className="display-offline" role="status">
-              Offline · showing standings from {lastSuccessAt ? formatTime(new Date(lastSuccessAt).toISOString()) : "earlier"}
+              Offline · {lastSuccessAt ? formatTime(new Date(lastSuccessAt).toISOString()) : "earlier"}
             </span>
           )}
-          {lastSuccessAt && <span className="display-updated">Updated {timeAgo(new Date(lastSuccessAt).toISOString(), now)}</span>}
         </div>
       </header>
 
       <main className="display-main">
-        <section className="display-board" aria-live="polite">
-          {slides.map((slide, i) => (
-            <div key={slide} className={`display-slide ${i === current ? "is-active" : ""}`} aria-hidden={i !== current}>
-              <Slide slide={slide} data={data} pilot={pilot} />
-            </div>
-          ))}
-          {slides.length > 1 && (
-            <div className="display-progress" aria-hidden>
-              {slides.map((slide, i) => (
-                <span
-                  key={`${slide}-${i === current ? slideIndex : "x"}`}
-                  className={i === current ? "is-active" : i < current ? "is-done" : ""}
-                  style={{ "--rotation": `${rotationMs}ms` } as CSSProperties}
-                />
-              ))}
+        <section className="display-board">
+          <nav className="board-tabs" aria-label="Leaderboards">
+            {boards.map((b) => (
+              <button
+                key={b}
+                type="button"
+                className={`board-tab ${b === current ? "on" : ""}`}
+                aria-pressed={b === current}
+                onClick={() => setBoard(b)}
+              >
+                {TAB[b]}
+              </button>
+            ))}
+          </nav>
+
+          <div className="board-head">
+            <h1 className="board-title">{TITLE[current]}</h1>
+            {HAS_PERIOD.includes(current) && (
+              <div className="board-periods" role="group" aria-label="Time period">
+                {PERIODS.map((p) => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    className={`board-period ${p.value === period ? "on" : ""}`}
+                    aria-pressed={p.value === period}
+                    onClick={() => setPeriod(p.value)}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {boards.length > 1 && (
+            <div className="board-progress" aria-hidden>
+              <span key={`${cacheKey}-${touchStamp}`} style={{ animationDuration: `${dwell}ms` }} />
             </div>
           )}
+
+          <div className="board-body" ref={listRef} onWheel={touch} key={cacheKey}>
+            {current === "highlights" ? (
+              <Highlights data={data} />
+            ) : !shown ? (
+              <LogoLoader label="Loading" />
+            ) : shown.rows.length === 0 ? (
+              <Empty board={current} period={period} />
+            ) : shown.kind === "crews" ? (
+              <CrewList rows={shown.rows} />
+            ) : (
+              <PlayerList rows={shown.rows} board={current} />
+            )}
+          </div>
         </section>
 
         <aside className="display-join">
           <div className="display-qr">{qr ? <img src={qr} alt={`QR code to join: ${joinUrl}`} /> : <div className="display-qr-placeholder" />}</div>
           <div className="display-join-text">
             <div className="display-join-kicker">Scan to join</div>
-            <p className="display-join-line">No app download. Track your play, climb the board.</p>
             <div className="display-join-url">{joinUrl}</div>
             {isLocalUrl(appUrl) && <div className="display-join-warning">Test address: set the public app URL in Admin → Settings.</div>}
           </div>
         </aside>
       </main>
 
-      <footer className="display-foot">
-        <span>Morrisville Rewards · Beta — a local PingPod Morrisville pilot</span>
-        <PingPodMark height={16} />
-      </footer>
-
       {fullscreenSupported && (
         <button
           className="display-fullscreen"
           aria-label={fullscreen ? "Exit full screen" : "Full screen"}
-          title={fullscreen ? "Exit full screen" : "Full screen"}
           onClick={() => {
             if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
             else void document.documentElement.requestFullscreen().catch(() => {});
@@ -292,117 +453,23 @@ export default function Display() {
   );
 }
 
-// ── Slides ─────────────────────────────────────────────────────────────
-const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
-
-function Slide({ slide, data, pilot }: { slide: DisplaySlide; data: DisplayData; pilot: string | null }) {
-  const week = weekRange(data.week_start);
-  const notStarted = Boolean(pilot?.startsWith("Starts"));
-  switch (slide) {
-    case "minutes": {
-      const lead = data.minutes.length > 1 ? data.minutes[0].value - data.minutes[1].value : 0;
-      return (
-        <SlideFrame title="Most minutes" subtitle="Total playing time this week" chip={week}>
-          <PlayerRows
-            rows={data.minutes}
-            value={(r) => formatNumber(r.value)}
-            unit="min"
-            meta={(r) => {
-              const sessions = r.sessions ? `${r.sessions} ${plural(r.sessions, "session", "sessions")}` : null;
-              if (r.rank === 1 && lead > 0) return [sessions, `leads by ${formatNumber(lead)} min`].filter(Boolean).join(" · ");
-              return sessions;
-            }}
-            empty={
-              notStarted ? (
-                <SlideEmpty title="Be on the board from day one." text="Scan the code now to set up your account." />
-              ) : (
-                <SlideEmpty title="No minutes logged yet this week." text="Scan, tap Start playing, and take the top spot." />
-              )
-            }
-          />
-        </SlideFrame>
-      );
-    }
-    case "streaks":
-      return (
-        <SlideFrame title="Longest streaks" subtitle="Weeks in a row with at least one session">
-          <PlayerRows
-            rows={data.streaks}
-            value={(r) => String(r.value)}
-            unit={(r) => plural(r.value, "week", "weeks")}
-            meta={(r) => (r.secondary && r.secondary > r.value ? `Best ever ${r.secondary} weeks` : null)}
-            empty={<SlideEmpty title="No streaks running yet." text="Play once a week to start one." />}
-          />
-        </SlideFrame>
-      );
-    case "longest":
-      return (
-        <SlideFrame title="Longest session" subtitle="Longest single session this week" chip={week}>
-          <PlayerRows
-            rows={data.longest}
-            value={(r) => formatNumber(r.value)}
-            unit="min"
-            meta={(r) => (r.detail && /^\d{4}-\d{2}-\d{2}$/.test(r.detail) ? `Played ${weekdayFmt.format(atNoon(r.detail))}` : null)}
-            empty={<SlideEmpty title="No sessions yet this week." text="One long session sets the mark." />}
-          />
-        </SlideFrame>
-      );
-    case "crews":
-      return (
-        <SlideFrame title="Crew rankings" subtitle="Combined crew minutes this week" chip={week}>
-          <CrewRows rows={data.crews} />
-        </SlideFrame>
-      );
-    case "spindex":
-      return (
-        <SlideFrame title="Highest SPINDEX" subtitle="Current ratings · self-reported unless marked verified">
-          <PlayerRows
-            rows={data.spindex ?? []}
-            value={(r) => String(r.value)}
-            unit=""
-            badge={(r) => (r.detail === "verified" ? "Verified" : null)}
-            empty={<SlideEmpty title="No ratings on the board yet." text="Add your SPINDEX on the Me tab in the app." />}
-          />
-        </SlideFrame>
-      );
-    case "highlights":
-      return (
-        <SlideFrame title="This week" subtitle="At PingPod Morrisville" chip={week}>
-          <Highlights data={data} />
-        </SlideFrame>
-      );
-  }
-}
-
-function SlideFrame({ title, subtitle, chip, children }: { title: string; subtitle: string; chip?: string; children: ReactNode }) {
+// ── Lists ──────────────────────────────────────────────────────────────
+function Empty({ board, period }: { board: Board; period: BoardPeriod }) {
+  const text =
+    board === "spindex"
+      ? "No ratings yet."
+      : board === "streaks"
+        ? "No streaks yet."
+        : board === "crews"
+          ? `No crew minutes ${WHEN[period]}.`
+          : `No minutes ${WHEN[period]} yet.`;
   return (
-    <div className="slide">
-      <div className="slide-head">
-        <h1 className="slide-title">{title}</h1>
-        <div className="slide-sub">
-          <span>{subtitle}</span>
-          {chip && <span className="slide-chip">{chip}</span>}
-        </div>
-      </div>
-      <div className="slide-body">{children}</div>
+    <div className="board-empty">
+      <PingPodMark height={36} />
+      <strong>{text}</strong>
+      <span>Scan the code to get on the board.</span>
     </div>
   );
-}
-
-function SlideEmpty({ title, text }: { title: string; text: string }) {
-  return (
-    <div className="slide-empty">
-      <PingPodMark height={40} />
-      <strong>{title}</strong>
-      <span>{text}</span>
-    </div>
-  );
-}
-
-/** Grid rows: podium places a little taller; at least `minSlots` tracks so 1–2 rows don't balloon. */
-function rowTemplate(count: number, minSlots: number): string {
-  const slots = Math.max(count, minSlots);
-  return Array.from({ length: slots }, (_, i) => (i < 3 && i < count ? "minmax(0, 1.18fr)" : "minmax(0, 1fr)")).join(" ");
 }
 
 function initials(name: string): string {
@@ -418,91 +485,68 @@ function initials(name: string): string {
   );
 }
 
-/** One quiet invitation row under a short list, instead of a half-empty board. */
-function NextUp({ crews = false, index }: { crews?: boolean; index: number }) {
+function RowAvatar({ name, color, path }: { name: string; color: string; path?: string | null }) {
+  const [broken, setBroken] = useState(false);
+  const src = broken ? null : avatarUrl(path);
   return (
-    <li className="row row-next" style={{ "--i": index } as CSSProperties} aria-hidden>
-      <span className="row-next-text">{crews ? "Your crew could be next" : "Your name could be here"}</span>
-      <span className="row-next-cta">Scan to join</span>
-    </li>
+    <span className={`row-avatar avatar avatar-${color || "pink"} ${src ? "has-photo" : ""}`} aria-hidden>
+      {src ? <img src={src} alt="" onError={() => setBroken(true)} /> : initials(name)}
+    </span>
   );
 }
 
-function PlayerRows({
-  rows,
-  value,
-  unit,
-  meta,
-  badge,
-  empty,
-}: {
-  rows: DisplayPlayer[];
-  value: (r: DisplayPlayer) => string;
-  unit: string | ((r: DisplayPlayer) => string);
-  meta?: (r: DisplayPlayer) => string | null;
-  badge?: (r: DisplayPlayer) => string | null;
-  empty: ReactNode;
-}) {
-  if (!rows.length) return <>{empty}</>;
-  const shown = rows.slice(0, 8);
-  const invite = shown.length <= 4;
+function valueOf(board: Board, r: LeaderRow): { value: string; unit: string } {
+  if (board === "joined") return { value: joinedWhen(r.detail), unit: "" };
+  if (board === "streaks") return { value: String(r.value), unit: r.value === 1 ? "day" : "days" };
+  if (board === "spindex") return { value: String(r.value), unit: "" };
+  return { value: formatNumber(r.value), unit: "min" };
+}
+
+function PlayerList({ rows, board }: { rows: LeaderRow[]; board: Board }) {
+  const places = tiePlaces(rows);
   return (
-    <ol className="rows rows-players" style={{ gridTemplateRows: rowTemplate(shown.length + (invite ? 1 : 0), invite ? 5 : 6) }}>
-      {shown.map((r, i) => {
-        const extra = meta?.(r);
-        const tag = badge?.(r);
-        const u = typeof unit === "function" ? unit(r) : unit;
+    <ol className="rows">
+      {rows.map((r, i) => {
+        const v = valueOf(board, r);
+        const place = places[i];
         return (
-          <li
-            key={`${r.rank}-${r.display_name}`}
-            className={`row ${r.rank <= 3 ? `row-top row-${r.rank}` : ""}`}
-            style={{ "--i": i } as CSSProperties}
-          >
-            <span className="row-rank num">{r.rank}</span>
-            <span className={`row-avatar avatar avatar-${r.avatar_color || "pink"}`} aria-hidden>
-              {initials(r.display_name)}
-            </span>
+          <li key={r.user_id} className={`row ${place <= 3 ? `row-top row-${place}` : ""}`} style={{ "--i": Math.min(i, 10) } as CSSProperties}>
+            <span className="row-rank num">{place}</span>
+            <RowAvatar name={r.display_name} color={r.avatar_color} path={r.avatar_path} />
             <span className="row-name">
-              <span className="row-name-line">
-                <span className="row-name-text">{r.display_name}</span>
-                {tag && <span className="row-badge">{tag}</span>}
-              </span>
-              {extra && <span className="row-meta">{extra}</span>}
+              <span className="row-name-text">{r.display_name}</span>
             </span>
             <span className="row-value">
-              <span className="num">{value(r)}</span>
-              {u && <span className="row-unit">{u}</span>}
+              <span className="num">{v.value}</span>
+              {v.unit && <span className="row-unit">{v.unit}</span>}
             </span>
           </li>
         );
       })}
-      {invite && <NextUp index={shown.length} />}
     </ol>
   );
 }
 
-function CrewRows({ rows }: { rows: DisplayCrew[] }) {
-  if (!rows.length) return <SlideEmpty title="No crew minutes yet this week." text="Start a crew in the app and bring your friends." />;
-  const shown = rows.slice(0, 6);
-  const invite = shown.length <= 3;
+function CrewList({ rows }: { rows: CrewRow[] }) {
+  const places = tiePlaces(rows.map((c) => ({ rank: c.rank, value: c.minutes })));
   return (
-    <ol className="rows rows-crews" style={{ gridTemplateRows: rowTemplate(shown.length + (invite ? 1 : 0), invite ? 4 : 5) }}>
-      {shown.map((c, i) => (
-        <li key={`${c.rank}-${c.name}`} className={`row ${c.rank <= 3 ? `row-top row-${c.rank}` : ""}`} style={{ "--i": i } as CSSProperties}>
-          <span className="row-rank num">{c.rank}</span>
-          <span className="row-name">
-            <span className="row-name-text">{c.name}</span>
-            <span className="row-meta">
-              {c.members} {plural(c.members, "player", "players")} · {formatNumber(c.avg_minutes)} min each
+    <ol className="rows">
+      {rows.map((c, i) => {
+        const Icon = emblemIcon(c.emblem);
+        return (
+          <li key={c.crew_id} className={`row ${places[i] <= 3 ? `row-top row-${places[i]}` : ""}`} style={{ "--i": Math.min(i, 10) } as CSSProperties}>
+            <span className="row-rank num">{places[i]}</span>
+            <span className={`row-emblem avatar-${c.color ?? "pink"}`} aria-hidden>
+              <Icon strokeWidth={2.4} />
             </span>
-          </span>
-          <span className="row-value">
-            <span className="num">{formatNumber(c.minutes)}</span>
-            <span className="row-unit">min</span>
-          </span>
-        </li>
-      ))}
-      {invite && <NextUp crews index={shown.length} />}
+            <span className="row-name">{c.name}</span>
+            <span className="row-value">
+              <span className="num">{formatNumber(c.minutes)}</span>
+              <span className="row-unit">min</span>
+            </span>
+          </li>
+        );
+      })}
     </ol>
   );
 }
@@ -510,32 +554,33 @@ function CrewRows({ rows }: { rows: DisplayCrew[] }) {
 function Highlights({ data }: { data: DisplayData }) {
   const h = data.highlights;
   if (!h.players && !h.sessions) {
-    return <SlideEmpty title="The week is just getting started." text="Every session counts toward this week's totals." />;
+    return (
+      <div className="board-empty">
+        <PingPodMark height={36} />
+        <strong>The week is just getting started.</strong>
+      </div>
+    );
   }
-  // Row 1: four counts. Row 2: who's leading (only the ones that exist), sharing the width evenly.
   const counts = [
-    { label: "Players this week", value: formatNumber(h.players) },
-    { label: "Minutes played", value: formatNumber(h.minutes), accent: true },
+    { label: "Players", value: formatNumber(h.players) },
+    { label: "Minutes", value: formatNumber(h.minutes), accent: true },
     { label: "Sessions", value: formatNumber(h.sessions) },
     { label: "New players", value: formatNumber(h.new_players) },
   ];
   const leaders: { label: string; value: string; detail: string }[] = [];
   if (h.longest) leaders.push({ label: "Longest session", value: `${formatNumber(h.longest.minutes)} min`, detail: h.longest.display_name });
-  if (h.most_sessions)
-    leaders.push({ label: "Most sessions", value: formatNumber(h.most_sessions.sessions), detail: h.most_sessions.display_name });
   if (h.top_crew) leaders.push({ label: "Top crew", value: `${formatNumber(h.top_crew.minutes)} min`, detail: h.top_crew.name });
   if (h.top_spindex) leaders.push({ label: "Top SPINDEX", value: String(h.top_spindex.rating), detail: h.top_spindex.display_name });
-  const leaderSpan = leaders.length ? 12 / leaders.length : 12;
   return (
     <div className="tiles">
       {counts.map((t, i) => (
-        <div key={t.label} className={`tile ${t.accent ? "tile-accent" : ""}`} style={{ gridColumn: "span 3", "--i": i } as CSSProperties}>
+        <div key={t.label} className={`tile ${t.accent ? "tile-accent" : ""}`} style={{ "--i": i } as CSSProperties}>
           <span className="tile-label">{t.label}</span>
           <span className="tile-value num">{t.value}</span>
         </div>
       ))}
       {leaders.map((t, i) => (
-        <div key={t.label} className="tile tile-leader" style={{ gridColumn: `span ${leaderSpan}`, "--i": i + 4 } as CSSProperties}>
+        <div key={t.label} className="tile tile-leader" style={{ "--i": i + 4 } as CSSProperties}>
           <span className="tile-label">{t.label}</span>
           <span className="tile-detail">{t.detail}</span>
           <span className="tile-value num">{t.value}</span>
@@ -588,4 +633,14 @@ function useWakeLock() {
       void sentinel?.release().catch(() => {});
     };
   }, []);
+}
+
+/** When a player joined, for the Players board: "Today", "Yesterday" or the weekday. */
+function joinedWhen(at: string | null): string {
+  if (!at) return "";
+  const day = venueDate(new Date(at));
+  const today = venueDate();
+  if (day === today) return "Today";
+  if (day === addDays(today, -1)) return "Yesterday";
+  return new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "UTC" }).format(new Date(`${day}T12:00:00Z`));
 }

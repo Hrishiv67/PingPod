@@ -12,6 +12,7 @@ import {
 } from "react";
 import { Check, CircleAlert, Loader2, X } from "lucide-react";
 import type { AvatarColor, SessionStatus } from "../lib/types";
+import { avatarUrl } from "../lib/api";
 
 // ── Buttons ───────────────────────────────────────────────────────────
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "light";
@@ -90,11 +91,16 @@ export function Avatar({
   name,
   color = "pink",
   size = 40,
+  path = null,
 }: {
   name: string;
   color?: AvatarColor | null;
   size?: number;
+  /** Profile photo path; falls back to initials on the avatar color. */
+  path?: string | null;
 }) {
+  const [broken, setBroken] = useState(false);
+  const src = broken ? null : avatarUrl(path);
   const initials = name
     .split(/[^A-Za-z0-9]+/)
     .filter(Boolean)
@@ -105,11 +111,11 @@ export function Avatar({
     .slice(0, 2);
   return (
     <span
-      className={`avatar avatar-${color ?? "pink"}`}
+      className={`avatar avatar-${color ?? "pink"} ${src ? "has-photo" : ""}`}
       style={{ width: size, height: size, fontSize: Math.round(size * 0.38) }}
       aria-hidden
     >
-      {initials || "?"}
+      {src ? <img src={src} alt="" loading="lazy" decoding="async" onError={() => setBroken(true)} /> : initials || "?"}
     </span>
   );
 }
@@ -175,10 +181,30 @@ export function Field({
   ...input
 }: InputHTMLAttributes<HTMLInputElement> & { label: string; hint?: ReactNode; error?: string }) {
   const id = useId();
+  // A new error gives the box a quick shake (and a tap of vibration where phones allow it).
+  const box = useRef<HTMLInputElement>(null);
+  const lastError = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const el = box.current;
+    if (el && error && error !== lastError.current) {
+      el.classList.remove("shake");
+      void el.offsetWidth; // restart the animation
+      el.classList.add("shake");
+      navigator.vibrate?.(25);
+    }
+    lastError.current = error;
+  }, [error]);
   return (
     <div className="field">
       <label htmlFor={id}>{label}</label>
-      <input id={id} aria-invalid={error ? true : undefined} aria-describedby={hint || error ? `${id}-d` : undefined} {...input} />
+      <input
+        ref={box}
+        id={id}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={hint || error ? `${id}-d` : undefined}
+        onAnimationEnd={(e) => e.currentTarget.classList.remove("shake")}
+        {...input}
+      />
       {(error || hint) && (
         <div id={`${id}-d`} className={error ? "field-error" : "field-hint"}>
           {error || hint}

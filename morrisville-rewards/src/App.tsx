@@ -7,6 +7,8 @@ import type { Me, PlaySession } from "./lib/types";
 import { AppCtx, type AppState } from "./state";
 import { Logo, PingPodMark } from "./components/Logo";
 import Splash, { shouldShowSplash } from "./components/Splash";
+import Tutorial from "./components/Tutorial";
+import { markSurveyOpened, openSurvey, SURVEY_ASK, surveyOpened } from "./components/SurveyCard";
 import LogoLoader from "./components/LogoLoader";
 import { Avatar, Button, InlineError, useOnline } from "./components/ui";
 import Welcome from "./screens/Welcome";
@@ -16,11 +18,15 @@ import Rankings from "./screens/Rankings";
 import Crew from "./screens/Crew";
 import MeScreen from "./screens/Me";
 import JoinCrew from "./screens/JoinCrew";
+import { useMilestones } from "./celebrate/useMilestones";
 import ResetPassword from "./screens/ResetPassword";
 
 const Display = lazy(() => import("./display/Display"));
 const Poster = lazy(() => import("./display/Poster"));
 const AdminApp = lazy(() => import("./admin/AdminApp"));
+const Celebrations = lazy(() => import("./celebrate/Gallery"));
+const SurveySheet = lazy(() => import("./components/SurveySheet"));
+const Celebration = lazy(() => import("./celebrate/Celebration").then((m) => ({ default: m.Celebration })));
 
 export function Boot({ label = "Loading" }: { label?: string }) {
   return (
@@ -30,11 +36,17 @@ export function Boot({ label = "Loading" }: { label?: string }) {
 
 export default function App() {
   const path = usePath();
-  const [splash, setSplash] = useState(() => !["/display", "/poster"].includes(currentPath()) && shouldShowSplash());
+  const [splash, setSplash] = useState(() => !["/display", "/poster", "/celebrations"].includes(currentPath()) && shouldShowSplash());
   if (path === "/display")
     return (
       <Suspense fallback={<Boot label="Loading the leaderboard" />}>
         <Display />
+      </Suspense>
+    );
+  if (path === "/celebrations")
+    return (
+      <Suspense fallback={<Boot />}>
+        <Celebrations />
       </Suspense>
     );
   if (path === "/poster")
@@ -108,8 +120,16 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
   const [loadError, setLoadError] = useState("");
   const [finished, setFinished] = useState<PlaySession | null>(null);
   const [version, setVersion] = useState(0);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  useEffect(() => {
+    const open = () => navigate("/survey");
+    window.addEventListener("pingpod-open-survey", open);
+    return () => window.removeEventListener("pingpod-open-survey", open);
+  }, []);
   const offset = useRef(0);
   const online = useOnline();
+  // Milestone pop-ups (first session, 10 sessions, first hour…) after saves, once per player.
+  const milestone = useMilestones(user.id, me, version);
 
   // Tabs slide in from the side you're moving toward (Home → Rankings → Crew → Me).
   const currentTab = tabFor(path, inviteCode);
@@ -125,22 +145,27 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
   const refresh = useCallback(async () => {
     // A finish tapped while offline is replayed first, with the time the player tapped it.
     const pending = store.get<PendingStop>(KEYS.pendingStop);
+    let replayed = false;
     if (pending) {
       try {
         const done = await api.stopSession(pending.id, pending.endedAt);
         store.remove(KEYS.pendingStop);
         setFinished(done);
-        setVersion((v) => v + 1);
+        replayed = true;
       } catch (err) {
         if (!(err as { offline?: boolean }).offline) store.remove(KEYS.pendingStop);
       }
     }
     const t0 = Date.now();
-    const next = await api.getMe();
+    let next = await api.getMe();
+    // Came back from the emailed verification link? Mark the email verified.
+    if (next.profile && !next.profile.email_verified_at && (await api.confirmEmailFromLink())) next = await api.getMe();
     const t1 = Date.now();
     offset.current = new Date(next.server_now).getTime() - (t0 + t1) / 2;
     setMe(next);
     setLoadError("");
+    // Lists re-fetch (and milestones are checked) once the new totals are in.
+    if (replayed) setVersion((v) => v + 1);
   }, []);
 
   useEffect(() => {
@@ -166,6 +191,19 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
   }, [refresh]);
 
   const hasProfile = Boolean(me?.profile);
+  // "How it works" opens by itself once per player (new players right after picking a nickname;
+  // existing players on their next visit, since v2 ends with the research survey ask).
+  const tutorialKey = `pingpod-tutorial-v2-${user.id}`;
+  useEffect(() => {
+    // Once per player: skipped if this account already saw it (on any phone) or this phone did.
+    if (hasProfile && !me?.profile?.tutorial_seen_at && !store.get<string>(tutorialKey)) setTutorialOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasProfile, tutorialKey]);
+  const closeTutorial = useCallback(() => {
+    store.set(tutorialKey, "seen");
+    void api.markTutorialSeen().catch(() => {});
+    setTutorialOpen(false);
+  }, [tutorialKey]);
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [path, hasProfile]);
@@ -185,8 +223,10 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
         setFinished,
         version,
         bump: () => setVersion((v) => v + 1),
+        showTutorial: () => setTutorialOpen(true),
+        tutorialOpen,
       },
-    [me, user, refresh, finished, version],
+    [me, user, refresh, finished, version, tutorialOpen],
   );
 
   if (!state)
@@ -231,6 +271,12 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
   } else if (path === "/crew") {
     screen = <Crew />;
     tab = "/crew";
+  } else if (path === "/survey") {
+    screen = (
+      <Suspense fallback={<LogoLoader label="Loading" />}>
+        <SurveySheet onClose={() => navigate("/")} onDone={() => void refresh().catch(() => {})} />
+      </Suspense>
+    );
   } else if (path === "/me") {
     screen = <MeScreen />;
     tab = "/me";
@@ -244,17 +290,41 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
         <header className="app-header">
           <div className="app-header-inner">
             <Link to="/" className="pp-logo-link" aria-label="Home" style={{ textDecoration: "none" }}>
-              <Logo size="sm" sub="Morrisville Rewards · Beta" />
+              <Logo size="sm" />
             </Link>
+            <button type="button" className="header-help" aria-label="How it works" onClick={() => setTutorialOpen(true)}>
+              ?
+            </button>
             <Link to="/me" className="header-avatar" aria-label="Your profile">
-              <Avatar name={state.me.profile.display_name} color={state.me.profile.avatar_color} size={36} />
+              <Avatar name={state.me.profile.display_name} color={state.me.profile.avatar_color} path={state.me.profile.avatar_path} size={36} />
             </Link>
           </div>
         </header>
         <main key={inviteCode ? `join-${inviteCode}` : tab} className={`screen screen-${direction}`}>
-          {screen}
+          {inviteCode ? screen : <FirstVisit tab={tab}>{screen}</FirstVisit>}
         </main>
         {!online && <div className="offline-bar">You're offline. A running timer keeps counting — we'll sync when you're back.</div>}
+        {tutorialOpen && (
+          <Tutorial
+            onClose={closeTutorial}
+            survey={
+              !state.me.profile.survey_done_at && !surveyOpened(user.id)
+                ? {
+                    ask: SURVEY_ASK,
+                    onOpen: () => {
+                      markSurveyOpened(user.id);
+                      openSurvey();
+                    },
+                  }
+                : null
+            }
+          />
+        )}
+        {!tutorialOpen && milestone.current && (
+          <Suspense fallback={null}>
+            <Celebration key={milestone.current.key} spec={milestone.current} onClose={milestone.next} />
+          </Suspense>
+        )}
         <nav className="bottom-nav" aria-label="Main">
           <span className="nav-indicator" style={{ "--i": TAB_ORDER.indexOf(currentTab) } as CSSProperties} aria-hidden />
           <NavItem to="/" label="Home" active={tab === "/"} icon={<HomeIcon size={22} />} />
@@ -264,6 +334,31 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
         </nav>
       </div>
     </AppCtx.Provider>
+  );
+}
+
+// The first time Rankings, Crew or Me opens in a visit, the PingPod loader shows for 0.8 s while the
+// screen loads underneath, so it feels like a real app opening a section. Afterwards tabs open instantly.
+const seenTabs = new Set<string>(["/"]);
+function FirstVisit({ tab, children }: { tab: string; children: ReactNode }) {
+  const [ready, setReady] = useState(() => seenTabs.has(tab));
+  useEffect(() => {
+    if (ready) return;
+    seenTabs.add(tab);
+    const t = window.setTimeout(() => setReady(true), 800);
+    return () => window.clearTimeout(t);
+  }, [ready, tab]);
+  return (
+    <>
+      {!ready && (
+        <div className="tab-loader">
+          <LogoLoader size={34} label="Loading" />
+        </div>
+      )}
+      <div hidden={!ready} className={ready ? "tab-reveal" : undefined}>
+        {children}
+      </div>
+    </>
   );
 }
 

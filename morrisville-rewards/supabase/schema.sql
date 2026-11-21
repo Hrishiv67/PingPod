@@ -1981,3 +1981,1148 @@ begin
 end $$;
 
 grant execute on function public.get_display_data() to anon, authenticated;
+
+-- ════════ 20261119001100_daily_streaks.sql ════════
+-- Streaks become daily: days in a row with at least one counted session (Morrisville calendar).
+-- A streak stays alive through today if the player played yesterday, so it only breaks after a
+-- full missed day. Milestones: 3 days and 7 days in a row.
+-- Also puts Highest SPINDEX second on the iPad rotation (right after Most minutes).
+
+-- Same signature as before so every caller keeps working. Column `weeks` now holds the number of
+-- distinct days played (it was distinct weeks); the streaks board shows it as "sessions".
+create or replace function private.streaks_all(p_statuses text[], p_user uuid default null)
+returns table (uid uuid, cur int, longest int, weeks int, mins int)
+language sql stable set search_path = '' as $$
+  with q as (
+    select s.user_id, s.played_on, s.minutes from public.play_sessions s
+     where s.status = any (p_statuses) and (p_user is null or s.user_id = p_user)),
+  dy as (select distinct q.user_id, q.played_on d from q),
+  isl as (select dy.user_id, dy.d, dy.d - (row_number() over (partition by dy.user_id order by dy.d))::int g from dy),
+  runs as (select isl.user_id, count(*)::int len, max(isl.d) last_d from isl group by isl.user_id, isl.g)
+  select r.user_id,
+         coalesce(max(r.len) filter (where r.last_d >= private.today() - 1), 0)::int,
+         max(r.len)::int,
+         (select count(*) from dy where dy.user_id = r.user_id)::int,
+         (select coalesce(sum(q.minutes), 0) from q where q.user_id = r.user_id)::int
+    from runs r group by r.user_id $$;
+
+create or replace function public.get_my_achievements()
+returns table (code text, title text, description text, target int, progress int, earned_at timestamptz)
+language plpgsql stable security definer set search_path = '' as $$
+#variable_conflict use_column
+declare v_uid uuid := private.require_user();
+  v_total int; v_sessions int; v_first timestamptz; v_longest int; v_long_at timestamptz;
+  v_t60 timestamptz; v_t300 timestamptz; v_t600 timestamptz; v_t1200 timestamptz;
+  v_streak int; v_streak3_day date; v_streak7_day date; v_crew_at timestamptz; v_days int; v_day5 timestamptz;
+  v_top5_day date;
+begin
+  select coalesce(sum(s.minutes), 0), count(*), min(s.ended_at), coalesce(max(s.minutes), 0), count(distinct s.played_on)
+    into v_total, v_sessions, v_first, v_longest, v_days
+    from public.play_sessions s where s.user_id = v_uid and s.status in ('approved', 'pending');
+  select min(c.ended_at) filter (where c.cum >= 60), min(c.ended_at) filter (where c.cum >= 300),
+         min(c.ended_at) filter (where c.cum >= 600), min(c.ended_at) filter (where c.cum >= 1200)
+    into v_t60, v_t300, v_t600, v_t1200
+    from (select s.ended_at, sum(s.minutes) over (order by s.ended_at, s.id) cum
+            from public.play_sessions s where s.user_id = v_uid and s.status in ('approved', 'pending')) c;
+  select min(s.ended_at) into v_long_at from public.play_sessions s
+   where s.user_id = v_uid and s.status in ('approved', 'pending') and s.minutes >= 120;
+  select d.first_end into v_day5 from (
+    select s.played_on, min(s.ended_at) first_end from public.play_sessions s
+     where s.user_id = v_uid and s.status in ('approved', 'pending') group by s.played_on
+     order by s.played_on offset 4 limit 1) d;
+  with dy as (select distinct s.played_on d from public.play_sessions s
+               where s.user_id = v_uid and s.status in ('approved', 'pending')),
+       isl as (select dy.d, dy.d - (row_number() over (order by dy.d))::int g from dy),
+       pos as (select isl.d, row_number() over (partition by isl.g order by isl.d) p,
+                      count(*) over (partition by isl.g) len from isl)
+  select max(pos.len)::int, min(pos.d) filter (where pos.p = 3), min(pos.d) filter (where pos.p = 7)
+    into v_streak, v_streak3_day, v_streak7_day from pos;
+  select min(m.joined_at) into v_crew_at from public.crew_memberships m where m.user_id = v_uid;
+  with weekly as (
+    select private.week_start(s.played_on) w, s.user_id u, sum(s.minutes) m
+      from public.play_sessions s join public.profiles p on p.id = s.user_id
+     where s.status in ('approved', 'pending') and not p.hidden_by_admin
+       and private.week_start(s.played_on) < private.week_start(private.today())
+     group by 1, 2),
+  ranked as (select weekly.w, weekly.u, rank() over (partition by weekly.w order by weekly.m desc) r from weekly)
+  select min(ranked.w) into v_top5_day from ranked where ranked.u = v_uid and ranked.r <= 5;
+  return query select * from (values
+    ('first_session', 'First session', 'Finish your first playing session.', 1, least(v_sessions, 1), v_first),
+    ('first_hour', 'First hour', 'Play 60 minutes in total.', 60, least(v_total, 60), v_t60),
+    ('minutes_300', '300 club', 'Reach 300 total minutes.', 300, least(v_total, 300), v_t300),
+    ('minutes_600', '600 club', 'Reach 600 total minutes.', 600, least(v_total, 600), v_t600),
+    ('minutes_1200', 'Twenty hours', 'Reach 1,200 total minutes.', 1200, least(v_total, 1200), v_t1200),
+    ('long_session', 'Long rally', 'Play one session of 2 hours or more.', 120, least(v_longest, 120), v_long_at),
+    ('streak_3', 'Three-day streak', 'Play three days in a row.', 3, least(coalesce(v_streak, 0), 3),
+       v_streak3_day::timestamp at time zone 'America/New_York'),
+    ('streak_7', 'Seven-day streak', 'Play seven days in a row.', 7, least(coalesce(v_streak, 0), 7),
+       v_streak7_day::timestamp at time zone 'America/New_York'),
+    ('crew_joined', 'Crew up', 'Create or join a crew.', 1, case when v_crew_at is null then 0 else 1 end, v_crew_at),
+    ('regular', 'Regular', 'Play on 5 different days.', 5, least(coalesce(v_days, 0), 5), v_day5),
+    ('weekly_top5', 'Top five', 'Finish a week in the top five for minutes.', 1,
+       case when v_top5_day is null then 0 else 1 end, (v_top5_day + 7)::timestamp at time zone 'America/New_York')
+  ) as t(code, title, description, target, progress, earned_at);
+end $$;
+
+revoke execute on all functions in schema private from public, anon, authenticated;
+revoke execute on function public.get_my_achievements() from public, anon;
+grant execute on function public.get_my_achievements() to authenticated;
+
+-- iPad rotation: Highest SPINDEX right after Most minutes.
+alter table public.pilot_settings
+  alter column display_slides set default '{minutes,spindex,crews,streaks,longest,highlights}';
+update public.pilot_settings
+   set display_slides = '{minutes,spindex,crews,streaks,longest,highlights}'
+ where id = 1 and display_slides @> '{minutes,spindex,crews,streaks,longest,highlights}';
+
+-- ════════ 20261119001200_staff_need_password.sql ════════
+-- Players now sign in with just their email: the app derives their password from the address
+-- (src/lib/emailKey.ts; the iOS app does the same). Staff tools must never open that way, so a staff
+-- or owner role only takes effect once the account has a password of its own. The check runs here,
+-- on the server, so it holds for every client.
+
+-- True when the account's password is still the email-derived key.
+create or replace function private.on_email_key(p uuid) returns boolean
+language sql stable set search_path = '' as $$
+  select coalesce((
+    select u.encrypted_password is not null and u.encrypted_password <> ''
+       and extensions.crypt(
+             'Pp!' || left(encode(extensions.digest(lower(trim(u.email)) || '|pingpod-morrisville-email-only-v1', 'sha256'), 'hex'), 40) || '9',
+             u.encrypted_password) = u.encrypted_password
+      from auth.users u where u.id = p), false) $$;
+
+create or replace function private.require_admin() returns uuid language plpgsql stable set search_path = '' as $$
+declare v uuid := private.require_user();
+begin
+  if not private.is_admin(v) then raise exception 'Staff access only.'; end if;
+  if private.on_email_key(v) then raise exception 'Set your staff password first: open the staff dashboard.'; end if;
+  return v;
+end $$;
+
+create or replace function private.require_owner() returns uuid language plpgsql stable set search_path = '' as $$
+declare v uuid := private.require_user();
+begin
+  if not exists (select 1 from private.admins where user_id = v and role = 'owner') then
+    raise exception 'Only the pilot owner can change this.';
+  end if;
+  if private.on_email_key(v) then raise exception 'Set your staff password first: open the staff dashboard.'; end if;
+  return v;
+end $$;
+
+-- get_me: admin_role is only reported once the staff password is set; staff_needs_password tells
+-- the app to ask for one. (The bcrypt check only runs for accounts that are in private.admins.)
+create or replace function public.get_me() returns jsonb language plpgsql security definer set search_path = '' as $$
+declare v_uid uuid := private.require_user(); p public.profiles; a public.play_sessions; v_crew jsonb; v_spindex jsonb;
+        v_role text; v_needs_pw boolean := false;
+begin
+  perform private.close_stale_sessions(v_uid);
+  select role into v_role from private.admins where user_id = v_uid;
+  if v_role is not null and private.on_email_key(v_uid) then
+    v_role := null;
+    v_needs_pw := true;
+  end if;
+  select * into p from public.profiles where id = v_uid;
+  if not found then
+    return jsonb_build_object('server_now', clock_timestamp(), 'profile', null, 'admin_role', v_role,
+                              'staff_needs_password', v_needs_pw, 'settings', to_jsonb(private.settings()));
+  end if;
+  select * into a from public.play_sessions where user_id = v_uid and status = 'active';
+  select jsonb_build_object('id', c.id, 'name', c.name, 'invite_code', c.invite_code, 'is_owner', c.owner_id = v_uid)
+    into v_crew from public.crews c where c.id = private.active_crew(v_uid);
+  select jsonb_build_object('id', r.id, 'rating', r.rating, 'status', r.status, 'source', r.source,
+                            'verified_at', r.verified_at, 'created_at', r.created_at)
+    into v_spindex from public.spindex_ratings r
+   where r.user_id = v_uid and r.status in ('unverified', 'verified') order by r.created_at desc limit 1;
+  return jsonb_build_object(
+    'server_now', clock_timestamp(),
+    'profile', to_jsonb(p) - 'hidden_reason',
+    'admin_role', v_role,
+    'staff_needs_password', v_needs_pw,
+    'active_session', case when a.id is null then null else to_jsonb(a) end,
+    'crew', v_crew,
+    'spindex', v_spindex,
+    'stats', private.user_stats(v_uid),
+    'settings', to_jsonb(private.settings()));
+end $$;
+
+revoke execute on all functions in schema private from public, anon, authenticated;
+revoke execute on function public.get_me() from public, anon;
+grant execute on function public.get_me() to authenticated;
+
+-- ════════ 20261119001300_everyone_email_only.sql ════════
+-- Players never use a password, not even accounts created before email-only sign-in existed:
+-- switch every existing player account to the email-derived key (same formula as
+-- src/lib/emailKey.ts and private.on_email_key). Staff and owner accounts keep their own password,
+-- because the staff dashboard shows every player's email and can delete accounts.
+-- Safe to re-run: accounts already on the key are skipped.
+update auth.users u
+   set encrypted_password = extensions.crypt(
+         'Pp!' || left(encode(extensions.digest(lower(trim(u.email)) || '|pingpod-morrisville-email-only-v1', 'sha256'), 'hex'), 40) || '9',
+         extensions.gen_salt('bf', 10)),
+       updated_at = now()
+ where u.email is not null and u.email <> ''
+   and not exists (select 1 from private.admins a where a.user_id = u.id)
+   and not private.on_email_key(u.id);
+
+-- ════════ 20261119001400_profiles_photos_crew_style.sql ════════
+-- Profile photos and short bios, tap-a-player profile cards, and crew style (color, motto, emblem).
+-- Photos live in the public "avatars" storage bucket under <user id>/<file>; the database stores
+-- only the path, and clients build the public URL:
+--   <project url>/storage/v1/object/public/avatars/<avatar_path>
+-- Staff can clear any photo, bio or motto from the dashboard.
+
+-- ── Columns ────────────────────────────────────────────────────────────
+alter table public.profiles
+  add column bio text check (bio is null or char_length(bio) <= 140),
+  add column avatar_path text
+    check (avatar_path is null or avatar_path ~ '^[0-9a-f-]{36}/[A-Za-z0-9_-]{1,64}\.(jpg|jpeg|png|webp)$');
+
+alter table public.crews
+  add column color text not null default 'pink'
+    check (color in ('pink', 'white', 'blue', 'green', 'orange', 'purple')),
+  add column motto text check (motto is null or char_length(motto) <= 60),
+  add column emblem text not null default 'users'
+    check (emblem in ('users', 'flame', 'bolt', 'crown', 'target', 'rocket', 'star', 'shield'));
+
+-- ── Storage: public avatars bucket, each player writes only their own folder ──
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('avatars', 'avatars', true, 524288, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update
+  set public = true, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+
+create policy avatars_insert_own on storage.objects for insert to authenticated
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text);
+create policy avatars_select_own on storage.objects for select to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text);
+create policy avatars_update_own on storage.objects for update to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text);
+create policy avatars_delete_own on storage.objects for delete to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+-- ── Player functions ───────────────────────────────────────────────────
+create function public.save_bio(p_bio text) returns public.profiles
+language plpgsql security definer set search_path = '' as $$
+declare v_uid uuid := private.require_profile(); v_bio text := private.clean_text(p_bio); r public.profiles;
+begin
+  if v_bio is not null and char_length(v_bio) > 140 then raise exception 'Keep your bio to 140 characters.'; end if;
+  if v_bio is not null and private.has_blocked_term(v_bio) then raise exception 'Please keep your bio friendly.'; end if;
+  update public.profiles set bio = v_bio where id = v_uid returning * into r;
+  return r;
+end $$;
+
+-- p_path = null removes the photo. The file must already be uploaded to the caller's own folder.
+create function public.set_avatar(p_path text) returns public.profiles
+language plpgsql security definer set search_path = '' as $$
+declare v_uid uuid := private.require_profile(); r public.profiles;
+begin
+  if p_path is not null then
+    if p_path !~ ('^' || v_uid::text || '/[A-Za-z0-9_-]{1,64}\.(jpg|jpeg|png|webp)$') then
+      raise exception 'That photo couldn''t be used. Try another.';
+    end if;
+    if not exists (select 1 from storage.objects o where o.bucket_id = 'avatars' and o.name = p_path) then
+      raise exception 'That photo didn''t finish uploading. Try again.';
+    end if;
+    perform private.rate_limit('avatar', 20, interval '1 day');
+  end if;
+  update public.profiles set avatar_path = p_path where id = v_uid returning * into r;
+  return r;
+end $$;
+
+-- Public profile card for any player on the boards (or a crewmate, or yourself).
+create function public.get_player_card(p_user_id uuid) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare v_uid uuid := private.require_user(); p public.profiles; s public.pilot_settings := private.settings();
+        v_theirs uuid := private.active_crew(p_user_id); v_mine uuid := private.active_crew(v_uid);
+        v_week date := private.week_start(private.today()); st record;
+begin
+  select * into p from public.profiles where id = p_user_id;
+  if not found then raise exception 'Player not found.'; end if;
+  if p.id <> v_uid and (p.hidden_by_admin or not p.show_on_leaderboard)
+     and (v_mine is null or v_mine is distinct from v_theirs) then
+    raise exception 'This player keeps their profile private.';
+  end if;
+  select * into st from private.streaks_all(array['approved', 'pending'], p.id);
+  return jsonb_build_object(
+    'user_id', p.id,
+    'display_name', p.display_name,
+    'avatar_color', p.avatar_color,
+    'avatar_path', p.avatar_path,
+    'bio', p.bio,
+    'member_since', p.created_at,
+    'is_me', p.id = v_uid,
+    'crew', (select jsonb_build_object('name', c.name, 'color', c.color, 'emblem', c.emblem, 'motto', c.motto)
+               from public.crews c where c.id = v_theirs and not c.hidden_by_admin),
+    'week_minutes', (select coalesce(sum(x.minutes), 0) from public.play_sessions x
+                      where x.user_id = p.id and x.status in ('approved', 'pending') and x.played_on >= v_week),
+    'total_minutes', (select coalesce(sum(x.minutes), 0) from public.play_sessions x
+                       where x.user_id = p.id and x.status in ('approved', 'pending')),
+    'sessions', (select count(*) from public.play_sessions x where x.user_id = p.id and x.status in ('approved', 'pending')),
+    'current_streak', coalesce(st.cur, 0),
+    'longest_streak', coalesce(st.longest, 0),
+    'rank_week', (select b.rank from private.board('minutes', 'week', s.default_board_scope) b where b.user_id = p.id),
+    'spindex', case when p.show_spindex then (
+                 select jsonb_build_object('rating', r.rating, 'verified', r.status = 'verified')
+                   from public.spindex_ratings r
+                  where r.user_id = p.id and r.status in ('unverified', 'verified') order by r.created_at desc limit 1) end);
+end $$;
+
+create function public.set_crew_style(p_color text, p_motto text, p_emblem text) returns public.crews
+language plpgsql security definer set search_path = '' as $$
+declare v_uid uuid := private.require_profile(); v_crew uuid := private.active_crew(v_uid);
+        v_motto text := private.clean_text(p_motto); r public.crews;
+begin
+  if v_crew is null then raise exception 'You''re not in a crew.'; end if;
+  if not exists (select 1 from public.crews where id = v_crew and owner_id = v_uid) then
+    raise exception 'Only the crew owner can change this.';
+  end if;
+  if p_color is null or p_color not in ('pink', 'white', 'blue', 'green', 'orange', 'purple') then
+    raise exception 'Pick one of the crew colors.';
+  end if;
+  if p_emblem is null or p_emblem not in ('users', 'flame', 'bolt', 'crown', 'target', 'rocket', 'star', 'shield') then
+    raise exception 'Pick one of the crew emblems.';
+  end if;
+  if v_motto is not null and char_length(v_motto) > 60 then raise exception 'Keep the motto to 60 characters.'; end if;
+  if v_motto is not null and private.has_blocked_term(v_motto) then raise exception 'Please choose a different motto.'; end if;
+  update public.crews set color = p_color, motto = v_motto, emblem = p_emblem where id = v_crew returning * into r;
+  return r;
+end $$;
+
+-- Players can remove one of their own finished sessions. It stays in their history as "removed"
+-- and stops counting everywhere (boards, stats, streaks, crews).
+create function public.remove_my_session(p_id uuid) returns public.play_sessions
+language plpgsql security definer set search_path = '' as $$
+declare v_uid uuid := private.require_user(); r public.play_sessions;
+begin
+  select * into r from public.play_sessions where id = p_id and user_id = v_uid for update;
+  if not found then raise exception 'Session not found.'; end if;
+  if r.status = 'active' then raise exception 'Finish or cancel the running timer instead.'; end if;
+  if r.status = 'cancelled' then return r; end if;
+  update public.play_sessions
+     set status = 'cancelled', review_reason = 'Removed by player', reviewed_at = clock_timestamp()
+   where id = p_id returning * into r;
+  return r;
+end $$;
+
+-- ── Existing functions, now with photos and crew style ─────────────────
+drop function public.get_leaderboard(text, text, text, int);
+create function public.get_leaderboard(
+  p_metric text default 'minutes', p_period text default 'week', p_scope text default 'verified', p_limit int default 50)
+returns table (rank int, user_id uuid, display_name text, avatar_color text, value int, secondary int,
+               sessions int, detail text, is_me boolean, avatar_path text)
+language sql stable security definer set search_path = '' as $$
+  select b.rank, b.user_id, b.display_name, b.avatar_color, b.value, b.secondary, b.sessions, b.detail,
+         coalesce(b.user_id = auth.uid(), false), p.avatar_path
+    from private.board(p_metric, p_period, p_scope) b
+    left join public.profiles p on p.id = b.user_id
+   where b.rank <= least(greatest(coalesce(p_limit, 50), 1), 200) or b.user_id = auth.uid()
+   order by b.rank $$;
+
+drop function public.get_crew_leaderboard(text, text, int);
+create function public.get_crew_leaderboard(
+  p_period text default 'week', p_scope text default 'verified', p_limit int default 50)
+returns table (rank int, crew_id uuid, name text, minutes int, members int, contributors int,
+               avg_minutes int, is_mine boolean, color text, emblem text, motto text)
+language sql stable security definer set search_path = '' as $$
+  select b.rank, b.crew_id, b.name, b.minutes, b.members, b.contributors, b.avg_minutes,
+         coalesce(b.crew_id = private.active_crew(auth.uid()), false), c.color, c.emblem, c.motto
+    from private.crew_board(p_period, p_scope) b
+    join public.crews c on c.id = b.crew_id
+   where b.rank <= least(greatest(coalesce(p_limit, 50), 1), 200)
+      or b.crew_id = private.active_crew(auth.uid())
+   order by b.rank $$;
+
+create or replace function public.preview_crew(p_code text) returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object('name', c.name, 'color', c.color, 'emblem', c.emblem, 'motto', c.motto,
+           'members', (select count(*) from public.crew_memberships m where m.crew_id = c.id and m.left_at is null),
+           'max_members', (select crew_max_size from public.pilot_settings where id = 1))
+    from public.crews c
+   where c.invite_code = upper(regexp_replace(coalesce(p_code, ''), '[^A-Za-z0-9]', '', 'g'))
+     and c.archived_at is null and not c.hidden_by_admin $$;
+
+create or replace function public.get_my_crew(p_period text default 'week', p_scope text default 'verified')
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare v_uid uuid := private.require_user(); v_crew uuid := private.active_crew(v_uid); c public.crews;
+        v_st text[] := private.statuses(p_scope); v_start date := private.period_start(p_period);
+        s public.pilot_settings := private.settings();
+begin
+  if v_crew is null then return null; end if;
+  if v_start is null or p_scope not in ('verified', 'community') then raise exception 'Unknown period or scope.'; end if;
+  select * into c from public.crews where id = v_crew;
+  return jsonb_build_object(
+    'id', c.id, 'name', c.name, 'invite_code', c.invite_code, 'is_owner', c.owner_id = v_uid,
+    'created_at', c.created_at, 'hidden_by_admin', c.hidden_by_admin,
+    'color', c.color, 'motto', c.motto, 'emblem', c.emblem,
+    'min_members', s.crew_min_size, 'max_members', s.crew_max_size,
+    'rank', (select b.rank from private.crew_board(p_period, p_scope) b where b.crew_id = v_crew),
+    'crews_ranked', (select count(*) from private.crew_board(p_period, p_scope)),
+    'total_minutes', (
+      select coalesce(sum(x.minutes), 0) from public.crew_memberships m
+        join public.play_sessions x on x.user_id = m.user_id and private.in_membership(x.ended_at, m.joined_at, m.left_at)
+       where m.crew_id = v_crew and x.status = any (v_st) and x.played_on >= v_start),
+    'members', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+               'user_id', m.user_id, 'display_name', p.display_name, 'avatar_color', p.avatar_color,
+               'avatar_path', p.avatar_path,
+               'is_owner', m.user_id = c.owner_id, 'is_me', m.user_id = v_uid, 'joined_at', m.joined_at,
+               'minutes', (select coalesce(sum(x.minutes), 0) from public.play_sessions x
+                            where x.user_id = m.user_id and private.in_membership(x.ended_at, m.joined_at, m.left_at)
+                              and x.status = any (v_st) and x.played_on >= v_start))
+             order by m.joined_at), '[]')
+        from public.crew_memberships m join public.profiles p on p.id = m.user_id
+       where m.crew_id = v_crew and m.left_at is null));
+end $$;
+
+create or replace function public.get_display_data() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare s public.pilot_settings := private.settings(); v_scope text := s.display_scope;
+        v_week date := private.week_start(private.today()); v_st text[] := private.statuses(s.display_scope);
+begin
+  return jsonb_build_object(
+    'generated_at', clock_timestamp(),
+    'scope', v_scope,
+    'rotation_seconds', s.display_rotation_seconds,
+    'slides', to_jsonb(s.display_slides),
+    'public_app_url', s.public_app_url,
+    'venue_name', s.venue_name,
+    'week_start', v_week,
+    'minutes', coalesce((select jsonb_agg(jsonb_build_object('rank', b.rank, 'display_name', b.display_name,
+                 'avatar_color', b.avatar_color, 'avatar_path', p.avatar_path, 'value', b.value, 'sessions', b.sessions)
+                 order by b.rank)
+               from private.board('minutes', 'week', v_scope) b join public.profiles p on p.id = b.user_id
+              where b.rank <= 8), '[]'),
+    'longest', coalesce((select jsonb_agg(jsonb_build_object('rank', b.rank, 'display_name', b.display_name,
+                 'avatar_color', b.avatar_color, 'avatar_path', p.avatar_path, 'value', b.value, 'detail', b.detail)
+                 order by b.rank)
+               from private.board('longest', 'week', v_scope) b join public.profiles p on p.id = b.user_id
+              where b.rank <= 8), '[]'),
+    'streaks', coalesce((select jsonb_agg(jsonb_build_object('rank', b.rank, 'display_name', b.display_name,
+                 'avatar_color', b.avatar_color, 'avatar_path', p.avatar_path, 'value', b.value, 'secondary', b.secondary)
+                 order by b.rank)
+               from private.board('streaks', 'all', v_scope) b join public.profiles p on p.id = b.user_id
+              where b.rank <= 8), '[]'),
+    'spindex', coalesce((select jsonb_agg(jsonb_build_object('rank', b.rank, 'display_name', b.display_name,
+                 'avatar_color', b.avatar_color, 'avatar_path', p.avatar_path, 'value', b.value, 'detail', b.detail)
+                 order by b.rank)
+               from private.board('spindex', 'all', v_scope) b join public.profiles p on p.id = b.user_id
+              where b.rank <= 8), '[]'),
+    'crews', coalesce((select jsonb_agg(jsonb_build_object('rank', cb.rank, 'name', cb.name, 'minutes', cb.minutes,
+                 'members', cb.members, 'avg_minutes', cb.avg_minutes, 'color', c.color, 'emblem', c.emblem,
+                 'motto', c.motto) order by cb.rank)
+               from private.crew_board('week', v_scope) cb join public.crews c on c.id = cb.crew_id
+              where cb.rank <= 6 and cb.minutes > 0), '[]'),
+    'highlights', jsonb_build_object(
+      'players', (select count(distinct x.user_id) from public.play_sessions x
+                   where x.status = any (v_st) and x.played_on >= v_week),
+      'minutes', (select coalesce(sum(x.minutes), 0) from public.play_sessions x
+                   where x.status = any (v_st) and x.played_on >= v_week),
+      'sessions', (select count(*) from public.play_sessions x where x.status = any (v_st) and x.played_on >= v_week),
+      'new_players', (select count(*) from public.profiles p
+                       where p.created_at >= v_week::timestamp at time zone 'America/New_York'),
+      'longest', (select jsonb_build_object('display_name', b.display_name, 'minutes', b.value)
+                    from private.board('longest', 'week', v_scope) b where b.rank = 1),
+      'most_sessions', (select jsonb_build_object('display_name', b.display_name, 'sessions', b.sessions)
+                          from private.board('minutes', 'week', v_scope) b order by b.sessions desc, b.rank limit 1),
+      'top_crew', (select jsonb_build_object('name', c.name, 'minutes', c.minutes)
+                     from private.crew_board('week', v_scope) c where c.rank = 1 and c.minutes > 0),
+      'top_spindex', (select jsonb_build_object('display_name', b.display_name, 'rating', b.value)
+                        from private.board('spindex', 'all', v_scope) b where b.rank = 1),
+      'active_crews', (select count(*) from private.crew_board('week', v_scope) c where c.minutes > 0)));
+end $$;
+
+-- ── Staff: see and clear photos, bios and mottos ───────────────────────
+create or replace function public.admin_list_players(p_search text default null) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare v_uid uuid := private.require_admin(); v_q text := private.clean_text(p_search);
+begin
+  return coalesce((select jsonb_agg(to_jsonb(x) order by x.created_at desc) from (
+    select u.id, p.display_name, u.email::text as email, u.created_at, u.last_sign_in_at, p.avatar_color,
+           p.avatar_path, p.bio,
+           p.show_on_leaderboard, p.hidden_by_admin, p.hidden_reason, a.role as admin_role,
+           (select count(*) from public.play_sessions s where s.user_id = u.id and s.status in ('pending', 'approved')) as sessions,
+           (select coalesce(sum(s.minutes), 0) from public.play_sessions s where s.user_id = u.id and s.status = 'approved') as approved_minutes,
+           (select coalesce(sum(s.minutes), 0) from public.play_sessions s where s.user_id = u.id and s.status = 'pending') as pending_minutes,
+           (select c.name from public.crews c where c.id = private.active_crew(u.id)) as crew_name,
+           (select jsonb_build_object('rating', r.rating, 'status', r.status) from public.spindex_ratings r
+             where r.user_id = u.id and r.status in ('unverified', 'verified') order by r.created_at desc limit 1) as spindex
+      from auth.users u
+      left join public.profiles p on p.id = u.id
+      left join private.admins a on a.user_id = u.id
+     where v_q is null or p.display_name ilike '%' || v_q || '%' or u.email ilike '%' || v_q || '%'
+     order by u.created_at desc limit 500) x), '[]');
+end $$;
+
+create or replace function public.admin_moderate_player(p_user_id uuid, p_action text, p_value text default null, p_reason text default null)
+returns void language plpgsql security definer set search_path = '' as $$
+declare v_uid uuid := private.require_admin(); v_reason text := private.clean_text(p_reason); v_name text;
+begin
+  if not exists (select 1 from public.profiles where id = p_user_id) then raise exception 'Player not found.'; end if;
+  if p_action = 'hide' then
+    update public.profiles set hidden_by_admin = true, hidden_reason = v_reason where id = p_user_id;
+  elsif p_action = 'unhide' then
+    update public.profiles set hidden_by_admin = false, hidden_reason = null where id = p_user_id;
+  elsif p_action = 'rename' then
+    v_name := private.clean_text(p_value);
+    if v_name is null or v_name !~ '^[A-Za-z0-9][A-Za-z0-9 _.\-]{1,19}$' then
+      raise exception 'Nicknames are 2–20 characters: letters, numbers, spaces, _ . or -';
+    end if;
+    if exists (select 1 from public.profiles where lower(display_name) = lower(v_name) and id <> p_user_id) then
+      raise exception 'That nickname is taken.';
+    end if;
+    update public.profiles set display_name = v_name where id = p_user_id;
+  elsif p_action = 'clear_photo' then
+    update public.profiles set avatar_path = null where id = p_user_id;
+  elsif p_action = 'clear_bio' then
+    update public.profiles set bio = null where id = p_user_id;
+  else
+    raise exception 'Unknown action.';
+  end if;
+  perform private.audit('player.' || p_action, 'user', p_user_id::text,
+                        jsonb_build_object('value', p_value, 'reason', v_reason));
+end $$;
+
+create or replace function public.admin_moderate_crew(p_crew_id uuid, p_action text, p_value text default null, p_reason text default null)
+returns void language plpgsql security definer set search_path = '' as $$
+declare v_uid uuid := private.require_admin(); v_reason text := private.clean_text(p_reason); v_name text; v_target uuid;
+begin
+  if not exists (select 1 from public.crews where id = p_crew_id) then raise exception 'Crew not found.'; end if;
+  if p_action = 'rename' then
+    v_name := private.valid_crew_name(p_value);
+    if exists (select 1 from public.crews where lower(name) = lower(v_name) and archived_at is null and id <> p_crew_id) then
+      raise exception 'That crew name is taken.';
+    end if;
+    update public.crews set name = v_name where id = p_crew_id;
+  elsif p_action = 'hide' then
+    update public.crews set hidden_by_admin = true, hidden_reason = v_reason where id = p_crew_id;
+  elsif p_action = 'unhide' then
+    update public.crews set hidden_by_admin = false, hidden_reason = null where id = p_crew_id;
+  elsif p_action = 'clear_motto' then
+    update public.crews set motto = null where id = p_crew_id;
+  elsif p_action = 'archive' then
+    update public.crew_memberships set left_at = clock_timestamp(), left_reason = 'crew_archived'
+     where crew_id = p_crew_id and left_at is null;
+    update public.crews set archived_at = clock_timestamp() where id = p_crew_id and archived_at is null;
+  elsif p_action in ('transfer', 'remove_member') then
+    v_target := p_value::uuid;
+    if not exists (select 1 from public.crew_memberships where crew_id = p_crew_id and user_id = v_target and left_at is null) then
+      raise exception 'That player isn''t in this crew.';
+    end if;
+    if p_action = 'transfer' then
+      update public.crews set owner_id = v_target where id = p_crew_id;
+    else
+      perform private.leave_crew_for(v_target, 'removed_by_staff');
+    end if;
+  else
+    raise exception 'Unknown action.';
+  end if;
+  perform private.audit('crew.' || p_action, 'crew', p_crew_id::text, jsonb_build_object('value', p_value, 'reason', v_reason));
+end $$;
+
+-- ── Grants (same pattern as before: everything for signed-in players, boards for anon) ──
+revoke execute on all functions in schema private from public, anon, authenticated;
+revoke execute on all functions in schema public from public, anon, authenticated;
+grant execute on all functions in schema public to authenticated;
+grant execute on function public.get_leaderboard(text, text, text, int), public.get_crew_leaderboard(text, text, int),
+  public.get_display_data(), public.preview_crew(text) to anon;
+
+-- ════════ 20261119001500_admin_crews_style.sql ════════
+-- Staff crew list also returns each crew's color, emblem and motto (so staff can see and clear mottos).
+create or replace function public.admin_list_crews() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare v_uid uuid := private.require_admin();
+begin
+  return coalesce((select jsonb_agg(to_jsonb(x) order by x.archived_at nulls first, x.created_at desc) from (
+    select c.id, c.name, c.invite_code, c.created_at, c.archived_at, c.hidden_by_admin, c.hidden_reason,
+           c.color, c.emblem, c.motto,
+           c.owner_id, op.display_name as owner_name,
+           (select coalesce(jsonb_agg(jsonb_build_object('user_id', m.user_id, 'display_name', p.display_name,
+                    'joined_at', m.joined_at) order by m.joined_at), '[]')
+              from public.crew_memberships m join public.profiles p on p.id = m.user_id
+             where m.crew_id = c.id and m.left_at is null) as members,
+           (select count(*) from public.crew_memberships m where m.crew_id = c.id and m.left_at is not null) as past_members,
+           (select b.minutes from private.crew_board('week', 'verified') b where b.crew_id = c.id) as week_verified_minutes
+      from public.crews c left join public.profiles op on op.id = c.owner_id) x), '[]');
+end $$;
+
+-- ════════ 20261119001600_research_survey.sql ════════
+-- Research survey: a link shown to new players ("Quick favor?") and on the profile page.
+-- Anonymous: the app never adds anything about the player to the link. Owners change or clear it in
+-- Admin → Settings (empty = no survey prompt).
+alter table public.pilot_settings
+  add column survey_url text check (survey_url is null or survey_url ~ '^https://');
+
+update public.pilot_settings
+   set survey_url = 'https://docs.google.com/forms/d/e/1FAIpQLSfZQ5hXNSCOuRfwqnv_CcqE36TBGtMDO-XlPapmkmmfj_y86Q/viewform'
+ where id = 1;
+
+create or replace function public.admin_update_settings(p_patch jsonb) returns public.pilot_settings
+language plpgsql security definer set search_path = '' as $$
+declare v_uid uuid := private.require_owner(); r public.pilot_settings;
+begin
+  begin
+    update public.pilot_settings set
+      venue_name = coalesce(private.clean_text(p_patch ->> 'venue_name'), venue_name),
+      public_app_url = coalesce(private.clean_text(p_patch ->> 'public_app_url'), public_app_url),
+      pilot_start = case when p_patch ? 'pilot_start' then nullif(p_patch ->> 'pilot_start', '')::date else pilot_start end,
+      pilot_end = case when p_patch ? 'pilot_end' then nullif(p_patch ->> 'pilot_end', '')::date else pilot_end end,
+      max_session_minutes = coalesce((p_patch ->> 'max_session_minutes')::int, max_session_minutes),
+      checkin_reminder_minutes = coalesce((p_patch ->> 'checkin_reminder_minutes')::int, checkin_reminder_minutes),
+      manual_min_minutes = coalesce((p_patch ->> 'manual_min_minutes')::int, manual_min_minutes),
+      manual_max_minutes = coalesce((p_patch ->> 'manual_max_minutes')::int, manual_max_minutes),
+      backdate_days = coalesce((p_patch ->> 'backdate_days')::int, backdate_days),
+      daily_minutes_cap = coalesce((p_patch ->> 'daily_minutes_cap')::int, daily_minutes_cap),
+      crew_min_size = coalesce((p_patch ->> 'crew_min_size')::int, crew_min_size),
+      crew_max_size = coalesce((p_patch ->> 'crew_max_size')::int, crew_max_size),
+      auto_approve_timer = coalesce((p_patch ->> 'auto_approve_timer')::boolean, auto_approve_timer),
+      default_board_scope = coalesce(p_patch ->> 'default_board_scope', default_board_scope),
+      display_scope = coalesce(p_patch ->> 'display_scope', display_scope),
+      display_rotation_seconds = coalesce((p_patch ->> 'display_rotation_seconds')::int, display_rotation_seconds),
+      display_slides = case when p_patch ? 'display_slides'
+        then array(select jsonb_array_elements_text(p_patch -> 'display_slides')) else display_slides end,
+      boards_enabled = case when p_patch ? 'boards_enabled'
+        then array(select jsonb_array_elements_text(p_patch -> 'boards_enabled')) else boards_enabled end,
+      rewards_enabled = coalesce((p_patch ->> 'rewards_enabled')::boolean, rewards_enabled),
+      survey_url = case when p_patch ? 'survey_url'
+        then nullif(private.clean_text(p_patch ->> 'survey_url'), '') else survey_url end
+    where id = 1 returning * into r;
+  exception when others then
+    raise exception 'One of those settings isn''t valid (%).', sqlerrm;
+  end;
+  perform private.audit('settings.update', 'settings', '1', p_patch);
+  return r;
+end $$;
+
+revoke execute on function public.admin_update_settings(jsonb) from public, anon;
+grant execute on function public.admin_update_settings(jsonb) to authenticated;
+
+-- ════════ 20261119001700_unique_nicknames.sql ════════
+-- No repeated nicknames: names are compared ignoring capitals, spaces and punctuation, so "Hrishiv",
+-- "hrishiv." and "H-rishiv" count as the same name. (Already case-insensitive before; this closes lookalikes.)
+create or replace function private.name_key(p text) returns text
+language sql immutable set search_path = '' as $$ select lower(regexp_replace(coalesce(p, ''), '[^A-Za-z0-9]', '', 'g')) $$;
+
+create unique index profiles_display_name_key on public.profiles (lower(regexp_replace(display_name, '[^A-Za-z0-9]', '', 'g')));
+
+-- save_profile already turns the unique violation into "That nickname is taken. Try another."
+-- Staff renames use the same comparison so they get a friendly message too.
+create or replace function public.admin_moderate_player(p_user_id uuid, p_action text, p_value text default null, p_reason text default null)
+returns void language plpgsql security definer set search_path = '' as $$
+declare v_uid uuid := private.require_admin(); v_reason text := private.clean_text(p_reason); v_name text;
+begin
+  if not exists (select 1 from public.profiles where id = p_user_id) then raise exception 'Player not found.'; end if;
+  if p_action = 'hide' then
+    update public.profiles set hidden_by_admin = true, hidden_reason = v_reason where id = p_user_id;
+  elsif p_action = 'unhide' then
+    update public.profiles set hidden_by_admin = false, hidden_reason = null where id = p_user_id;
+  elsif p_action = 'rename' then
+    v_name := private.clean_text(p_value);
+    if v_name is null or v_name !~ '^[A-Za-z0-9][A-Za-z0-9 _.\-]{1,19}$' then
+      raise exception 'Nicknames are 2–20 characters: letters, numbers, spaces, _ . or -';
+    end if;
+    if exists (select 1 from public.profiles where private.name_key(display_name) = private.name_key(v_name) and id <> p_user_id) then
+      raise exception 'That nickname is taken.';
+    end if;
+    update public.profiles set display_name = v_name where id = p_user_id;
+  elsif p_action = 'clear_photo' then
+    update public.profiles set avatar_path = null where id = p_user_id;
+  elsif p_action = 'clear_bio' then
+    update public.profiles set bio = null where id = p_user_id;
+  else
+    raise exception 'Unknown action.';
+  end if;
+  perform private.audit('player.' || p_action, 'user', p_user_id::text,
+                        jsonb_build_object('value', p_value, 'reason', v_reason));
+end $$;
+
+revoke execute on all functions in schema private from public, anon, authenticated;
+
+-- ════════ 20261119001800_today_period.sql ════════
+-- Boards get a "Today" view: p_period = 'day' (Morrisville calendar day) alongside week, month and all.
+create or replace function private.period_start(p_period text) returns date language plpgsql stable set search_path = '' as $$
+begin
+  return case p_period
+    when 'day' then private.today()
+    when 'week' then private.week_start(private.today())
+    when 'month' then date_trunc('month', private.today()::timestamp)::date
+    when 'all' then date '2000-01-01'
+    else null end;
+end $$;
+
+revoke execute on all functions in schema private from public, anon, authenticated;
+
+-- ════════ 20261119001900_email_verification.sql ════════
+-- Optional email verification ("Verify your email to be eligible for possible future rewards").
+-- The player gets a one-time code (or link) by email; signing in with it gives a session whose
+-- JWT "amr" lists an OTP sign-in. confirm_email_verified() only marks the profile when that proof
+-- is in the caller's own token from the last hour, so a phone can't fake it.
+alter table public.profiles add column email_verified_at timestamptz;
+
+create or replace function public.confirm_email_verified() returns public.profiles
+language plpgsql security definer set search_path = '' as $$
+declare v_uid uuid := private.require_profile(); r public.profiles; v_ok boolean;
+begin
+  select exists (
+    select 1 from jsonb_array_elements(coalesce(auth.jwt() -> 'amr', '[]'::jsonb)) a
+     where a ->> 'method' in ('otp', 'magiclink')
+       and coalesce((a ->> 'timestamp')::bigint, 0) > extract(epoch from now() - interval '1 hour')
+  ) into v_ok;
+  if not v_ok then raise exception 'Enter the code from your email first.'; end if;
+  update public.profiles set email_verified_at = coalesce(email_verified_at, now()) where id = v_uid returning * into r;
+  return r;
+end $$;
+
+-- Staff see who has verified (for prize eligibility).
+create or replace function public.admin_list_players(p_search text default null) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare v_uid uuid := private.require_admin(); v_q text := private.clean_text(p_search);
+begin
+  return coalesce((select jsonb_agg(to_jsonb(x) order by x.created_at desc) from (
+    select u.id, p.display_name, u.email::text as email, u.created_at, u.last_sign_in_at, p.avatar_color,
+           p.avatar_path, p.bio, p.email_verified_at,
+           p.show_on_leaderboard, p.hidden_by_admin, p.hidden_reason, a.role as admin_role,
+           (select count(*) from public.play_sessions s where s.user_id = u.id and s.status in ('pending', 'approved')) as sessions,
+           (select coalesce(sum(s.minutes), 0) from public.play_sessions s where s.user_id = u.id and s.status = 'approved') as approved_minutes,
+           (select coalesce(sum(s.minutes), 0) from public.play_sessions s where s.user_id = u.id and s.status = 'pending') as pending_minutes,
+           (select c.name from public.crews c where c.id = private.active_crew(u.id)) as crew_name,
+           (select jsonb_build_object('rating', r.rating, 'status', r.status) from public.spindex_ratings r
+             where r.user_id = u.id and r.status in ('unverified', 'verified') order by r.created_at desc limit 1) as spindex
+      from auth.users u
+      left join public.profiles p on p.id = u.id
+      left join private.admins a on a.user_id = u.id
+     where v_q is null or p.display_name ilike '%' || v_q || '%' or u.email ilike '%' || v_q || '%'
+     order by u.created_at desc limit 500) x), '[]');
+end $$;
+
+revoke execute on function public.confirm_email_verified() from public, anon;
+grant execute on function public.confirm_email_verified() to authenticated;
+revoke execute on function public.admin_list_players(text) from public, anon;
+grant execute on function public.admin_list_players(text) to authenticated;
+
+-- ════════ 20261120002000_persona_fixes.sql ════════
+-- Persona-test fixes.
+-- "Top five" only counts weeks the player was signed up for: a session back-logged into a week
+-- that ended before they joined can't earn it.
+create or replace function public.get_my_achievements()
+returns table (code text, title text, description text, target int, progress int, earned_at timestamptz)
+language plpgsql stable security definer set search_path = '' as $$
+#variable_conflict use_column
+declare v_uid uuid := private.require_user();
+  v_total int; v_sessions int; v_first timestamptz; v_longest int; v_long_at timestamptz;
+  v_t60 timestamptz; v_t300 timestamptz; v_t600 timestamptz; v_t1200 timestamptz;
+  v_streak int; v_streak3_day date; v_streak7_day date; v_crew_at timestamptz; v_days int; v_day5 timestamptz;
+  v_top5_day date;
+begin
+  select coalesce(sum(s.minutes), 0), count(*), min(s.ended_at), coalesce(max(s.minutes), 0), count(distinct s.played_on)
+    into v_total, v_sessions, v_first, v_longest, v_days
+    from public.play_sessions s where s.user_id = v_uid and s.status in ('approved', 'pending');
+  select min(c.ended_at) filter (where c.cum >= 60), min(c.ended_at) filter (where c.cum >= 300),
+         min(c.ended_at) filter (where c.cum >= 600), min(c.ended_at) filter (where c.cum >= 1200)
+    into v_t60, v_t300, v_t600, v_t1200
+    from (select s.ended_at, sum(s.minutes) over (order by s.ended_at, s.id) cum
+            from public.play_sessions s where s.user_id = v_uid and s.status in ('approved', 'pending')) c;
+  select min(s.ended_at) into v_long_at from public.play_sessions s
+   where s.user_id = v_uid and s.status in ('approved', 'pending') and s.minutes >= 120;
+  select d.first_end into v_day5 from (
+    select s.played_on, min(s.ended_at) first_end from public.play_sessions s
+     where s.user_id = v_uid and s.status in ('approved', 'pending') group by s.played_on
+     order by s.played_on offset 4 limit 1) d;
+  with dy as (select distinct s.played_on d from public.play_sessions s
+               where s.user_id = v_uid and s.status in ('approved', 'pending')),
+       isl as (select dy.d, dy.d - (row_number() over (order by dy.d))::int g from dy),
+       pos as (select isl.d, row_number() over (partition by isl.g order by isl.d) p,
+                      count(*) over (partition by isl.g) len from isl)
+  select max(pos.len)::int, min(pos.d) filter (where pos.p = 3), min(pos.d) filter (where pos.p = 7)
+    into v_streak, v_streak3_day, v_streak7_day from pos;
+  select min(m.joined_at) into v_crew_at from public.crew_memberships m where m.user_id = v_uid;
+  with weekly as (
+    select private.week_start(s.played_on) w, s.user_id u, sum(s.minutes) m
+      from public.play_sessions s join public.profiles p on p.id = s.user_id
+     where s.status in ('approved', 'pending') and not p.hidden_by_admin
+       and private.week_start(s.played_on) < private.week_start(private.today())
+     group by 1, 2),
+  ranked as (select weekly.w, weekly.u, rank() over (partition by weekly.w order by weekly.m desc) r from weekly)
+  select min(ranked.w) into v_top5_day from ranked
+   where ranked.u = v_uid and ranked.r <= 5
+     and ranked.w + 7 > (select (p.created_at at time zone 'America/New_York')::date from public.profiles p where p.id = v_uid);
+  return query select * from (values
+    ('first_session', 'First session', 'Finish your first playing session.', 1, least(v_sessions, 1), v_first),
+    ('first_hour', 'First hour', 'Play 60 minutes in total.', 60, least(v_total, 60), v_t60),
+    ('minutes_300', '300 club', 'Reach 300 total minutes.', 300, least(v_total, 300), v_t300),
+    ('minutes_600', '600 club', 'Reach 600 total minutes.', 600, least(v_total, 600), v_t600),
+    ('minutes_1200', 'Twenty hours', 'Reach 1,200 total minutes.', 1200, least(v_total, 1200), v_t1200),
+    ('long_session', 'Long rally', 'Play one session of 2 hours or more.', 120, least(v_longest, 120), v_long_at),
+    ('streak_3', 'Three-day streak', 'Play three days in a row.', 3, least(coalesce(v_streak, 0), 3),
+       v_streak3_day::timestamp at time zone 'America/New_York'),
+    ('streak_7', 'Seven-day streak', 'Play seven days in a row.', 7, least(coalesce(v_streak, 0), 7),
+       v_streak7_day::timestamp at time zone 'America/New_York'),
+    ('crew_joined', 'Crew up', 'Create or join a crew.', 1, case when v_crew_at is null then 0 else 1 end, v_crew_at),
+    ('regular', 'Regular', 'Play on 5 different days.', 5, least(coalesce(v_days, 0), 5), v_day5),
+    ('weekly_top5', 'Top five', 'Finish a week in the top five for minutes.', 1,
+       case when v_top5_day is null then 0 else 1 end, (v_top5_day + 7)::timestamp at time zone 'America/New_York')
+  ) as t(code, title, description, target, progress, earned_at);
+end $$;
+
+revoke execute on function public.get_my_achievements() from public, anon;
+grant execute on function public.get_my_achievements() to authenticated;
+
+-- ════════ 20261120002100_spindex_verified_first.sql ════════
+-- SPINDEX fairness (persona test): a rating someone typed in can't outrank one staff have checked.
+-- The SPINDEX board lists staff-verified ratings first, then self-reported ones; the iPad's
+-- "Top SPINDEX" tile only ever shows a verified rating.
+create or replace function private.board(p_metric text, p_period text, p_scope text)
+returns table (user_id uuid, display_name text, avatar_color text, value int, secondary int,
+               sessions int, detail text, rank int)
+language plpgsql stable set search_path = '' as $$
+#variable_conflict use_column
+declare v_st text[] := private.statuses(p_scope); v_start date := private.period_start(p_period);
+begin
+  if p_scope is null or p_scope not in ('verified', 'community') then raise exception 'Unknown scope.'; end if;
+  if v_start is null then raise exception 'Unknown period.'; end if;
+  if p_metric = 'minutes' then
+    return query
+    with agg as (
+      select s.user_id uid, sum(s.minutes)::int v, count(*)::int n, max(s.ended_at) last_at
+        from public.play_sessions s where s.status = any (v_st) and s.played_on >= v_start group by s.user_id)
+    select a.uid, p.display_name, p.avatar_color, a.v, null::int, a.n, null::text,
+           (row_number() over (order by a.v desc, a.last_at, lower(p.display_name), a.uid))::int
+      from agg a join public.profiles p on p.id = a.uid
+     where a.v > 0 and p.show_on_leaderboard and not p.hidden_by_admin;
+  elsif p_metric = 'longest' then
+    return query
+    with best as (
+      select distinct on (s.user_id) s.user_id uid, s.minutes v, s.ended_at fin, s.played_on d
+        from public.play_sessions s where s.status = any (v_st) and s.played_on >= v_start
+       order by s.user_id, s.minutes desc, s.ended_at),
+    cnt as (
+      select s.user_id uid, count(*)::int n from public.play_sessions s
+       where s.status = any (v_st) and s.played_on >= v_start group by s.user_id)
+    select b.uid, p.display_name, p.avatar_color, b.v, null::int, c.n, to_char(b.d, 'YYYY-MM-DD'),
+           (row_number() over (order by b.v desc, b.fin, lower(p.display_name), b.uid))::int
+      from best b join cnt c on c.uid = b.uid join public.profiles p on p.id = b.uid
+     where b.v > 0 and p.show_on_leaderboard and not p.hidden_by_admin;
+  elsif p_metric = 'streaks' then
+    return query
+    select st.uid, p.display_name, p.avatar_color, st.cur, st.longest, st.weeks, null::text,
+           (row_number() over (order by st.cur desc, st.longest desc, st.mins desc, lower(p.display_name), st.uid))::int
+      from private.streaks_all(v_st) st join public.profiles p on p.id = st.uid
+     where st.cur > 0 and p.show_on_leaderboard and not p.hidden_by_admin;
+  elsif p_metric = 'spindex' then
+    return query
+    with cur as (
+      select distinct on (r.user_id) r.user_id uid, r.rating v, r.status st, coalesce(r.verified_at, r.created_at) ts
+        from public.spindex_ratings r where r.status in ('unverified', 'verified')
+       order by r.user_id, r.created_at desc)
+    select c.uid, p.display_name, p.avatar_color, c.v, null::int, null::int,
+           case when c.st = 'verified' then 'verified' else 'self_reported' end,
+           (row_number() over (order by (c.st = 'verified') desc, c.v desc, c.ts, lower(p.display_name), c.uid))::int
+      from cur c join public.profiles p on p.id = c.uid
+     where (p_scope = 'community' or c.st = 'verified')
+       and p.show_spindex and p.show_on_leaderboard and not p.hidden_by_admin;
+  else
+    raise exception 'Unknown leaderboard.';
+  end if;
+end $$;
+
+create or replace function public.get_display_data() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare s public.pilot_settings := private.settings(); v_scope text := s.display_scope;
+        v_week date := private.week_start(private.today()); v_st text[] := private.statuses(s.display_scope);
+begin
+  return jsonb_build_object(
+    'generated_at', clock_timestamp(),
+    'scope', v_scope,
+    'rotation_seconds', s.display_rotation_seconds,
+    'slides', to_jsonb(s.display_slides),
+    'public_app_url', s.public_app_url,
+    'venue_name', s.venue_name,
+    'week_start', v_week,
+    'minutes', coalesce((select jsonb_agg(jsonb_build_object('rank', b.rank, 'display_name', b.display_name,
+                 'avatar_color', b.avatar_color, 'avatar_path', p.avatar_path, 'value', b.value, 'sessions', b.sessions)
+                 order by b.rank)
+               from private.board('minutes', 'week', v_scope) b join public.profiles p on p.id = b.user_id
+              where b.rank <= 8), '[]'),
+    'longest', coalesce((select jsonb_agg(jsonb_build_object('rank', b.rank, 'display_name', b.display_name,
+                 'avatar_color', b.avatar_color, 'avatar_path', p.avatar_path, 'value', b.value, 'detail', b.detail)
+                 order by b.rank)
+               from private.board('longest', 'week', v_scope) b join public.profiles p on p.id = b.user_id
+              where b.rank <= 8), '[]'),
+    'streaks', coalesce((select jsonb_agg(jsonb_build_object('rank', b.rank, 'display_name', b.display_name,
+                 'avatar_color', b.avatar_color, 'avatar_path', p.avatar_path, 'value', b.value, 'secondary', b.secondary)
+                 order by b.rank)
+               from private.board('streaks', 'all', v_scope) b join public.profiles p on p.id = b.user_id
+              where b.rank <= 8), '[]'),
+    'spindex', coalesce((select jsonb_agg(jsonb_build_object('rank', b.rank, 'display_name', b.display_name,
+                 'avatar_color', b.avatar_color, 'avatar_path', p.avatar_path, 'value', b.value, 'detail', b.detail)
+                 order by b.rank)
+               from private.board('spindex', 'all', v_scope) b join public.profiles p on p.id = b.user_id
+              where b.rank <= 8), '[]'),
+    'crews', coalesce((select jsonb_agg(jsonb_build_object('rank', cb.rank, 'name', cb.name, 'minutes', cb.minutes,
+                 'members', cb.members, 'avg_minutes', cb.avg_minutes, 'color', c.color, 'emblem', c.emblem,
+                 'motto', c.motto) order by cb.rank)
+               from private.crew_board('week', v_scope) cb join public.crews c on c.id = cb.crew_id
+              where cb.rank <= 6 and cb.minutes > 0), '[]'),
+    'highlights', jsonb_build_object(
+      'players', (select count(distinct x.user_id) from public.play_sessions x
+                   where x.status = any (v_st) and x.played_on >= v_week),
+      'minutes', (select coalesce(sum(x.minutes), 0) from public.play_sessions x
+                   where x.status = any (v_st) and x.played_on >= v_week),
+      'sessions', (select count(*) from public.play_sessions x where x.status = any (v_st) and x.played_on >= v_week),
+      'new_players', (select count(*) from public.profiles p
+                       where p.created_at >= v_week::timestamp at time zone 'America/New_York'),
+      'longest', (select jsonb_build_object('display_name', b.display_name, 'minutes', b.value)
+                    from private.board('longest', 'week', v_scope) b where b.rank = 1),
+      'most_sessions', (select jsonb_build_object('display_name', b.display_name, 'sessions', b.sessions)
+                          from private.board('minutes', 'week', v_scope) b order by b.sessions desc, b.rank limit 1),
+      'top_crew', (select jsonb_build_object('name', c.name, 'minutes', c.minutes)
+                     from private.crew_board('week', v_scope) c where c.rank = 1 and c.minutes > 0),
+      'top_spindex', (select jsonb_build_object('display_name', b.display_name, 'rating', b.value)
+                        from private.board('spindex', 'all', v_scope) b where b.rank = 1 and b.detail = 'verified'),
+      'active_crews', (select count(*) from private.crew_board('week', v_scope) c where c.minutes > 0)));
+end $$;
+
+revoke execute on all functions in schema private from public, anon, authenticated;
+revoke execute on function public.get_display_data() from public;
+grant execute on function public.get_display_data() to anon, authenticated;
+
+-- ════════ 20261120002200_timer_at_venue_spindex_for_fun.sql ════════
+-- 1) The timer only starts at PingPod (optional, owner switches it on).
+--    Staff stand in the venue and tap "Use this spot" in Admin → Settings; that saves the venue's
+--    coordinates. With the check on, start_session needs the phone's location and refuses a start
+--    more than `geofence_m` metres away (plus the phone's own accuracy, capped at 150 m, because
+--    indoor location is fuzzy). The location is only compared, never stored.
+-- 2) SPINDEX is just for fun: the board is sorted by rating only, every rating shows in every
+--    scope, and the iPad's Top SPINDEX is simply the highest rating. (Staff can still mark ratings
+--    verified in Admin if real prizes ever depend on it; players don't see the difference.)
+
+alter table public.pilot_settings
+  add column venue_lat double precision check (venue_lat between -90 and 90),
+  add column venue_lng double precision check (venue_lng between -180 and 180),
+  add column geofence_m int not null default 300 check (geofence_m between 50 and 5000),
+  add column geofence_enabled boolean not null default false;
+
+-- Great-circle distance in metres.
+create or replace function private.distance_m(lat1 float8, lng1 float8, lat2 float8, lng2 float8) returns float8
+language sql immutable set search_path = '' as $$
+  select 2 * 6371000 * asin(sqrt(
+    power(sin(radians(lat2 - lat1) / 2), 2)
+    + cos(radians(lat1)) * cos(radians(lat2)) * power(sin(radians(lng2 - lng1) / 2), 2)))
+$$;
+
+drop function public.start_session(uuid);
+create function public.start_session(
+  p_client_request_id uuid default null, p_lat float8 default null, p_lng float8 default null, p_accuracy float8 default null)
+returns public.play_sessions language plpgsql security definer set search_path = '' as $$
+declare v_uid uuid := private.require_profile(); r public.play_sessions; s public.pilot_settings := private.settings();
+begin
+  perform private.close_stale_sessions(v_uid);
+  if p_client_request_id is not null then
+    select * into r from public.play_sessions where user_id = v_uid and client_request_id = p_client_request_id;
+    if found then return r; end if;
+  end if;
+  if exists (select 1 from public.play_sessions where user_id = v_uid and status = 'active') then
+    raise exception 'You already have a session running.';
+  end if;
+  if s.geofence_enabled and s.venue_lat is not null and s.venue_lng is not null then
+    if p_lat is null or p_lng is null then
+      raise exception 'Turn on location to start the timer. It only checks that you''re at %.', s.venue_name;
+    end if;
+    if private.distance_m(p_lat, p_lng, s.venue_lat, s.venue_lng)
+       > s.geofence_m + least(greatest(coalesce(p_accuracy, 0), 0), 150) then
+      raise exception 'The timer starts when you''re at %.', s.venue_name;
+    end if;
+  end if;
+  perform private.rate_limit('start', 12, interval '1 hour');
+  insert into public.play_sessions (user_id, method, status, started_at, played_on, client_request_id)
+  values (v_uid, 'timer', 'active', clock_timestamp(), private.today(), p_client_request_id)
+  returning * into r;
+  return r;
+exception when unique_violation then
+  raise exception 'You already have a session running.';
+end $$;
+
+create or replace function public.admin_update_settings(p_patch jsonb) returns public.pilot_settings
+language plpgsql security definer set search_path = '' as $$
+declare v_uid uuid := private.require_owner(); r public.pilot_settings;
+begin
+  begin
+    update public.pilot_settings set
+      venue_name = coalesce(private.clean_text(p_patch ->> 'venue_name'), venue_name),
+      public_app_url = coalesce(private.clean_text(p_patch ->> 'public_app_url'), public_app_url),
+      pilot_start = case when p_patch ? 'pilot_start' then nullif(p_patch ->> 'pilot_start', '')::date else pilot_start end,
+      pilot_end = case when p_patch ? 'pilot_end' then nullif(p_patch ->> 'pilot_end', '')::date else pilot_end end,
+      max_session_minutes = coalesce((p_patch ->> 'max_session_minutes')::int, max_session_minutes),
+      checkin_reminder_minutes = coalesce((p_patch ->> 'checkin_reminder_minutes')::int, checkin_reminder_minutes),
+      manual_min_minutes = coalesce((p_patch ->> 'manual_min_minutes')::int, manual_min_minutes),
+      manual_max_minutes = coalesce((p_patch ->> 'manual_max_minutes')::int, manual_max_minutes),
+      backdate_days = coalesce((p_patch ->> 'backdate_days')::int, backdate_days),
+      daily_minutes_cap = coalesce((p_patch ->> 'daily_minutes_cap')::int, daily_minutes_cap),
+      crew_min_size = coalesce((p_patch ->> 'crew_min_size')::int, crew_min_size),
+      crew_max_size = coalesce((p_patch ->> 'crew_max_size')::int, crew_max_size),
+      auto_approve_timer = coalesce((p_patch ->> 'auto_approve_timer')::boolean, auto_approve_timer),
+      default_board_scope = coalesce(p_patch ->> 'default_board_scope', default_board_scope),
+      display_scope = coalesce(p_patch ->> 'display_scope', display_scope),
+      display_rotation_seconds = coalesce((p_patch ->> 'display_rotation_seconds')::int, display_rotation_seconds),
+      display_slides = case when p_patch ? 'display_slides'
+        then array(select jsonb_array_elements_text(p_patch -> 'display_slides')) else display_slides end,
+      boards_enabled = case when p_patch ? 'boards_enabled'
+        then array(select jsonb_array_elements_text(p_patch -> 'boards_enabled')) else boards_enabled end,
+      rewards_enabled = coalesce((p_patch ->> 'rewards_enabled')::boolean, rewards_enabled),
+      survey_url = case when p_patch ? 'survey_url'
+        then nullif(private.clean_text(p_patch ->> 'survey_url'), '') else survey_url end,
+      venue_lat = case when p_patch ? 'venue_lat' then nullif(p_patch ->> 'venue_lat', '')::float8 else venue_lat end,
+      venue_lng = case when p_patch ? 'venue_lng' then nullif(p_patch ->> 'venue_lng', '')::float8 else venue_lng end,
+      geofence_m = coalesce((p_patch ->> 'geofence_m')::int, geofence_m),
+      geofence_enabled = coalesce((p_patch ->> 'geofence_enabled')::boolean, geofence_enabled)
+    where id = 1 returning * into r;
+  exception when others then
+    raise exception 'One of those settings isn''t valid (%).', sqlerrm;
+  end;
+  if r.geofence_enabled and (r.venue_lat is null or r.venue_lng is null) then
+    raise exception 'Set the PingPod location first (tap "Use this spot" while you''re at the venue).';
+  end if;
+  perform private.audit('settings.update', 'settings', '1', p_patch);
+  return r;
+end $$;
+
+-- SPINDEX board: highest rating first, everyone's rating counts.
+create or replace function private.board(p_metric text, p_period text, p_scope text)
+returns table (user_id uuid, display_name text, avatar_color text, value int, secondary int,
+               sessions int, detail text, rank int)
+language plpgsql stable set search_path = '' as $$
+#variable_conflict use_column
+declare v_st text[] := private.statuses(p_scope); v_start date := private.period_start(p_period);
+begin
+  if p_scope is null or p_scope not in ('verified', 'community') then raise exception 'Unknown scope.'; end if;
+  if v_start is null then raise exception 'Unknown period.'; end if;
+  if p_metric = 'minutes' then
+    return query
+    with agg as (
+      select s.user_id uid, sum(s.minutes)::int v, count(*)::int n, max(s.ended_at) last_at
+        from public.play_sessions s where s.status = any (v_st) and s.played_on >= v_start group by s.user_id)
+    select a.uid, p.display_name, p.avatar_color, a.v, null::int, a.n, null::text,
+           (row_number() over (order by a.v desc, a.last_at, lower(p.display_name), a.uid))::int
+      from agg a join public.profiles p on p.id = a.uid
+     where a.v > 0 and p.show_on_leaderboard and not p.hidden_by_admin;
+  elsif p_metric = 'longest' then
+    return query
+    with best as (
+      select distinct on (s.user_id) s.user_id uid, s.minutes v, s.ended_at fin, s.played_on d
+        from public.play_sessions s where s.status = any (v_st) and s.played_on >= v_start
+       order by s.user_id, s.minutes desc, s.ended_at),
+    cnt as (
+      select s.user_id uid, count(*)::int n from public.play_sessions s
+       where s.status = any (v_st) and s.played_on >= v_start group by s.user_id)
+    select b.uid, p.display_name, p.avatar_color, b.v, null::int, c.n, to_char(b.d, 'YYYY-MM-DD'),
+           (row_number() over (order by b.v desc, b.fin, lower(p.display_name), b.uid))::int
+      from best b join cnt c on c.uid = b.uid join public.profiles p on p.id = b.uid
+     where b.v > 0 and p.show_on_leaderboard and not p.hidden_by_admin;
+  elsif p_metric = 'streaks' then
+    return query
+    select st.uid, p.display_name, p.avatar_color, st.cur, st.longest, st.weeks, null::text,
+           (row_number() over (order by st.cur desc, st.longest desc, st.mins desc, lower(p.display_name), st.uid))::int
+      from private.streaks_all(v_st) st join public.profiles p on p.id = st.uid
+     where st.cur > 0 and p.show_on_leaderboard and not p.hidden_by_admin;
+  elsif p_metric = 'spindex' then
+    return query
+    with cur as (
+      select distinct on (r.user_id) r.user_id uid, r.rating v, r.status st, coalesce(r.verified_at, r.created_at) ts
+        from public.spindex_ratings r where r.status in ('unverified', 'verified')
+       order by r.user_id, r.created_at desc)
+    select c.uid, p.display_name, p.avatar_color, c.v, null::int, null::int,
+           case when c.st = 'verified' then 'verified' else 'self_reported' end,
+           (row_number() over (order by c.v desc, c.ts, lower(p.display_name), c.uid))::int
+      from cur c join public.profiles p on p.id = c.uid
+     where p.show_spindex and p.show_on_leaderboard and not p.hidden_by_admin;
+  else
+    raise exception 'Unknown leaderboard.';
+  end if;
+end $$;
+
+create or replace function public.get_display_data() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare s public.pilot_settings := private.settings(); v_scope text := s.display_scope;
+        v_week date := private.week_start(private.today()); v_st text[] := private.statuses(s.display_scope);
+begin
+  return jsonb_build_object(
+    'generated_at', clock_timestamp(),
+    'scope', v_scope,
+    'rotation_seconds', s.display_rotation_seconds,
+    'slides', to_jsonb(s.display_slides),
+    'public_app_url', s.public_app_url,
+    'venue_name', s.venue_name,
+    'week_start', v_week,
+    'minutes', coalesce((select jsonb_agg(jsonb_build_object('rank', b.rank, 'display_name', b.display_name,
+                 'avatar_color', b.avatar_color, 'avatar_path', p.avatar_path, 'value', b.value, 'sessions', b.sessions)
+                 order by b.rank)
+               from private.board('minutes', 'week', v_scope) b join public.profiles p on p.id = b.user_id
+              where b.rank <= 8), '[]'),
+    'longest', coalesce((select jsonb_agg(jsonb_build_object('rank', b.rank, 'display_name', b.display_name,
+                 'avatar_color', b.avatar_color, 'avatar_path', p.avatar_path, 'value', b.value, 'detail', b.detail)
+                 order by b.rank)
+               from private.board('longest', 'week', v_scope) b join public.profiles p on p.id = b.user_id
+              where b.rank <= 8), '[]'),
+    'streaks', coalesce((select jsonb_agg(jsonb_build_object('rank', b.rank, 'display_name', b.display_name,
+                 'avatar_color', b.avatar_color, 'avatar_path', p.avatar_path, 'value', b.value, 'secondary', b.secondary)
+                 order by b.rank)
+               from private.board('streaks', 'all', v_scope) b join public.profiles p on p.id = b.user_id
+              where b.rank <= 8), '[]'),
+    'spindex', coalesce((select jsonb_agg(jsonb_build_object('rank', b.rank, 'display_name', b.display_name,
+                 'avatar_color', b.avatar_color, 'avatar_path', p.avatar_path, 'value', b.value, 'detail', b.detail)
+                 order by b.rank)
+               from private.board('spindex', 'all', v_scope) b join public.profiles p on p.id = b.user_id
+              where b.rank <= 8), '[]'),
+    'crews', coalesce((select jsonb_agg(jsonb_build_object('rank', cb.rank, 'name', cb.name, 'minutes', cb.minutes,
+                 'members', cb.members, 'avg_minutes', cb.avg_minutes, 'color', c.color, 'emblem', c.emblem,
+                 'motto', c.motto) order by cb.rank)
+               from private.crew_board('week', v_scope) cb join public.crews c on c.id = cb.crew_id
+              where cb.rank <= 6 and cb.minutes > 0), '[]'),
+    'highlights', jsonb_build_object(
+      'players', (select count(distinct x.user_id) from public.play_sessions x
+                   where x.status = any (v_st) and x.played_on >= v_week),
+      'minutes', (select coalesce(sum(x.minutes), 0) from public.play_sessions x
+                   where x.status = any (v_st) and x.played_on >= v_week),
+      'sessions', (select count(*) from public.play_sessions x where x.status = any (v_st) and x.played_on >= v_week),
+      'new_players', (select count(*) from public.profiles p
+                       where p.created_at >= v_week::timestamp at time zone 'America/New_York'),
+      'longest', (select jsonb_build_object('display_name', b.display_name, 'minutes', b.value)
+                    from private.board('longest', 'week', v_scope) b where b.rank = 1),
+      'most_sessions', (select jsonb_build_object('display_name', b.display_name, 'sessions', b.sessions)
+                          from private.board('minutes', 'week', v_scope) b order by b.sessions desc, b.rank limit 1),
+      'top_crew', (select jsonb_build_object('name', c.name, 'minutes', c.minutes)
+                     from private.crew_board('week', v_scope) c where c.rank = 1 and c.minutes > 0),
+      'top_spindex', (select jsonb_build_object('display_name', b.display_name, 'rating', b.value)
+                        from private.board('spindex', 'all', v_scope) b where b.rank = 1),
+      'active_crews', (select count(*) from private.crew_board('week', v_scope) c where c.minutes > 0)));
+end $$;
+
+revoke execute on all functions in schema private from public, anon, authenticated;
+revoke execute on function public.start_session(uuid, float8, float8, float8) from public, anon;
+grant execute on function public.start_session(uuid, float8, float8, float8) to authenticated;
+revoke execute on function public.admin_update_settings(jsonb) from public, anon;
+grant execute on function public.admin_update_settings(jsonb) to authenticated;
+revoke execute on function public.get_display_data() from public;
+grant execute on function public.get_display_data() to anon, authenticated;
+
+-- ════════ 20261120002300_weekly_goals.sql ════════
+-- Weekly Rally goals: each player can set how many minutes and how many days they want to play
+-- each week. Stored on the profile so the goal follows them across phones. Both null = no goal.
+alter table public.profiles
+  add column weekly_goal_days smallint check (weekly_goal_days between 1 and 7),
+  add column weekly_goal_minutes int check (weekly_goal_minutes between 15 and 10080);
+
+create or replace function public.save_weekly_goals(p_days int, p_minutes int) returns public.profiles
+language plpgsql security definer set search_path = '' as $$
+declare v_uid uuid := private.require_profile(); r public.profiles;
+begin
+  if (p_days is null) <> (p_minutes is null) then raise exception 'Pick both hours and days, or clear the goal.'; end if;
+  if p_days is not null and (p_days < 1 or p_days > 7) then raise exception 'Pick 1 to 7 days.'; end if;
+  if p_minutes is not null and (p_minutes < 15 or p_minutes > 10080) then raise exception 'Pick between 15 minutes and 168 hours.'; end if;
+  if p_minutes is not null and p_minutes > p_days * 1440 then raise exception 'That''s more time than those days have.'; end if;
+  perform private.rate_limit('weekly_goals', 30, interval '1 hour');
+  update public.profiles set weekly_goal_days = p_days, weekly_goal_minutes = p_minutes, updated_at = now()
+   where id = v_uid returning * into r;
+  return r;
+end $$;
+
+revoke execute on function public.save_weekly_goals(int, int) from public, anon;
+grant execute on function public.save_weekly_goals(int, int) to authenticated;

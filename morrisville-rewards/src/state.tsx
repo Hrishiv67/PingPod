@@ -15,6 +15,9 @@ export interface AppState {
   /** Bumped after any write so lists re-fetch. */
   version: number;
   bump: () => void;
+  /** "How it works" slides: open them, and whether they're showing (pop-ups wait until closed). */
+  showTutorial: () => void;
+  tutorialOpen: boolean;
 }
 
 export const AppCtx = createContext<AppState | null>(null);

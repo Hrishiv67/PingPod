@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { EyeOff, Info, Trophy, Users } from "lucide-react";
+import { ChevronRight, EyeOff, Trophy, Users } from "lucide-react";
 import { api, errorText } from "../lib/api";
 import { Link } from "../lib/router";
 import { formatDay, formatNumber } from "../lib/time";
 import type { BoardKey, CrewRow, LeaderRow, Period, Scope } from "../lib/types";
 import { useApp } from "../state";
-import { Avatar, Chip, EmptyState, InlineError, Segmented } from "../components/ui";
+import { Avatar, EmptyState, InlineError, Segmented } from "../components/ui";
 import LogoLoader from "../components/LogoLoader";
+import CrewBadge from "../components/CrewBadge";
+import PlayerCardSheet from "../components/PlayerCardSheet";
+import { sameScore, tiePlaces } from "../lib/ranks";
 
 const BOARD_LABEL: Record<BoardKey, string> = {
   minutes: "Minutes",
@@ -15,7 +18,7 @@ const BOARD_LABEL: Record<BoardKey, string> = {
   longest: "Longest",
   spindex: "SPINDEX",
 };
-const ORDER: BoardKey[] = ["minutes", "crews", "streaks", "longest", "spindex"];
+const ORDER: BoardKey[] = ["minutes", "spindex", "crews", "streaks", "longest"];
 const HAS_PERIOD: BoardKey[] = ["minutes", "crews", "longest"];
 
 export default function Rankings() {
@@ -24,8 +27,10 @@ export default function Rankings() {
   const [board, setBoard] = useState<BoardKey>(enabled[0] ?? "minutes");
   const [period, setPeriod] = useState<Period>("week");
   const scope: Scope = me.settings.default_board_scope;
-  const [players, setPlayers] = useState<LeaderRow[] | null>(null);
-  const [crews, setCrews] = useState<CrewRow[] | null>(null);
+  // Rows remember which board they belong to, so a tab switch never draws one board's rows as
+  // another's (that used to crash SPINDEX → Longest, where "verified" was read as a date).
+  const [loaded, setLoaded] = useState<{ key: string; rows: LeaderRow[] } | null>(null);
+  const [loadedCrews, setLoadedCrews] = useState<{ key: string; rows: CrewRow[] } | null>(null);
   const [error, setError] = useState("");
   const ask = useRef(0);
 
@@ -33,12 +38,13 @@ export default function Rankings() {
     const n = ++ask.current;
     setError("");
     try {
+      const key = `${board}|${HAS_PERIOD.includes(board) ? period : "all"}`;
       if (board === "crews") {
-        const rows = await api.crewLeaderboard(period, scope, 50);
-        if (n === ask.current) setCrews(rows);
+        const rows = await api.crewLeaderboard(period, scope, 200);
+        if (n === ask.current) setLoadedCrews({ key, rows });
       } else {
-        const rows = await api.leaderboard(board, HAS_PERIOD.includes(board) ? period : "all", scope, 50);
-        if (n === ask.current) setPlayers(rows);
+        const rows = await api.leaderboard(board, HAS_PERIOD.includes(board) ? period : "all", scope, 200);
+        if (n === ask.current) setLoaded({ key, rows });
       }
     } catch (err) {
       if (n === ask.current) setError(errorText(err));
@@ -46,10 +52,11 @@ export default function Rankings() {
   }, [board, period, scope]);
 
   useEffect(() => {
-    setPlayers(null);
-    setCrews(null);
     void load();
   }, [load, version]);
+  const viewKey = `${board}|${HAS_PERIOD.includes(board) ? period : "all"}`;
+  const players = loaded?.key === viewKey ? loaded.rows : null;
+  const crews = loadedCrews?.key === viewKey ? loadedCrews.rows : null;
 
   // Live: refetch when anyone's standings change (debounced), and when returning to the app.
   useEffect(() => {
@@ -97,21 +104,12 @@ export default function Rankings() {
             value={period}
             onChange={setPeriod}
             options={[
-              { value: "week", label: "This week" },
-              { value: "month", label: "This month" },
+              { value: "day", label: "Today" },
+              { value: "week", label: "Week" },
+              { value: "month", label: "Month" },
               { value: "all", label: "All time" },
             ]}
           />
-        )}
-        {(board === "spindex" || board === "streaks") && (
-          <p className="scope-note">
-            <Info size={15} aria-hidden />
-            <span>
-              {board === "spindex"
-                ? "Ratings players add on their profile. Staff-checked ones say Verified."
-                : "Weeks in a row with at least one session."}
-            </span>
-          </p>
         )}
       </div>
 
@@ -133,12 +131,12 @@ export default function Rankings() {
         crews === null ? (
           <LogoLoader label="Loading leaderboard" />
         ) : (
-          <CrewBoard rows={crews} minSize={me.settings.crew_min_size} />
+          <CrewBoard rows={crews} minSize={me.settings.crew_min_size} hasCrew={Boolean(me.crew)} />
         )
       ) : players === null ? (
         <LogoLoader label="Loading leaderboard" />
       ) : (
-        <PlayerBoard rows={players} board={board} />
+        <PlayerBoard rows={players} board={board} hasSpindex={Boolean(me.spindex)} hidden={hidden} />
       )}
     </div>
   );
@@ -149,80 +147,189 @@ function valueOf(board: BoardKey, r: LeaderRow): { value: string; unit: string; 
     case "streaks":
       return {
         value: String(r.value),
-        unit: r.value === 1 ? "week" : "weeks",
-        sub: r.secondary != null && r.secondary > r.value ? `Best ${r.secondary} weeks` : "",
+        unit: r.value === 1 ? "day" : "days",
+        sub: r.secondary != null && r.secondary > r.value ? `Best ${r.secondary} days` : "",
       };
     case "longest":
       return { value: formatNumber(r.value), unit: "min", sub: r.detail ? formatDay(r.detail) : "" };
     case "spindex":
-      return { value: String(r.value), unit: "SPINDEX", sub: r.detail === "verified" ? "Verified by staff" : "Self-reported" };
+      return { value: String(r.value), unit: "SPINDEX", sub: "" };
     default:
       return { value: formatNumber(r.value), unit: "min", sub: `${r.sessions ?? 0} session${r.sessions === 1 ? "" : "s"}` };
   }
 }
 
-function PlayerBoard({ rows, board }: { rows: LeaderRow[]; board: BoardKey }) {
+function AddSpindex() {
+  return (
+    <Link to="/" className="panel spindex-prompt">
+      <span>
+        <strong>Add your SPINDEX</strong>
+        <span>Your PingPod skill rating. Add it from Home in a few seconds.</span>
+      </span>
+      <ChevronRight size={18} aria-hidden />
+    </Link>
+  );
+}
+
+/** Unit for a gap between two players ("15 min", "2 days", "40 points"). */
+function gapText(board: BoardKey, n: number): string {
+  if (board === "streaks") return `${n} ${n === 1 ? "day" : "days"}`;
+  if (board === "spindex") return `${n} ${n === 1 ? "point" : "points"}`;
+  return `${formatNumber(n)} min`;
+}
+
+const NOT_ON_BOARD: Record<Exclude<BoardKey, "crews">, string> = {
+  minutes: "You're not on this board yet. Log a session to get ranked.",
+  longest: "You're not on this board yet. Log a session to get ranked.",
+  streaks: "Play on two days in a row to get on this board.",
+  spindex: "",
+};
+
+/** Where you stand: your rank out of everyone, and how far from the next spot up. */
+function YourSpot({ rows, places, board, onFind }: { rows: LeaderRow[]; places: number[]; board: BoardKey; onFind: () => void }) {
+  const i = rows.findIndex((r) => r.is_me);
+  if (i < 0) {
+    const text = NOT_ON_BOARD[board as Exclude<BoardKey, "crews">];
+    return text ? (
+      <div className="your-spot empty">
+        <span>{text}</span>
+      </div>
+    ) : null;
+  }
+  const me = rows[i];
+  const v = valueOf(board, me);
+  const tied = rows.filter((r, j) => j !== i && sameScore(r, me));
+  let ahead = -1;
+  for (let j = i - 1; j >= 0; j--)
+    if (!sameScore(rows[j], me)) {
+      ahead = j;
+      break;
+    }
+  const behind = rows.findIndex((r, j) => j > i && !sameScore(r, me));
+  const tiedText = tied.length ? `Tied with ${tied[0].display_name}${tied.length > 1 ? ` and ${tied.length - 1} more` : ""}` : "";
+  let line: string;
+  if (ahead >= 0) {
+    const a = rows[ahead];
+    line = `${gapText(board, a.value - me.value)} behind #${places[ahead]} ${a.display_name}`;
+    if (tiedText) line = `${tiedText} · ${line}`;
+  } else if (tiedText) {
+    line = `${tiedText} for #${places[i]}`;
+  } else if (behind >= 0) {
+    line = `${gapText(board, me.value - rows[behind].value)} ahead of #${places[behind]} ${rows[behind].display_name}`;
+  } else {
+    line = "You're the only one on this board so far.";
+  }
+  return (
+    <button type="button" className="your-spot" onClick={onFind}>
+      <span className="your-spot-rank num">
+        #{places[i]}
+        <small>of {rows.length}</small>
+      </span>
+      <span className="your-spot-text">
+        <strong className="num">
+          {v.value}
+          <small>{v.unit}</small>
+        </strong>
+        <span>{line}</span>
+      </span>
+      <span className="your-spot-find">Find me</span>
+    </button>
+  );
+}
+
+function scrollToMe() {
+  const el = document.getElementById("rank-me");
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "center" });
+  el.classList.remove("flash");
+  void el.offsetWidth;
+  el.classList.add("flash");
+}
+
+function PlayerBoard({ rows, board, hasSpindex, hidden }: { rows: LeaderRow[]; board: BoardKey; hasSpindex: boolean; hidden: boolean }) {
+  const [open, setOpen] = useState<LeaderRow | null>(null);
+  const prompt = board === "spindex" && !hasSpindex ? <AddSpindex /> : null;
   if (!rows.length)
     return (
-      <EmptyState
-        icon={<Trophy size={24} />}
-        title="Nobody's on the board yet"
-        text={board === "spindex" ? "No ratings here yet. Add your SPINDEX on your profile." : "Log a session to be the first name up here."}
-      />
+      <>
+        {prompt}
+        <EmptyState
+          icon={<Trophy size={24} />}
+          title="Nobody's on the board yet"
+          text={board === "spindex" ? "Be the first rating on the SPINDEX board." : "Log a session to be the first name up here."}
+        />
+      </>
     );
-  const top = rows.filter((r) => r.rank <= 3);
-  const rest = rows.filter((r) => r.rank > 3);
+  const places = tiePlaces(rows);
+  // Top three on the podium (#2 · #1 · #3), then where you stand, then everyone else.
+  const podium = rows.slice(0, 3).filter((r) => r.rank <= 3);
+  const rest = rows.slice(podium.length);
   return (
     <>
+      {prompt}
       <div className="podium" aria-label="Top three">
-        {[top[1], top[0], top[2]].map((r, i) =>
-          r ? (
-            <div key={r.user_id} className={`podium-spot ${r.rank === 1 ? "first" : ""} ${r.is_me ? "me" : ""}`}>
-              <span className="podium-rank num">#{r.rank}</span>
-              <Avatar name={r.display_name} color={r.avatar_color} size={r.rank === 1 ? 52 : 44} />
+        {[podium[1], podium[0], podium[2]].map((r, k) => {
+          if (!r) return <div key={`empty-${k}`} aria-hidden />;
+          const place = places[rows.indexOf(r)];
+          const v = valueOf(board, r);
+          return (
+            <button
+              type="button"
+              key={r.user_id}
+              id={r.is_me ? "rank-me" : undefined}
+              className={`podium-spot ${r === podium[0] ? "first" : ""} ${r.is_me ? "me" : ""}`}
+              onClick={() => setOpen(r)}
+              aria-label={`${r.display_name}, rank ${place}. Open profile`}
+            >
+              <span className="podium-rank num">#{place}</span>
+              <Avatar name={r.display_name} color={r.avatar_color} path={r.avatar_path} size={r === podium[0] ? 58 : 48} />
               <span className="podium-name">{r.is_me ? "You" : r.display_name}</span>
-              <span className="podium-value num">{valueOf(board, r).value}</span>
-              <span className="podium-unit">{valueOf(board, r).unit}</span>
-            </div>
-          ) : (
-            <div key={`empty-${i}`} aria-hidden />
-          ),
-        )}
+              <span className="podium-value num">{v.value}</span>
+              <span className="podium-unit">{v.unit}</span>
+            </button>
+          );
+        })}
       </div>
+      {!hidden && <YourSpot rows={rows} places={places} board={board} onFind={scrollToMe} />}
       {rest.length > 0 && (
         <div className="list" role="list">
-          {rest.map((r, i) => {
+          {rest.map((r, k) => {
+            const i = rows.indexOf(r);
             const v = valueOf(board, r);
-            const gap = i > 0 && r.rank - rest[i - 1].rank > 1;
+            const gap = k > 0 && r.rank - rest[k - 1].rank > 1;
             return (
               <div key={r.user_id} role="listitem">
                 {gap && <div className="rank-gap">…</div>}
-                <div className={`rank-row ${r.is_me ? "me" : ""}`}>
-                  <span className="rank-num num">{r.rank}</span>
-                  <Avatar name={r.display_name} color={r.avatar_color} size={36} />
+                <button
+                  type="button"
+                  id={r.is_me ? "rank-me" : undefined}
+                  className={`rank-row tappable ${r.is_me ? "me" : ""}`}
+                  onClick={() => setOpen(r)}
+                >
+                  <span className="rank-num num">{places[i]}</span>
+                  <Avatar name={r.display_name} color={r.avatar_color} path={r.avatar_path} size={38} />
                   <span className="rank-name">
                     <strong>
                       {r.display_name} {r.is_me && <span className="you-tag">YOU</span>}
                     </strong>
-                    <span>
-                      {board === "spindex" ? <Chip tone={r.detail === "verified" ? "ok" : "neutral"}>{v.sub}</Chip> : v.sub}
-                    </span>
+                    {v.sub && <span>{v.sub}</span>}
                   </span>
                   <span className="rank-value num">
                     {v.value}
                     <small>{v.unit}</small>
                   </span>
-                </div>
+                </button>
               </div>
             );
           })}
         </div>
       )}
+      {open && <PlayerCardSheet userId={open.user_id} name={open.display_name} onClose={() => setOpen(null)} />}
     </>
   );
 }
 
-function CrewBoard({ rows, minSize }: { rows: CrewRow[]; minSize: number }) {
+function CrewBoard({ rows, minSize, hasCrew }: { rows: CrewRow[]; minSize: number; hasCrew: boolean }) {
   if (!rows.length)
     return (
       <EmptyState
@@ -236,22 +343,59 @@ function CrewBoard({ rows, minSize }: { rows: CrewRow[]; minSize: number }) {
         }
       />
     );
+  const places = tiePlaces(rows.map((c) => ({ rank: c.rank, value: c.minutes })));
+  const mi = rows.findIndex((c) => c.is_mine);
+  const mine = mi >= 0 ? rows[mi] : undefined;
+  const tied = mine ? rows.find((c) => c !== mine && c.minutes === mine.minutes) : undefined;
+  const aboveIdx = mine ? rows.map((c) => c.minutes > mine.minutes).lastIndexOf(true) : -1;
+  const above = aboveIdx >= 0 ? rows[aboveIdx] : undefined;
+  const belowIdx = mine ? rows.findIndex((c) => c.minutes < mine.minutes) : -1;
+  const below = belowIdx >= 0 ? rows[belowIdx] : undefined;
   return (
     <>
-      <div className="list" role="list">
-        {rows.map((c) => (
-          <div key={c.crew_id} role="listitem" className={`rank-row ${c.is_mine ? "me" : ""}`}>
-            <span className="rank-num num">{c.rank}</span>
-            <span className="crew-badge">
-              <Users size={18} />
+      {mine ? (
+        <button type="button" className="your-spot" onClick={scrollToMe}>
+          <span className="your-spot-rank num">
+            #{places[mi]}
+            <small>of {rows.length}</small>
+          </span>
+          <span className="your-spot-text">
+            <strong>{mine.name}</strong>
+            <span>
+              {[
+                tied ? `Tied with ${tied.name}` : "",
+                above
+                  ? `${formatNumber(above.minutes - mine.minutes)} min behind #${places[aboveIdx]} ${above.name}`
+                  : !tied && below
+                    ? `${formatNumber(mine.minutes - below.minutes)} min ahead of #${places[belowIdx]} ${below.name}`
+                    : "",
+              ]
+                .filter(Boolean)
+                .join(" · ") || "The only crew on the board so far."}
             </span>
+          </span>
+          <span className="your-spot-find">Find us</span>
+        </button>
+      ) : (
+        <div className="your-spot empty">
+          <span>{hasCrew ? `Your crew shows up here once it has ${minSize}+ members.` : "Join or start a crew to compete together."}</span>
+        </div>
+      )}
+      <div className="list" role="list">
+        {rows.map((c, i) => (
+          <div
+            key={c.crew_id}
+            id={c.is_mine ? "rank-me" : undefined}
+            role="listitem"
+            className={`rank-row ${places[i] <= 3 ? `top top-${places[i]}` : ""} ${c.is_mine ? "me" : ""}`}
+          >
+            <span className="rank-num num">{places[i]}</span>
+            <CrewBadge emblem={c.emblem} color={c.color} size={38} />
             <span className="rank-name">
               <strong>
                 {c.name} {c.is_mine && <span className="you-tag">YOUR CREW</span>}
               </strong>
-              <span>
-                {c.members} members · {formatNumber(c.avg_minutes)} min each
-              </span>
+              <span>{c.motto || `${c.members} members · ${formatNumber(c.avg_minutes)} min each`}</span>
             </span>
             <span className="rank-value num">
               {formatNumber(c.minutes)}

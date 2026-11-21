@@ -5,7 +5,7 @@ scratch if ever needed.
 
 | Piece | Where |
 | --- | --- |
-| Web app | Vercel project `pingpod-morrisville-rewards` → https://pingpod-morrisville-rewards.vercel.app (deploys from branch `morrisville-rewards-starter`, root directory `morrisville-rewards`) |
+| Web app | Vercel project `pingpod-morrisville-rewards` → https://www.pingpodrewards.site (also pingpod-morrisville-rewards.vercel.app) (deploys from branch `morrisville-rewards-starter`, root directory `morrisville-rewards`) |
 | Database + auth | Supabase project `pingpod-morrisville` · region us-east-1 · ref `apojuerjhvyzjmpanqih` · free plan |
 | Schema | [`supabase/migrations/`](../supabase/migrations) — already applied to the project above |
 
@@ -17,11 +17,14 @@ Open https://supabase.com/dashboard/project/apojuerjhvyzjmpanqih
    - **Confirm email: OFF** — required. With it on, Supabase tries to email every new player a
      confirmation link; the built-in mailer only delivers to your own Supabase team, so sign-ups
      fail. Off = players are signed in immediately after creating an account.
-   - Minimum password length: **6** (the app checks the same).
+   - Minimum password length: **6** (the app checks the same). Players never see a password: the
+     app signs them in with just their email (see "Sign-in" in `docs/API.md`). Staff set a real one.
+   - Leave password strength requirements and "leaked password protection" off; they would block
+     the email-derived passwords.
    - Leave "Allow new users to sign up" ON.
 2. **Authentication → URL Configuration**
-   - Site URL: `https://pingpod-morrisville-rewards.vercel.app`
-   - Redirect URLs: `https://pingpod-morrisville-rewards.vercel.app/**` and `http://localhost:5173/**`
+   - Site URL: `https://www.pingpodrewards.site`
+   - Redirect URLs: `https://www.pingpodrewards.site/**`, `https://pingpod-morrisville-rewards.vercel.app/**` and `http://localhost:5173/**`
 3. **(Optional, for "Forgot password") Authentication → Emails → SMTP Settings** — enable custom SMTP:
    - Host `smtp.gmail.com`, port `465`
    - Username: the Gmail address (a dedicated one such as a pilot inbox is best)
@@ -29,8 +32,8 @@ Open https://supabase.com/dashboard/project/apojuerjhvyzjmpanqih
      App passwords). Not the normal Gmail password.
    - Sender email: same Gmail address · Sender name: `PingPod Morrisville Rewards`
    - Gmail allows roughly 500 messages/day — plenty for the pilot.
-   Without SMTP everything works except password-reset emails; staff can't reset passwords, so a
-   player who forgets theirs would create a new account.
+   Without SMTP everything works except password-reset emails, which only staff ever need now
+   (players have no password).
 
 Rate limits: Supabase limits sign-ups/sign-ins per IP address. Everyone on the venue Wi-Fi shares one
 IP; the defaults (about 30 per 5 minutes) are fine for normal traffic. If a busy event triggers
@@ -71,7 +74,7 @@ Project → Settings → Environment Variables (Production, Preview, Development
 | --- | --- |
 | `VITE_SUPABASE_URL` | `https://apojuerjhvyzjmpanqih.supabase.co` |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase → Project Settings → API Keys → publishable key (`sb_publishable_…`) |
-| `VITE_PUBLIC_APP_URL` (optional) | `https://pingpod-morrisville-rewards.vercel.app` — public address used for join links/QR codes (the owner can also set `public_app_url` in Admin → Settings) |
+| `VITE_PUBLIC_APP_URL` (optional) | `https://www.pingpodrewards.site` — public address used for join links/QR codes (the owner can also set `public_app_url` in Admin → Settings) |
 
 Only the publishable key goes in `VITE_` variables (they are bundled into the browser).
 **Never** add the service-role / secret key to Vercel or the repository.

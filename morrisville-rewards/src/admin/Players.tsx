@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Users } from "lucide-react";
 import { api } from "../lib/api";
 import type { AdminPlayer, StaffRole } from "../lib/types";
-import { Avatar, Button, Chip, ConfirmSheet, EmptyState, InlineError, Sheet, Skeleton, useToast } from "../components/ui";
+import { Avatar, Button, Chip, ConfirmSheet, EmptyState, InlineError, Sheet, useToast } from "../components/ui";
+import LogoLoader from "../components/LogoLoader";
 import { formatDay, formatNumber } from "../lib/time";
 import { ActionSheet, OwnerOnly, SearchBox, SectionHead, useDebounced, useLoad } from "./shared";
 
@@ -33,6 +34,19 @@ export default function Players({
     onChanged();
   };
 
+  async function clearField(p: AdminPlayer, action: "clear_photo" | "clear_bio") {
+    setSheet(null);
+    setBusyId(p.id);
+    try {
+      await api.admin.moderatePlayer(p.id, action);
+      done(action === "clear_photo" ? "Photo removed." : "Bio cleared.");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Couldn't update that player.", "bad");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function unhide(p: AdminPlayer) {
     setBusyId(p.id);
     try {
@@ -52,7 +66,7 @@ export default function Players({
         <SearchBox value={search} onChange={setSearch} placeholder="Search nickname or email" />
       </div>
       {loading && !data ? (
-        <Skeleton height={120} count={4} />
+        <LogoLoader label="Loading players" />
       ) : error ? (
         <InlineError onRetry={reload}>{error}</InlineError>
       ) : !data?.length ? (
@@ -66,7 +80,7 @@ export default function Players({
             return (
               <li key={p.id} className="adm-row">
                 <div className="adm-row-main adm-row-with-avatar">
-                  <Avatar name={p.display_name ?? "?"} color={p.avatar_color} size={32} />
+                  <Avatar name={p.display_name ?? "?"} color={p.avatar_color} path={p.avatar_path} size={36} />
                   <div className="adm-row-text">
                     <div className="adm-row-title">
                       <strong>
@@ -75,8 +89,10 @@ export default function Players({
                       </strong>
                       {p.admin_role && <Chip tone="pink">{p.admin_role === "owner" ? "Owner" : "Staff"}</Chip>}
                       {p.hidden_by_admin && <Chip tone="bad">Hidden</Chip>}
+                      {p.email_verified_at && <Chip tone="ok">Verified email</Chip>}
                     </div>
                     <span className="adm-row-meta adm-email">{p.email ?? "No email"}</span>
+                    {p.bio && <span className="adm-row-meta adm-bio">“{p.bio}”</span>}
                     <span className="adm-row-meta">
                       {p.sessions} {p.sessions === 1 ? "session" : "sessions"}
                       {p.crew_name ? ` · ${p.crew_name}` : ""}
@@ -114,6 +130,16 @@ export default function Players({
                 <Button size="lg" block onClick={() => setSheet({ kind: "rename", p: sheet.p })}>
                   Change nickname
                 </Button>
+                {sheet.p.avatar_path && (
+                  <Button size="lg" block onClick={() => void clearField(sheet.p, "clear_photo")}>
+                    Remove photo
+                  </Button>
+                )}
+                {sheet.p.bio && (
+                  <Button size="lg" block onClick={() => void clearField(sheet.p, "clear_bio")}>
+                    Clear bio
+                  </Button>
+                )}
                 {sheet.p.hidden_by_admin ? (
                   <Button
                     size="lg"

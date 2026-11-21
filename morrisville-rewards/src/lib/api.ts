@@ -1,3 +1,4 @@
+import type { GeoFix } from "./geo";
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 import type {
   Achievement,
@@ -9,6 +10,7 @@ import type {
   Analytics,
   AuditEntry,
   AvatarColor,
+  CrewEmblem,
   CrewPreview,
   CrewRow,
   DisplayData,
@@ -18,6 +20,7 @@ import type {
   MyCrew,
   Period,
   PlaySession,
+  PlayerCard,
   Profile,
   Reward,
   Scope,
@@ -27,9 +30,18 @@ import type {
   SupportRequest,
 } from "./types";
 import { demoApi } from "./demo";
+import { emailKey, normalizeEmail } from "./emailKey";
+import { squareJpeg } from "./image";
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
+
+/** Public URL for a profile photo path (demo mode stores the picture itself as a data URL). */
+export function avatarUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  if (path.startsWith("data:") || path.startsWith("https://")) return path;
+  return url ? `${url.replace(/\/$/, "")}/storage/v1/object/public/avatars/${path}` : null;
+}
 
 export const isConfigured = Boolean(url && key);
 
@@ -69,7 +81,7 @@ export class AppError extends Error {
 const OFFLINE_PATTERN = /failed to fetch|load failed|networkerror|network request failed|fetch failed|timed? ?out/i;
 
 const AUTH_MESSAGES: [RegExp, string][] = [
-  [/invalid login credentials/i, "That email and password don't match. Try again, or reset your password."],
+  [/invalid login credentials/i, "That password doesn't match this email. Try again, or ask the front desk."],
   [/already registered|already been registered|user already exists/i, "There's already an account with that email. Sign in instead."],
   [/email not confirmed/i, "Confirm your email first — check your inbox for the link."],
   [/error sending (confirmation|recovery)? ?email|sending email/i, "We couldn't send the email right now. Please ask the front desk for help."],
@@ -138,13 +150,16 @@ export interface Api {
   onAuthChange(cb: (event: AuthEvent, user: AuthUser | null) => void): () => void;
   signUp(email: string, password: string): Promise<{ needsConfirmation: boolean }>;
   signIn(email: string, password: string): Promise<void>;
+  /** Email-only sign-in: signs in or creates the account. "password" = a staff account (staff keep a password). */
+  enterWithEmail(email: string): Promise<"in" | "password">;
   signOut(): Promise<void>;
   sendPasswordReset(email: string): Promise<void>;
   updatePassword(password: string): Promise<void>;
 
   getMe(): Promise<Me>;
   saveProfile(input: ProfileInput): Promise<Profile>;
-  startSession(clientRequestId: string): Promise<PlaySession>;
+  /** `at`: the phone's location, needed when the venue's timer location check is on (never stored). */
+  startSession(clientRequestId: string, at?: GeoFix | null): Promise<PlaySession>;
   checkinSession(id: string): Promise<PlaySession>;
   stopSession(id: string, endedAt?: string): Promise<PlaySession>;
   cancelSession(id: string): Promise<PlaySession>;
@@ -156,6 +171,24 @@ export interface Api {
   submitSpindex(rating: number, note?: string): Promise<void>;
   removeSpindex(): Promise<void>;
   deleteAccount(): Promise<void>;
+  /** Removes one of your own finished sessions; it stops counting everywhere. */
+  removeSession(id: string): Promise<void>;
+  saveBio(bio: string): Promise<void>;
+  /** Weekly Rally goal (days per week + minutes per week); nulls clear it. */
+  saveWeeklyGoals(days: number | null, minutes: number | null): Promise<void>;
+  /** Research survey answers; saved anonymously (only "finished" is kept on the profile). */
+  submitSurvey(answers: Record<string, unknown>): Promise<void>;
+  /** Records that this player has seen "How it works" so it doesn't pop up again (any phone). */
+  markTutorialSeen(): Promise<void>;
+  /** Resizes the picture on the phone (square, small JPEG), uploads it and sets it as your photo. */
+  uploadAvatar(file: Blob): Promise<void>;
+  removeAvatar(): Promise<void>;
+  playerCard(userId: string): Promise<PlayerCard>;
+  /** Optional email verification: email a one-time code (and link) to the signed-in player. */
+  sendEmailCode(): Promise<void>;
+  verifyEmailCode(code: string): Promise<void>;
+  /** After tapping the emailed link: marks the email verified if this session came from it. */
+  confirmEmailFromLink(): Promise<boolean>;
 
   myCrew(period: Period, scope: Scope): Promise<MyCrew | null>;
   previewCrew(code: string): Promise<CrewPreview | null>;
@@ -166,11 +199,17 @@ export interface Api {
   regenerateCrewCode(): Promise<void>;
   transferCrew(userId: string): Promise<void>;
   removeCrewMember(userId: string): Promise<void>;
+  setCrewStyle(style: { color: AvatarColor; emblem: CrewEmblem; motto: string }): Promise<void>;
 
   leaderboard(metric: Metric, period: Period, scope: Scope, limit?: number): Promise<LeaderRow[]>;
   crewLeaderboard(period: Period, scope: Scope, limit?: number): Promise<CrewRow[]>;
   displayData(): Promise<DisplayData>;
+  /** Boards for the iPad, always fetched signed-out (public data only). */
+  publicBoard(metric: Metric, period: Period, scope: Scope, limit?: number): Promise<LeaderRow[]>;
+  publicCrewBoard(period: Period, scope: Scope, limit?: number): Promise<CrewRow[]>;
   publicSettings(): Promise<Settings>;
+  /** Temporary "Players" board for the in-store screen: everyone signed up, newest first (empty when off). */
+  joinedPlayers(limit?: number): Promise<{ user_id: string; display_name: string; avatar_color: AvatarColor; joined_at: string }[]>;
   rewards(): Promise<Reward[]>;
   /** Fires when standings may have changed (Supabase Realtime broadcast). */
   subscribeBoards(onChange: () => void): () => void;
@@ -179,12 +218,13 @@ export interface Api {
 }
 
 export type SessionAction = "approve" | "reject" | "adjust" | "reopen";
-export type PlayerAction = "hide" | "unhide" | "rename";
-export type CrewAction = "rename" | "hide" | "unhide" | "archive" | "transfer" | "remove_member";
+export type PlayerAction = "hide" | "unhide" | "rename" | "clear_photo" | "clear_bio";
+export type CrewAction = "rename" | "hide" | "unhide" | "archive" | "transfer" | "remove_member" | "clear_motto";
 export type ExportKind = "weekly" | "players" | "sessions";
 
 export interface AdminApi {
   claim(code: string): Promise<{ role: StaffRole }>;
+  surveyResponses(): Promise<{ id: string; answers: Record<string, unknown>; created_at: string }[]>;
   sessions(status: string, search?: string): Promise<AdminSession[]>;
   reviewSession(id: string, action: SessionAction, minutes?: number | null, reason?: string | null): Promise<PlaySession>;
   bulkApprove(ids: string[]): Promise<number>;
@@ -255,6 +295,31 @@ const live: Api = {
       throw toAppError(err);
     }
   },
+  async enterWithEmail(email) {
+    const e = normalizeEmail(email);
+    try {
+      const sb = need(supabase);
+      const key = await emailKey(e);
+      const { error } = await sb.auth.signInWithPassword({ email: e, password: key });
+      if (!error) return "in";
+      if (!/invalid login credentials/i.test(error.message)) throw error;
+      const { data, error: upError } = await sb.auth.signUp({
+        email: e,
+        password: key,
+        options: { emailRedirectTo: `${window.location.origin}/` },
+      });
+      if (upError) {
+        if (/already registered|already been registered|user already exists/i.test(upError.message)) return "password";
+        throw upError;
+      }
+      // Supabase hides "already registered" behind an empty identities list when confirmation is on.
+      if (data.user && data.user.identities && data.user.identities.length === 0) return "password";
+      if (!data.session) throw new AppError("Check your inbox for a link to finish signing up, then come back.");
+      return "in";
+    } catch (err) {
+      throw toAppError(err);
+    }
+  },
   async signOut() {
     await need(supabase).auth.signOut({ scope: "local" });
   },
@@ -285,7 +350,11 @@ const live: Api = {
       p_show_on_leaderboard: p.show_on_leaderboard,
       p_show_spindex: p.show_spindex,
     }),
-  startSession: (id) => rpc<PlaySession>("start_session", { p_client_request_id: id }),
+  startSession: (id, at) =>
+    rpc<PlaySession>("start_session", {
+      p_client_request_id: id,
+      ...(at ? { p_lat: at.lat, p_lng: at.lng, p_accuracy: at.accuracy } : {}),
+    }),
   checkinSession: (id) => rpc<PlaySession>("checkin_session", { p_id: id }),
   stopSession: (id, endedAt) => rpc<PlaySession>("stop_session", { p_id: id, p_ended_at: endedAt ?? null }),
   cancelSession: (id) => rpc<PlaySession>("cancel_session", { p_id: id }),
@@ -334,8 +403,111 @@ const live: Api = {
     await rpc("remove_spindex");
   },
   deleteAccount: async () => {
+    // Remove photo files first (best effort), then the account and everything in it.
+    try {
+      const sb = need(supabase);
+      const { data } = await sb.auth.getUser();
+      if (data.user) {
+        const { data: files } = await sb.storage.from("avatars").list(data.user.id);
+        if (files?.length) await sb.storage.from("avatars").remove(files.map((f) => `${data.user!.id}/${f.name}`));
+      }
+    } catch {
+      /* the account is still deleted below */
+    }
     await rpc("delete_my_account");
     await need(supabase).auth.signOut({ scope: "local" });
+  },
+  removeSession: async (id) => {
+    await rpc("remove_my_session", { p_id: id });
+  },
+  saveBio: async (bio) => {
+    await rpc("save_bio", { p_bio: bio.trim() || null });
+  },
+  markTutorialSeen: async () => {
+    await rpc("mark_tutorial_seen");
+  },
+  submitSurvey: async (answers) => {
+    await rpc("submit_survey", { p_answers: answers });
+  },
+  saveWeeklyGoals: async (days, minutes) => {
+    await rpc("save_weekly_goals", { p_days: days, p_minutes: minutes });
+  },
+  async uploadAvatar(file) {
+    try {
+      const sb = need(supabase);
+      const { data } = await sb.auth.getUser();
+      if (!data.user) throw new AppError("Sign in again to change your photo.");
+      const blob = await squareJpeg(file);
+      const path = `${data.user.id}/${Date.now().toString(36)}.jpg`;
+      const { error } = await sb.storage.from("avatars").upload(path, blob, { contentType: "image/jpeg", upsert: false });
+      if (error) throw error;
+      await rpc("set_avatar", { p_path: path });
+      // Tidy up older photos (best effort).
+      const { data: files } = await sb.storage.from("avatars").list(data.user.id);
+      const old = (files ?? []).map((f) => `${data.user!.id}/${f.name}`).filter((p) => p !== path);
+      if (old.length) await sb.storage.from("avatars").remove(old);
+    } catch (err) {
+      throw toAppError(err);
+    }
+  },
+  async removeAvatar() {
+    await rpc("set_avatar", { p_path: null });
+    try {
+      const sb = need(supabase);
+      const { data } = await sb.auth.getUser();
+      if (data.user) {
+        const { data: files } = await sb.storage.from("avatars").list(data.user.id);
+        if (files?.length) await sb.storage.from("avatars").remove(files.map((f) => `${data.user!.id}/${f.name}`));
+      }
+    } catch {
+      /* the photo is already off the profile */
+    }
+  },
+  playerCard: (userId) => rpc<PlayerCard>("get_player_card", { p_user_id: userId }),
+  async sendEmailCode() {
+    try {
+      const sb = need(supabase);
+      const { data } = await sb.auth.getUser();
+      if (!data.user?.email) throw new AppError("Sign in again first.");
+      const { error } = await sb.auth.signInWithOtp({
+        email: data.user.email,
+        options: { shouldCreateUser: false, emailRedirectTo: `${window.location.origin}/` },
+      });
+      if (error) throw error;
+    } catch (err) {
+      throw toAppError(err);
+    }
+  },
+  async verifyEmailCode(code) {
+    try {
+      const sb = need(supabase);
+      const { data } = await sb.auth.getUser();
+      if (!data.user?.email) throw new AppError("Sign in again first.");
+      const { error } = await sb.auth.verifyOtp({ email: data.user.email, token: code.trim(), type: "email" });
+      if (error) throw error;
+    } catch (err) {
+      const e = toAppError(err);
+      throw /expired|invalid/i.test(e.message) ? new AppError("That code didn't work. Check it or send a new one.") : e;
+    }
+    await rpc("confirm_email_verified");
+  },
+  async confirmEmailFromLink() {
+    try {
+      const { data } = await need(supabase).auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) return false;
+      const claims = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))) as {
+        amr?: { method: string; timestamp: number }[];
+      };
+      const fresh = (claims.amr ?? []).some(
+        (a) => (a.method === "otp" || a.method === "magiclink") && a.timestamp > Date.now() / 1000 - 3600,
+      );
+      if (!fresh) return false;
+      await rpc("confirm_email_verified");
+      return true;
+    } catch {
+      return false;
+    }
   },
 
   myCrew: (period, scope) => rpc<MyCrew | null>("get_my_crew", { p_period: period, p_scope: scope }),
@@ -361,12 +533,20 @@ const live: Api = {
   removeCrewMember: async (userId) => {
     await rpc("remove_crew_member", { p_user_id: userId });
   },
+  setCrewStyle: async ({ color, emblem, motto }) => {
+    await rpc("set_crew_style", { p_color: color, p_emblem: emblem, p_motto: motto.trim() || null });
+  },
 
   leaderboard: (metric, period, scope, limit = 50) =>
     rpc<LeaderRow[]>("get_leaderboard", { p_metric: metric, p_period: period, p_scope: scope, p_limit: limit }),
   crewLeaderboard: (period, scope, limit = 50) =>
     rpc<CrewRow[]>("get_crew_leaderboard", { p_period: period, p_scope: scope, p_limit: limit }),
   displayData: () => rpc<DisplayData>("get_display_data", {}, publicClient),
+  publicBoard: (metric, period, scope, limit = 50) =>
+    rpc<LeaderRow[]>("get_leaderboard", { p_metric: metric, p_period: period, p_scope: scope, p_limit: limit }, publicClient),
+  joinedPlayers: (limit = 50) => rpc("get_joined_players", { p_limit: limit }, publicClient),
+  publicCrewBoard: (period, scope, limit = 50) =>
+    rpc<CrewRow[]>("get_crew_leaderboard", { p_period: period, p_scope: scope, p_limit: limit }, publicClient),
   async publicSettings() {
     try {
       const { data, error } = await need(publicClient).from("pilot_settings").select("*").eq("id", 1).single();
@@ -398,6 +578,7 @@ const live: Api = {
 
   admin: {
     claim: (code) => rpc<{ role: StaffRole }>("admin_claim", { p_code: code }),
+    surveyResponses: () => rpc("admin_survey_export"),
     sessions: (status, search) =>
       rpc<AdminSession[]>("admin_list_sessions", { p_status: status, p_search: search || null, p_limit: 300 }),
     reviewSession: (id, action, minutes, reason) =>

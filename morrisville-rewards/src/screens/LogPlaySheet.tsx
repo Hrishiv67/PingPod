@@ -19,7 +19,7 @@ export default function LogPlaySheet({
   const today = venueDate();
   const minDay = addDays(today, -settings.backdate_days);
   const [day, setDay] = useState(today);
-  const [minutes, setMinutes] = useState<number | null>(60);
+  const [minutes, setMinutes] = useState<number | null>(null); // nothing picked: no accidental hour
   const [custom, setCustom] = useState(false);
   const [customText, setCustomText] = useState("");
   const [note, setNote] = useState("");
@@ -130,8 +130,8 @@ export default function LogPlaySheet({
       </div>
 
       {error && <InlineError>{error}</InlineError>}
-      <Button variant="primary" size="lg" block loading={busy} onClick={() => void save()}>
-        Save session
+      <Button variant="primary" size="lg" block loading={busy} disabled={!custom && minutes == null} onClick={() => void save()}>
+        {value && !minutesProblem ? `Save ${value} min` : "Save session"}
       </Button>
     </Sheet>
   );
