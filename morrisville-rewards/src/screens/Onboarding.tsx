@@ -116,7 +116,6 @@ export default function Onboarding() {
           </Button>
         </form>
       </main>
-      <footer className="welcome-foot">Morrisville Rewards · Beta</footer>
     </div>
   );
 }

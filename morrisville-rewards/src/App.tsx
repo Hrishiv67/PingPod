@@ -275,7 +275,7 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
         <header className="app-header">
           <div className="app-header-inner">
             <Link to="/" className="pp-logo-link" aria-label="Home" style={{ textDecoration: "none" }}>
-              <Logo size="sm" sub="Morrisville Rewards · Beta" />
+              <Logo size="sm" />
             </Link>
             <Link to="/me" className="header-avatar" aria-label="Your profile">
               <Avatar name={state.me.profile.display_name} color={state.me.profile.avatar_color} path={state.me.profile.avatar_path} size={36} />

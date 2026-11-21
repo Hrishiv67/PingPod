@@ -5,7 +5,7 @@ import { domainAcceptsMail, suggestEmail } from "../lib/emailCheck";
 import type { CrewPreview } from "../lib/types";
 import { Logo } from "../components/Logo";
 import Tutorial from "../components/Tutorial";
-import { Button, Chip, Field, IconButton, InlineError, Sheet } from "../components/ui";
+import { Button, Field, IconButton, InlineError, Sheet } from "../components/ui";
 
 type Step = "email" | "password";
 
@@ -73,7 +73,6 @@ export default function Welcome({ inviteCode }: { inviteCode: string | null }) {
     <div className="welcome">
       <div className="welcome-top">
         <Logo size="md" />
-        <Chip tone="pink">Morrisville · Beta</Chip>
       </div>
 
       <main className="welcome-main">

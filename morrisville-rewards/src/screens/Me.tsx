@@ -221,7 +221,7 @@ export default function MeScreen() {
       </section>
 
       <footer className="app-foot">
-        Morrisville Rewards · Beta — a four-week PingPod Morrisville pilot, separate from the PingPod app and booking.
+        A four-week PingPod Morrisville pilot, separate from the PingPod app and booking.
       </footer>
 
       {editing && <EditProfileSheet onClose={() => setEditing(false)} />}
