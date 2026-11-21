@@ -10,7 +10,10 @@
   align-items: center;
   gap: 18px;
   padding: calc(var(--safe-top, 0px) + 24px) 24px calc(var(--safe-bottom, 0px) + 28px);
-  background: #050507;
+  /* Lays over the app: a soft fade that darkens toward the bottom, with the app blurred behind. */
+  background: linear-gradient(180deg, rgba(5, 5, 7, 0.35) 0%, rgba(5, 5, 7, 0.72) 38%, rgba(5, 5, 7, 0.94) 72%);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  backdrop-filter: blur(14px) saturate(1.1);
   color: #fff;
   text-align: center;
   animation: cel-in 0.25s ease-out both;
@@ -330,127 +333,59 @@
   }
 }
 
-/* First session: spotlight on, the ball drops into the light, the 1 stamps on impact.
-   Timeline (1.45 s): light flickers on 0–0.45 s, ball lands at the climax (0.95 s), small rebound. */
-.spot {
-  align-self: end;
-  width: 300px;
-  height: 560px;
-  margin-bottom: 18px;
-  filter: blur(6px);
-  opacity: 0;
-  animation:
-    spot-on 0.5s 0.05s linear forwards,
-    spot-flash 0.7s var(--climax) ease-out forwards;
-}
-.spot::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  clip-path: polygon(44% 0, 56% 0, 100% 100%, 0 100%);
-  background: linear-gradient(180deg, rgba(255, 225, 240, 0) 0%, rgba(255, 170, 210, 0.12) 55%, rgba(255, 60, 150, 0.26) 100%);
-}
-.spot-pool {
-  align-self: end;
-  width: 300px;
-  height: 64px;
-  margin-bottom: -10px;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(255, 200, 228, 0.42), rgba(255, 0, 120, 0.16) 62%, transparent);
-  opacity: 0;
-  animation:
-    spot-on 0.5s 0.05s linear forwards,
-    spot-flash 0.7s var(--climax) ease-out forwards;
-}
-@keyframes spot-on {
-  0% { opacity: 0; }
-  18% { opacity: 0.75; }
-  28% { opacity: 0.1; }
-  42% { opacity: 0.9; }
-  54% { opacity: 0.35; }
-  72%, 100% { opacity: 1; }
-}
-@keyframes spot-flash {
-  0% { opacity: 1; filter: blur(6px) brightness(1); }
-  25% { opacity: 1; filter: blur(6px) brightness(2); }
-  100% { opacity: 1; filter: blur(6px) brightness(1.2); }
-}
-.spot-pool {
-  filter: none;
-}
+/* First session: one clean drop, a small bounce, the 1 fades in on landing (1.2 s). */
 .sball-y.first {
   animation:
-    first-drop 1.45s linear both,
-    cel-fade-in 0.1s 0.42s ease-out both;
+    first-drop 1.2s linear both,
+    cel-fade-in 0.25s ease-out both;
 }
 @keyframes first-drop {
-  0%, 29% { transform: translateY(-440px); animation-timing-function: cubic-bezier(0.55, 0.085, 0.68, 0.53); }
-  65.5% { transform: translateY(0); animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94); }
-  82.5% { transform: translateY(-44px); animation-timing-function: cubic-bezier(0.55, 0.085, 0.68, 0.53); }
+  0% { transform: translateY(-220px); animation-timing-function: cubic-bezier(0.5, 0, 0.75, 0.4); }
+  60% { transform: translateY(0); animation-timing-function: cubic-bezier(0.25, 0.6, 0.4, 1); }
+  79% { transform: translateY(-26px); animation-timing-function: cubic-bezier(0.5, 0, 0.75, 0.4); }
   100% { transform: translateY(0); }
 }
 .sball.first {
   animation:
-    first-squash 1.45s linear both,
+    first-squash 1.2s ease-in-out both,
     sball-glow 0.9s var(--climax) ease-out forwards;
 }
 @keyframes first-squash {
-  0%, 61% { transform: scale(1); }
-  64% { transform: scale(0.9, 1.12); }
-  65.5% { transform: scale(1.26, 0.74); }
-  71% { transform: scale(0.94, 1.07); }
-  77% { transform: scale(1); }
-  96% { transform: scale(0.97, 1.03); }
-  100% { transform: scale(1); }
+  0%, 56% { transform: scale(1); }
+  60% { transform: scale(1.07, 0.93); }
+  66%, 100% { transform: scale(1); }
 }
 .sball.first b {
-  animation: first-stamp 0.5s var(--climax) cubic-bezier(0.2, 1.4, 0.4, 1) both;
+  animation: first-in 0.45s var(--climax) cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
-@keyframes first-stamp {
-  from {
-    opacity: 0;
-    transform: scale(2.6);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+@keyframes first-in {
+  from { opacity: 0; transform: scale(1.25); }
+  to { opacity: 1; transform: none; }
 }
 .sball-shadow.first {
-  animation: first-shadow 1.45s linear both;
+  animation: first-shadow 1.2s linear both;
 }
 @keyframes first-shadow {
-  0%, 29% { transform: scale(0.3); opacity: 0; }
-  65.5% { transform: scale(1.1); opacity: 1; }
-  82.5% { transform: scale(0.8); opacity: 0.6; }
+  0% { transform: scale(0.4); opacity: 0; }
+  60% { transform: scale(1); opacity: 1; }
+  79% { transform: scale(0.85); opacity: 0.7; }
   100% { transform: scale(1); opacity: 1; }
 }
 
-/* ── Hours: dial sweep + count ── */
-.st-hours svg {
+/* ── Hours: white ball settles in, thin dial sweeps round it, hours count up ── */
+.hours-dial {
   width: 100%;
   height: 100%;
-  animation: cel-throb 0.5s var(--climax) ease-out both;
+  overflow: visible;
 }
 .st-hours .dial {
   stroke-dashoffset: var(--c);
-  animation: dial 1.15s cubic-bezier(0.55, 0, 0.3, 1) both;
-  filter: drop-shadow(0 0 8px rgba(255, 0, 120, 0.6));
+  animation: dial 1.1s 0.15s cubic-bezier(0.55, 0, 0.3, 1) both;
+  filter: drop-shadow(0 0 6px rgba(255, 0, 120, 0.55));
 }
 @keyframes dial {
   to {
     stroke-dashoffset: 0;
-  }
-}
-.st-hours .tick {
-  stroke: #3a3a42;
-  stroke-width: 3;
-  stroke-linecap: round;
-  animation: tick 0.2s ease-out both;
-}
-@keyframes tick {
-  to {
-    stroke: #ffffff;
   }
 }
 @keyframes cel-throb {
@@ -458,20 +393,46 @@
   40% { transform: scale(1.07); }
   100% { transform: scale(1); }
 }
-.hours-num {
-  margin-top: -18px;
-  font-family: var(--font-display);
-  font-size: 92px;
-  font-weight: 800;
-  line-height: 1;
+.hball {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  width: 168px;
+  height: 168px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 28%, #ffffff 0%, #f6f3f5 38%, #ddd6db 78%, #b9b0b6 100%);
+  box-shadow: 0 0 28px rgba(255, 255, 255, 0.18), inset -8px -12px 24px rgba(60, 40, 55, 0.22);
+  color: #0b0b0e;
+  animation:
+    hball-in 0.7s cubic-bezier(0.3, 0.7, 0.3, 1) both,
+    hball-land 0.5s var(--climax) ease-out forwards;
 }
-.hours-label {
-  margin-top: 74px;
-  color: #fff;
-  font-size: 14px;
+@keyframes hball-in {
+  0% { opacity: 0; transform: translateY(-36px) scale(0.92); }
+  60% { opacity: 1; transform: translateY(4px) scale(1); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes hball-land {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.05); box-shadow: 0 0 60px rgba(255, 0, 120, 0.45), inset -8px -12px 24px rgba(60, 40, 55, 0.22); }
+  100% { transform: scale(1); box-shadow: 0 0 36px rgba(255, 0, 120, 0.28), inset -8px -12px 24px rgba(60, 40, 55, 0.22); }
+}
+.hball b {
+  font-family: var(--font-display);
+  font-size: 84px;
+  line-height: 0.9;
+  color: #ff0078;
+}
+.hball small {
+  font-size: 12px;
   font-weight: 800;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
+  color: #2a2a30;
+}
+.hours-burst {
+  width: 168px;
+  height: 168px;
 }
 
 /* ── Streak: flames light up one by one, merge into one big flame ── */

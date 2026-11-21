@@ -38,7 +38,7 @@ const CLIMAX: Record<CelebrationKind, number> = {
 };
 
 /** The first session has its own, quicker landing. */
-const FIRST_CLIMAX = 950;
+const FIRST_CLIMAX = 720;
 const climaxOf = (kind: CelebrationKind, value: number) => (kind === "sessions" && value <= 1 ? FIRST_CLIMAX : CLIMAX[kind]);
 
 const reducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -120,15 +120,10 @@ export function Medal({ kind, children, size = 150 }: { kind: CelebrationKind; c
 
 // ── Stages ────────────────────────────────────────────────────────────────
 
-/**
- * First session: a spotlight flickers on, the ball drops out of the dark into the light and slams
- * down, and the 1 stamps onto it. Your debut.
- */
+/** First session: the ball drops in, lands softly with one small bounce, and the 1 appears. */
 function FirstSessionStage() {
   return (
-    <div className="st st-sessions st-first">
-      <span className="spot" />
-      <span className="spot-pool" />
+    <div className="st st-sessions">
       <span className="sball-shadow first" />
       <span className="ring sball-ring" />
       <span className="sball-y first">
@@ -173,48 +168,39 @@ function SessionsStage({ n, reduced }: { n: number; reduced: boolean }) {
   );
 }
 
-/** Hours: a dial sweeps all the way round while the hours count up. */
+/** Hours: a white ping-pong ball settles in while a thin dial sweeps round it and the hours count up. */
 function HoursStage({ hours, reduced }: { hours: number; reduced: boolean }) {
   const shown = useCountUp(hours, 1150, reduced);
-  const C = 2 * Math.PI * 96;
+  const C = 2 * Math.PI * 106;
   return (
     <div className="st st-hours">
-      <svg viewBox="0 0 240 240">
+      <svg className="hours-dial" viewBox="0 0 240 240">
         <defs>
           <linearGradient id="hours-g" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0" stopColor="#ff0078" />
             <stop offset="1" stopColor="#ffffff" />
           </linearGradient>
         </defs>
-        <circle cx="120" cy="120" r="96" fill="#0d0d10" stroke="#24242a" strokeWidth="12" />
+        <circle cx="120" cy="120" r="106" fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="4" />
         <circle
           className="dial"
           cx="120"
           cy="120"
-          r="96"
+          r="106"
           fill="none"
           stroke="url(#hours-g)"
-          strokeWidth="12"
+          strokeWidth="4"
           strokeLinecap="round"
           strokeDasharray={C}
           style={{ "--c": C } as CSSProperties}
           transform="rotate(-90 120 120)"
         />
-        {Array.from({ length: 12 }, (_, i) => (
-          <line
-            key={i}
-            className="tick"
-            x1="120"
-            y1="36"
-            x2="120"
-            y2="46"
-            transform={`rotate(${i * 30} 120 120)`}
-            style={{ animationDelay: `${(i / 12) * 1.15}s` }}
-          />
-        ))}
       </svg>
-      <span className="hours-num num">{shown}</span>
-      <span className="hours-label">{hours === 1 ? "hour" : "hours"}</span>
+      <span className="ring hours-burst" />
+      <span className="hball">
+        <b className="num">{shown}</b>
+        <small>{hours === 1 ? "hour" : "hours"}</small>
+      </span>
     </div>
   );
 }
