@@ -5,7 +5,7 @@ scratch if ever needed.
 
 | Piece | Where |
 | --- | --- |
-| Web app | Vercel project `pingpod-morrisville-rewards` → https://pingpod-morrisville-rewards.vercel.app (deploys from branch `morrisville-rewards-starter`, root directory `morrisville-rewards`) |
+| Web app | Vercel project `pingpod-morrisville-rewards` → https://www.pingpodrewards.site (also pingpod-morrisville-rewards.vercel.app) (deploys from branch `morrisville-rewards-starter`, root directory `morrisville-rewards`) |
 | Database + auth | Supabase project `pingpod-morrisville` · region us-east-1 · ref `apojuerjhvyzjmpanqih` · free plan |
 | Schema | [`supabase/migrations/`](../supabase/migrations) — already applied to the project above |
 
@@ -23,8 +23,8 @@ Open https://supabase.com/dashboard/project/apojuerjhvyzjmpanqih
      the email-derived passwords.
    - Leave "Allow new users to sign up" ON.
 2. **Authentication → URL Configuration**
-   - Site URL: `https://pingpod-morrisville-rewards.vercel.app`
-   - Redirect URLs: `https://pingpod-morrisville-rewards.vercel.app/**` and `http://localhost:5173/**`
+   - Site URL: `https://www.pingpodrewards.site`
+   - Redirect URLs: `https://www.pingpodrewards.site/**`, `https://pingpod-morrisville-rewards.vercel.app/**` and `http://localhost:5173/**`
 3. **(Optional, for "Forgot password") Authentication → Emails → SMTP Settings** — enable custom SMTP:
    - Host `smtp.gmail.com`, port `465`
    - Username: the Gmail address (a dedicated one such as a pilot inbox is best)
@@ -74,7 +74,7 @@ Project → Settings → Environment Variables (Production, Preview, Development
 | --- | --- |
 | `VITE_SUPABASE_URL` | `https://apojuerjhvyzjmpanqih.supabase.co` |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase → Project Settings → API Keys → publishable key (`sb_publishable_…`) |
-| `VITE_PUBLIC_APP_URL` (optional) | `https://pingpod-morrisville-rewards.vercel.app` — public address used for join links/QR codes (the owner can also set `public_app_url` in Admin → Settings) |
+| `VITE_PUBLIC_APP_URL` (optional) | `https://www.pingpodrewards.site` — public address used for join links/QR codes (the owner can also set `public_app_url` in Admin → Settings) |
 
 Only the publishable key goes in `VITE_` variables (they are bundled into the browser).
 **Never** add the service-role / secret key to Vercel or the repository.

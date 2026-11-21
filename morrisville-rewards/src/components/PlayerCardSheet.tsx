@@ -1,3 +1,4 @@
+import { inviteLink } from "../lib/site";
 import { useEffect, useState } from "react";
 import { UserPlus } from "lucide-react";
 import { api, errorText } from "../lib/api";
@@ -21,7 +22,7 @@ export default function PlayerCardSheet({ userId, name, onClose }: { userId: str
   // Invite someone you just found on the board to your crew (share sheet, or copy the link).
   async function invite() {
     if (!myCrew || !card) return;
-    const url = `${window.location.origin}/join/${myCrew.invite_code}`;
+    const url = inviteLink(myCrew.invite_code);
     const text = `${card.display_name}, join my crew "${myCrew.name}" on PingPod Morrisville Rewards`;
     if (navigator.share) {
       try {

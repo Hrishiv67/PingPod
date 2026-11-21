@@ -206,6 +206,8 @@ export interface Api {
   publicBoard(metric: Metric, period: Period, scope: Scope, limit?: number): Promise<LeaderRow[]>;
   publicCrewBoard(period: Period, scope: Scope, limit?: number): Promise<CrewRow[]>;
   publicSettings(): Promise<Settings>;
+  /** Temporary "Players" board for the in-store screen: everyone signed up, newest first (empty when off). */
+  joinedPlayers(limit?: number): Promise<{ user_id: string; display_name: string; avatar_color: AvatarColor; joined_at: string }[]>;
   rewards(): Promise<Reward[]>;
   /** Fires when standings may have changed (Supabase Realtime broadcast). */
   subscribeBoards(onChange: () => void): () => void;
@@ -537,6 +539,7 @@ const live: Api = {
   displayData: () => rpc<DisplayData>("get_display_data", {}, publicClient),
   publicBoard: (metric, period, scope, limit = 50) =>
     rpc<LeaderRow[]>("get_leaderboard", { p_metric: metric, p_period: period, p_scope: scope, p_limit: limit }, publicClient),
+  joinedPlayers: (limit = 50) => rpc("get_joined_players", { p_limit: limit }, publicClient),
   publicCrewBoard: (period, scope, limit = 50) =>
     rpc<CrewRow[]>("get_crew_leaderboard", { p_period: period, p_scope: scope, p_limit: limit }, publicClient),
   async publicSettings() {

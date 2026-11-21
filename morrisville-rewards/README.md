@@ -4,7 +4,7 @@ A phone-first companion for players at PingPod Morrisville. Players scan a QR co
 
 It's a local four-week pilot. It isn't the official PingPod app, booking system or PodPlay, and it never asks for PingPod passwords.
 
-**Live app:** https://pingpod-morrisville-rewards.vercel.app · **iPad board:** `/display` (or `/?display=1`) · **Printable QR sign:** `/poster` · **Staff:** `/admin`
+**Live app:** https://www.pingpodrewards.site · **iPad board:** `/display` (or `/?display=1`) · **Printable QR sign:** `/poster` · **Staff:** `/admin`
 
 ## What players can do
 
@@ -50,7 +50,7 @@ With no `.env.local`, the app runs a clearly labeled **demo mode** (data stays i
 VITE_SUPABASE_URL=https://apojuerjhvyzjmpanqih.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 # optional: the address QR codes point to (otherwise taken from pilot settings / current site)
-VITE_PUBLIC_APP_URL=https://pingpod-morrisville-rewards.vercel.app
+VITE_PUBLIC_APP_URL=https://www.pingpodrewards.site
 ```
 
 Only the publishable key belongs in `VITE_` variables. Never put the service-role/secret key in the frontend.

@@ -4,9 +4,9 @@ import { Maximize, Minimize, RefreshCw } from "lucide-react";
 import { api, avatarUrl, errorText } from "../lib/api";
 import { emblemIcon } from "../components/CrewBadge";
 import LogoLoader from "../components/LogoLoader";
-import type { CrewRow, DisplayData, DisplaySlide, LeaderRow, Period, Scope } from "../lib/types";
+import type { CrewRow, DisplayData, DisplaySlide, LeaderRow, Metric, Period, Scope } from "../lib/types";
 import { Logo, PingPodMark } from "../components/Logo";
-import { formatNumber, formatTime, venueDate } from "../lib/time";
+import { addDays, formatNumber, formatTime, venueDate } from "../lib/time";
 import { displayUrl, isLocalUrl, resolveAppUrl } from "./appUrl";
 import { tiePlaces } from "../lib/ranks";
 import "../styles/tokens.css";
@@ -24,10 +24,12 @@ const CURSOR_IDLE_MS = 3_000;
 const TOUCH_DWELL_MS = 30_000; // how long a board someone picked stays up
 const ROWS = 50;
 
-type Board = DisplaySlide;
+/** "joined" is the temporary Players board (everyone signed up), shown first while it has rows. */
+type Board = DisplaySlide | "joined";
 type BoardPeriod = Extract<Period, "day" | "week" | "month">;
 const ORDER: Board[] = ["minutes", "spindex", "crews", "streaks", "longest", "highlights"];
 const TAB: Record<Board, string> = {
+  joined: "Players",
   minutes: "Minutes",
   spindex: "SPINDEX",
   crews: "Crews",
@@ -36,6 +38,7 @@ const TAB: Record<Board, string> = {
   highlights: "This week",
 };
 const TITLE: Record<Board, string> = {
+  joined: "Who's in",
   minutes: "Most minutes",
   spindex: "Highest SPINDEX",
   crews: "Crew rankings",
@@ -174,11 +177,48 @@ export default function Display() {
 
   // Keyed by content, so refreshing the data every 30 s doesn't restart the rotation timer.
   const slidesKey = (data?.slides ?? []).join(",");
+  // Temporary Players board: everyone who has signed up, newest first (empty when staff turn it off).
+  const [joined, setJoined] = useState<LeaderRow[]>([]);
+  useEffect(() => {
+    let live = true;
+    api
+      .joinedPlayers(ROWS)
+      .then((rows) => {
+        if (!live) return;
+        setJoined(
+          rows.map((r, i) => ({
+            rank: i + 1,
+            user_id: r.user_id,
+            display_name: r.display_name,
+            avatar_color: r.avatar_color,
+            value: rows.length - i, // unique, so every row gets its own place number
+            secondary: null,
+            sessions: null,
+            detail: r.joined_at,
+            is_me: false,
+          })),
+        );
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [tick, data]);
+  const hasJoined = joined.length > 0;
+  // Open on the Players board when it first appears (unless someone already picked a board).
+  const shownJoined = useRef(false);
+  useEffect(() => {
+    if (hasJoined && !shownJoined.current) {
+      shownJoined.current = true;
+      if (!manual) setBoard("joined");
+    }
+  }, [hasJoined, manual]);
   const boards = useMemo<Board[]>(() => {
     const wanted = slidesKey ? (slidesKey.split(",") as Board[]) : ORDER;
     const list = ORDER.filter((b) => wanted.includes(b));
-    return list.length ? list : ["minutes"];
-  }, [slidesKey]);
+    const base: Board[] = list.length ? list : ["minutes"];
+    return hasJoined ? ["joined", ...base] : base;
+  }, [slidesKey, hasJoined]);
   const current: Board = boards.includes(board) ? board : boards[0];
   const scope: Scope = data?.scope ?? "community";
   const rotationMs = Math.min(60, Math.max(8, Number(data?.rotation_seconds) || 15)) * 1000;
@@ -187,12 +227,12 @@ export default function Display() {
 
   // Fetch the board being shown (and refresh it whenever the standings change).
   useEffect(() => {
-    if (current === "highlights" || !data) return;
+    if (current === "highlights" || current === "joined" || !data) return;
     let live = true;
     const request =
       current === "crews"
         ? api.publicCrewBoard(boardPeriod, scope, ROWS).then((rows): Rows => ({ kind: "crews", rows }))
-        : api.publicBoard(current, boardPeriod, scope, ROWS).then((rows): Rows => ({ kind: "players", rows }));
+        : api.publicBoard(current as Metric, boardPeriod, scope, ROWS).then((rows): Rows => ({ kind: "players", rows }));
     request.then((r) => live && setCache((c) => ({ ...c, [cacheKey]: r }))).catch(() => {});
     return () => {
       live = false;
@@ -285,7 +325,7 @@ export default function Display() {
 
   const joinUrl = displayUrl(appUrl);
   const today = todayLine();
-  const shown = cache[cacheKey];
+  const shown: Rows | undefined = current === "joined" ? { kind: "players", rows: joined } : cache[cacheKey];
 
   return (
     <div className={`display ${cursorIdle ? "is-idle" : ""}`} onPointerDown={touch}>
@@ -431,6 +471,7 @@ function RowAvatar({ name, color, path }: { name: string; color: string; path?: 
 }
 
 function valueOf(board: Board, r: LeaderRow): { value: string; unit: string } {
+  if (board === "joined") return { value: joinedWhen(r.detail), unit: "" };
   if (board === "streaks") return { value: String(r.value), unit: r.value === 1 ? "day" : "days" };
   if (board === "spindex") return { value: String(r.value), unit: "" };
   return { value: formatNumber(r.value), unit: "min" };
@@ -567,4 +608,14 @@ function useWakeLock() {
       void sentinel?.release().catch(() => {});
     };
   }, []);
+}
+
+/** When a player joined, for the Players board: "Today", "Yesterday" or the weekday. */
+function joinedWhen(at: string | null): string {
+  if (!at) return "";
+  const day = venueDate(new Date(at));
+  const today = venueDate();
+  if (day === today) return "Today";
+  if (day === addDays(today, -1)) return "Yesterday";
+  return new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "UTC" }).format(new Date(`${day}T12:00:00Z`));
 }

@@ -189,7 +189,7 @@ does not expose.
 | Field | Default | Allowed |
 | --- | --- | --- |
 | `venue_name` | PingPod Morrisville | text |
-| `public_app_url` | https://pingpod-morrisville-rewards.vercel.app | http(s) URL — used for the join QR |
+| `public_app_url` | https://www.pingpodrewards.site | http(s) URL — used for the join QR |
 | `pilot_start`, `pilot_end` | null | dates (analytics window) |
 | `max_session_minutes` | 180 | 30–480 (timer cap / auto-close) |
 | `checkin_reminder_minutes` | 90 | 15–240 |

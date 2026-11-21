@@ -39,7 +39,7 @@ const hasWindow = typeof window !== "undefined";
 
 const DEFAULT_SETTINGS: Settings = {
   venue_name: "PingPod Morrisville",
-  public_app_url: "https://pingpod-morrisville-rewards.vercel.app",
+  public_app_url: "https://www.pingpodrewards.site",
   pilot_start: null,
   pilot_end: null,
   max_session_minutes: 180,
@@ -1377,6 +1377,15 @@ export const demoApi: Api = {
     return crewBoard(s, period, scope)
       .filter((r) => r.rank <= cap || r.crew_id === mine)
       .map((r) => ({ ...r, is_mine: r.crew_id === mine }));
+  },
+  async joinedPlayers(limit = 50) {
+    await delay();
+    const s = load();
+    return players(s)
+      .filter((p) => p.public)
+      .map((p, i) => ({ user_id: p.id, display_name: p.name, avatar_color: p.color, joined_at: p.createdAt ?? iso(Date.now() - (i + 1) * DAY) }))
+      .sort((a, b) => b.joined_at.localeCompare(a.joined_at))
+      .slice(0, limit);
   },
   async publicBoard(metric, period, scope, limit = 50) {
     await delay();

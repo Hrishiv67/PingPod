@@ -4,6 +4,7 @@ import CrewBadge, { EMBLEMS } from "../components/CrewBadge";
 import PlayerCardSheet from "../components/PlayerCardSheet";
 import { Copy, Crown, MoreHorizontal, RefreshCw, Share2, Users } from "lucide-react";
 import { api, errorText } from "../lib/api";
+import { inviteLink } from "../lib/site";
 import { formatNumber } from "../lib/time";
 import type { AvatarColor, CrewEmblem, CrewMember, CrewRow, MyCrew, Scope } from "../lib/types";
 import { useApp } from "../state";
@@ -21,9 +22,7 @@ import {
 
 const CREW_COLORS: AvatarColor[] = ["pink", "white", "blue", "green", "orange", "purple"];
 
-export function inviteLink(code: string): string {
-  return `${window.location.origin}/join/${code}`;
-}
+export { inviteLink } from "../lib/site";
 
 export default function Crew() {
   const { me, refresh, bump, version } = useApp();

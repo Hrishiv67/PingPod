@@ -2,7 +2,7 @@
 
 For Joe and the Morrisville team. No technical knowledge needed.
 
-App: **https://pingpod-morrisville-rewards.vercel.app**  ·  Staff area: **/admin**  ·
+App: **https://www.pingpodrewards.site**  ·  Staff area: **/admin**  ·
 iPad board: **/display**  ·  Printable QR sign: **/poster**
 
 This is a four-week Morrisville pilot that sits alongside the official PingPod app. It does not
@@ -140,7 +140,7 @@ that person's sessions and ratings).
 
 ## The iPad scoreboard
 
-1. On the front-desk iPad, open Safari to **https://pingpod-morrisville-rewards.vercel.app/display**.
+1. On the front-desk iPad, open Safari to **https://www.pingpodrewards.site/display**.
 2. Share → **Add to Home Screen**, then open it from the home screen (full screen, no browser bar).
 3. Settings → Accessibility → **Guided Access** on; triple-click the side/home button to lock the
    iPad to the board.
