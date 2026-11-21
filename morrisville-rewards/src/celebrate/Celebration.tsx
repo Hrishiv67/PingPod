@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { Trophy, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import "./celebrate.css";
 
 // Full-screen milestone celebrations. Each kind has its own short animation (about 1–1.5 s) that
@@ -28,12 +28,12 @@ export const ACCENT: Record<CelebrationKind, string> = {
 
 /** When the badge lands (ms): confetti, buzz, then the words. */
 const CLIMAX: Record<CelebrationKind, number> = {
-  sessions: 1350,
+  sessions: 1250,
   hours: 1300,
   streak: 1350,
   goal: 1100,
   crew: 1250,
-  top5: 1250,
+  top5: 1300,
   long: 1450,
 };
 
@@ -85,7 +85,7 @@ export function Celebration({ spec, onClose }: { spec: CelebrationSpec; onClose:
         {kind === "streak" && <StreakStage days={value} />}
         {kind === "goal" && <GoalStage />}
         {kind === "crew" && <CrewStage />}
-        {kind === "top5" && <TopStage />}
+        {kind === "top5" && <TopStage reduced={reduced} />}
         {kind === "long" && <LongStage reduced={reduced} />}
       </div>
       <div className="cel-text">
@@ -113,78 +113,36 @@ export function Medal({ kind, children, size = 150 }: { kind: CelebrationKind; c
 
 // ── Stages ────────────────────────────────────────────────────────────────
 
-/** Sessions: a table-tennis flip scoreboard counts up and slams down on the number. */
-function SessionsStage({ n, reduced }: { n: number; reduced: boolean }) {
-  const target = Math.max(1, Math.min(Math.round(n), 99));
-  const { value, dur } = useFlipCount(target, reduced);
-  const text = String(value).padStart(2, "0");
-  return (
-    <div className="st st-sessions">
-      <div className="scoreboard">
-        <span className="sb-led" />
-        <FlapDigit value={text[0]} dur={dur} />
-        <FlapDigit value={text[1]} dur={dur} />
-      </div>
-      <span className="sb-label">{target === 1 ? "Session" : "Sessions"}</span>
-      <span className="ring sb-ring" />
-    </div>
-  );
-}
-
 /**
- * The numbers the scoreboard flips through, and when: fast at first, slowing into the last flip,
- * which lands at the climax. The first session spins the wheel once round and stops on 1.
+ * Sessions: a ping-pong ball drops in and bounces faster and faster, the count going up on every
+ * bounce. The last bounce lands on the milestone number at the climax.
  */
-function useFlipCount(target: number, reduced: boolean) {
-  const [state, setState] = useState(() => ({ v: reduced ? target : 0, dur: 160 }));
+const BOUNCES = [0.34, 0.6, 0.78, 0.9, 1]; // when the ball touches down, as a share of the climax time
+function SessionsStage({ n, reduced }: { n: number; reduced: boolean }) {
+  const target = Math.max(1, Math.round(n));
+  const [hits, setHits] = useState(reduced ? BOUNCES.length : 0);
   useEffect(() => {
     if (reduced) return;
-    let seq: number[];
-    if (target === 1) seq = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1];
-    else {
-      const k = Math.min(target, 14);
-      seq = [];
-      for (let i = 1; i <= k; i++) {
-        const v = Math.round(target * (1 - Math.pow(1 - i / k, 2)));
-        if (v > 0 && v !== seq[seq.length - 1]) seq.push(v);
-      }
-      if (seq[seq.length - 1] !== target) seq.push(target);
-    }
-    const start = 180;
-    const lastAt = 1100; // the last flip starts here and lands at the climax (~1350 ms)
-    const times = seq.map((_, i) => start + (lastAt - start) * Math.pow(seq.length === 1 ? 1 : i / (seq.length - 1), 1.9));
-    const timers = seq.map((v, i) => {
-      const gap = i < seq.length - 1 ? times[i + 1] - times[i] : 260;
-      return window.setTimeout(() => setState({ v, dur: Math.max(70, Math.min(260, gap * 0.95)) }), times[i]);
-    });
+    const timers = BOUNCES.map((f, i) => window.setTimeout(() => setHits(i + 1), f * CLIMAX.sessions));
     return () => timers.forEach((t) => window.clearTimeout(t));
-  }, [target, reduced]);
-  return { value: state.v, dur: state.dur };
-}
-
-/** One split-flap digit: the top half folds down over the old number, the new bottom half unfolds. */
-function FlapDigit({ value, dur }: { value: string; dur: number }) {
-  const [s, setS] = useState({ cur: value, prev: value, k: 0 });
-  if (value !== s.cur) setS({ cur: value, prev: s.cur, k: s.k + 1 });
+  }, [reduced]);
+  // Small milestones (the first session) only show their number on the last bounce.
+  const shown =
+    hits === 0 ? 0 : target < BOUNCES.length ? (hits === BOUNCES.length ? target : 0) : Math.round((target * hits) / BOUNCES.length);
   return (
-    <span className="flap" style={{ "--dur": `${dur}ms` } as CSSProperties}>
-      <span className="flap-half flap-top">
-        <b>{s.cur}</b>
+    <div className="st st-sessions">
+      <span className="sball-shadow" />
+      <span className="ring sball-ring" />
+      <span className="sball-y">
+        <span className="sball">
+          {shown > 0 && (
+            <b key={shown} className="num">
+              {shown}
+            </b>
+          )}
+        </span>
       </span>
-      <span className="flap-half flap-bottom">
-        <b>{s.k ? s.prev : s.cur}</b>
-      </span>
-      {s.k > 0 && (
-        <>
-          <span key={`f${s.k}`} className="flap-half flap-top flap-fold">
-            <b>{s.prev}</b>
-          </span>
-          <span key={`u${s.k}`} className="flap-half flap-bottom flap-unfold">
-            <b>{s.cur}</b>
-          </span>
-        </>
-      )}
-    </span>
+    </div>
   );
 }
 
@@ -305,41 +263,40 @@ function GoalStage() {
   );
 }
 
-/** Crew: four pieces (one per friend) snap together, then flip over into the crew badge. */
+/** Crew: four friends spiral in from the edges and lock into a ring around the crew badge. */
 function CrewStage() {
-  const pieces = [
-    { c: "#ff0078", q: "tl", fx: -190, fy: -170, r: -140 },
-    { c: "#46d483", q: "tr", fx: 190, fy: -170, r: 120 },
-    { c: "#ff8a3d", q: "bl", fx: -190, fy: 170, r: 110 },
-    { c: "#b98cff", q: "br", fx: 190, fy: 170, r: -130 },
-  ];
-  const members = [
-    { c: "#ff0078", t: "AK" },
-    { c: "#46d483", t: "MJ" },
-    { c: "#ff8a3d", t: "RT" },
-    { c: "#b98cff", t: "YOU" },
-  ];
+  const C = 2 * Math.PI * 84;
   return (
     <div className="st st-crew">
-      <span className="forge">
-        <span className="forge-front">
-          {pieces.map((p, i) => (
-            <span
-              key={p.q}
-              className={`piece piece-${p.q}`}
-              style={{ background: p.c, "--fx": `${p.fx}px`, "--fy": `${p.fy}px`, "--r": `${p.r}deg`, "--d": `${i * 0.08}s` } as CSSProperties}
-            />
-          ))}
-        </span>
-        <span className="forge-back">
-          <Users strokeWidth={2.4} />
-        </span>
-      </span>
+      <svg className="crew-svg" viewBox="0 0 240 240">
+        <defs>
+          <linearGradient id="crew-g" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#bfe2ff" />
+            <stop offset="1" stopColor="#3b8de0" />
+          </linearGradient>
+        </defs>
+        <circle
+          className="crew-track"
+          cx="120"
+          cy="120"
+          r="84"
+          fill="none"
+          stroke="url(#crew-g)"
+          strokeWidth="6"
+          strokeLinecap="round"
+          strokeDasharray={C}
+          style={{ "--c": C } as CSSProperties}
+          transform="rotate(-90 120 120)"
+        />
+      </svg>
       <span className="ring crew-ring" />
-      <span className="crew-row">
-        {members.map((m, i) => (
-          <span key={m.t} className={`crew-mini ${m.t === "YOU" ? "you" : ""}`} style={{ background: m.c, "--d": `${i * 0.07}s` } as CSSProperties}>
-            {m.t}
+      <span className="crew-core">
+        <Users strokeWidth={2.2} />
+      </span>
+      <span className="orbit">
+        {[45, 135, 225, 315].map((a) => (
+          <span key={a} className="arm" style={{ "--a": `${a}deg` } as CSSProperties}>
+            <span className="node" />
           </span>
         ))}
       </span>
@@ -347,40 +304,63 @@ function CrewStage() {
   );
 }
 
-/** Top five: your row climbs the leaderboard past the others, into the gold top-five zone. */
-function TopStage() {
-  // Slots are leaderboard places 1–6. You start 6th and pass three players.
-  const rows = [
-    { id: "a", c: "#5ab0ff", w: 64, from: 1 },
-    { id: "b", c: "#46d483", w: 54, from: 2 },
-    { id: "c", c: "#ff8a3d", w: 70, from: 3, cls: "r3" },
-    { id: "d", c: "#b98cff", w: 48, from: 4, cls: "r4" },
-    { id: "e", c: "#f4f4f6", w: 58, from: 5, cls: "r5" },
-  ];
+/** Top five: a laurel wreath grows leaf by leaf while the rank closes in from top 20 to top 5. */
+function TopStage({ reduced }: { reduced: boolean }) {
+  const closed = useCountUp(15, 1250, reduced, linear);
   return (
     <div className="st st-top">
-      <div className="lb">
-        <span className="lb-zone">
-          <span className="lb-tag">Top 5</span>
-        </span>
-        {[1, 2, 3, 4, 5, 6].map((n) => (
-          <span key={n} className={`lb-num ${n <= 5 ? "in" : ""}`} style={{ "--slot": n - 1 } as CSSProperties}>
-            {n}
-          </span>
-        ))}
-        {rows.map((r, i) => (
-          <span key={r.id} className={`lb-row ${r.cls ?? ""}`} style={{ "--slot": r.from - 1, "--d": `${i * 0.05}s` } as CSSProperties}>
-            <i style={{ background: r.c }} />
-            <b style={{ width: `${r.w}%` }} />
-          </span>
-        ))}
-        <span className="lb-row lb-you" style={{ "--slot": 5, "--d": "0.25s" } as CSSProperties}>
-          <i />
-          <strong>YOU</strong>
-          <Trophy className="lb-trophy" strokeWidth={2.2} />
-        </span>
-      </div>
+      <svg className="wreath" viewBox="0 0 240 240">
+        <defs>
+          <linearGradient id="leaf-g" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#fff1c9" />
+            <stop offset=".5" stopColor="#ffd27a" />
+            <stop offset="1" stopColor="#e0a536" />
+          </linearGradient>
+        </defs>
+        <Branch />
+        <g transform="matrix(-1 0 0 1 240 0)">
+          <Branch />
+        </g>
+        <path className="wreath-star" d={STAR} fill="#ffd27a" />
+      </svg>
+      <span className="ring top-ring" />
+      <span className="top-rank">
+        <small>Top</small>
+        <b className="num">{20 - closed}</b>
+      </span>
     </div>
+  );
+}
+
+const linear = (p: number) => p;
+
+/** One side of the wreath: a stem drawn up the left, with pairs of leaves growing bottom to top. */
+const LEAF = "M0 0 C6.5 -7 6.5 -20 0 -28 C-6.5 -20 -6.5 -7 0 0 Z";
+const STAR = "M120 22 l4.7 9.6 10.6 1.5 -7.7 7.5 1.8 10.5 -9.4 -5 -9.4 5 1.8 -10.5 -7.7 -7.5 10.6 -1.5 Z";
+function Branch() {
+  const at = (deg: number) => {
+    const r = (deg * Math.PI) / 180;
+    return [120 + 92 * Math.cos(r), 128 + 92 * Math.sin(r)];
+  };
+  const [sx, sy] = at(100);
+  const [ex, ey] = at(244);
+  const leaves: { x: number; y: number; rot: number; d: number }[] = [];
+  for (let k = 0; k < 7; k++) {
+    const deg = 106 + k * 20;
+    const [x, y] = at(deg);
+    // Pointing up the stem (along its tangent), one leaf tilted out and one in.
+    for (const tilt of [-34, 30]) leaves.push({ x, y, rot: deg + 180 + tilt, d: 0.1 + k * 0.12 });
+  }
+  leaves.push({ x: ex, y: ey, rot: 244 + 180, d: 0.1 + 7 * 0.12 });
+  return (
+    <g>
+      <path className="stem" d={`M${sx.toFixed(1)} ${sy.toFixed(1)} A92 92 0 0 1 ${ex.toFixed(1)} ${ey.toFixed(1)}`} pathLength={1} fill="none" />
+      {leaves.map((l, i) => (
+        <g key={i} transform={`translate(${l.x.toFixed(1)} ${l.y.toFixed(1)}) rotate(${l.rot})`}>
+          <path className="leaf" d={LEAF} fill="url(#leaf-g)" style={{ "--d": `${l.d.toFixed(2)}s` } as CSSProperties} />
+        </g>
+      ))}
+    </g>
   );
 }
 
@@ -418,7 +398,7 @@ const GLASS = "M14 12 C14 52 52 72 56 85 C52 98 14 118 14 158 H106 C106 118 68 9
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
-function useCountUp(target: number, ms: number, reduced: boolean) {
+function useCountUp(target: number, ms: number, reduced: boolean, ease = (p: number) => 1 - Math.pow(1 - p, 3)) {
   const [v, setV] = useState(reduced ? target : 0);
   useEffect(() => {
     if (reduced) return;
@@ -426,7 +406,7 @@ function useCountUp(target: number, ms: number, reduced: boolean) {
     let raf = 0;
     const tick = (t: number) => {
       const p = Math.min(1, (t - t0) / ms);
-      setV(Math.round(target * (1 - Math.pow(1 - p, 3))));
+      setV(Math.round(target * ease(p)));
       if (p < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);

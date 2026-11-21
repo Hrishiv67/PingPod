@@ -20,11 +20,13 @@ const ITEMS: (CelebrationSpec & { group: string })[] = [
   { group: "Time played", kind: "hours", value: 20, title: "20 hours", subtitle: "Twenty hours. You basically live here." },
   { group: "Streaks", kind: "streak", value: 3, title: "3-day streak", subtitle: "Three days in a row. Keep the fire going." },
   { group: "Streaks", kind: "streak", value: 7, title: "7-day streak", subtitle: "A full week, every single day." },
-  { group: "Goals", kind: "goal", title: "Weekly goal hit", subtitle: "You hit this week's goal. New week starts Monday." },
-  { group: "Crews", kind: "crew", title: "Crew up", subtitle: "You're in a crew. Your minutes count together now." },
-  { group: "Leaderboard", kind: "top5", title: "Top five", subtitle: "You finished the week in the top five." },
-  { group: "Sessions", kind: "long", title: "Long rally", subtitle: "One session, two whole hours. Legendary." },
+  { group: "Big moments", kind: "goal", title: "Weekly goal hit", subtitle: "You hit this week's goal. New week starts Monday." },
+  { group: "Big moments", kind: "crew", title: "Crew up", subtitle: "You're in a crew. Your minutes count together now." },
+  { group: "Big moments", kind: "top5", title: "Top five", subtitle: "You finished the week in the top five." },
+  { group: "Big moments", kind: "long", title: "Long rally", subtitle: "One session, two whole hours. Legendary." },
 ];
+
+const GROUPS = [...new Set(ITEMS.map((it) => it.group))];
 
 function preview(it: CelebrationSpec) {
   switch (it.kind) {
@@ -64,7 +66,7 @@ export default function Gallery() {
       </header>
       <div className="cg-intro">
         <h1>Celebrations</h1>
-        <p>Tap one to see it full screen, exactly how a player would. Pick the ones you like.</p>
+        <p>Tap one to play it full screen, the way a player sees it.</p>
         <button
           type="button"
           className="btn btn-secondary btn-md"
@@ -76,20 +78,26 @@ export default function Gallery() {
           <Play size={16} /> Play all
         </button>
       </div>
-      <div className="cg-grid">
-        {ITEMS.map((it, i) => (
-          <button key={i} type="button" className="cg-card" onClick={() => play(i)}>
-            <Medal kind={it.kind} size={88}>
-              {preview(it)}
-            </Medal>
-            <span className="cg-name">{it.title}</span>
-            <span className="cg-group">{it.group}</span>
-            <span className="cg-play">
-              <Play size={14} fill="currentColor" /> Play
-            </span>
-          </button>
-        ))}
-      </div>
+      {GROUPS.map((g) => (
+        <section key={g} className="cg-section">
+          <h2>{g}</h2>
+          <div className="cg-grid">
+            {ITEMS.map((it, i) =>
+              it.group !== g ? null : (
+                <button key={i} type="button" className="cg-card" onClick={() => play(i)}>
+                  <Medal kind={it.kind} size={84}>
+                    {preview(it)}
+                  </Medal>
+                  <span className="cg-name">{it.title}</span>
+                  <span className="cg-play">
+                    <Play size={13} fill="currentColor" /> Play
+                  </span>
+                </button>
+              ),
+            )}
+          </div>
+        </section>
+      ))}
       {playing !== null && <Celebration key={playing} spec={ITEMS[playing]} onClose={close} />}
     </div>
   );
