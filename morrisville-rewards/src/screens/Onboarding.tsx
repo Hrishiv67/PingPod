@@ -81,7 +81,7 @@ export default function Onboarding() {
       <main className="welcome-main">
         <div className="stack-sm">
           <h1 className="hero-title">Pick your nickname</h1>
-          <p className="hero-sub">Other players see this. Your email stays private.</p>
+          <p className="hero-sub">Other players see this.</p>
         </div>
         <form className="auth-form" onSubmit={submit} noValidate>
           <Field

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Check, Hourglass, Play, Target, Trophy, Users } from "lucide-react";
 import { Logo } from "../components/Logo";
 import { Celebration, Medal, type CelebrationSpec } from "./Celebration";
+import { MILESTONES } from "./milestones";
 import "../styles/tokens.css";
 import "../styles/ui.css";
 import "./celebrate.css";
@@ -9,22 +10,7 @@ import "./celebrate.css";
 // Preview page (/celebrations, not linked anywhere): every milestone pop-up, to pick favorites
 // before they're wired into the app.
 
-const ITEMS: (CelebrationSpec & { group: string })[] = [
-  { group: "Sessions", kind: "sessions", value: 1, title: "First session", subtitle: "You're on the board. Welcome to the rally." },
-  { group: "Sessions", kind: "sessions", value: 10, title: "10 sessions", subtitle: "Ten times at the table. That's a regular." },
-  { group: "Sessions", kind: "sessions", value: 25, title: "25 sessions", subtitle: "Twenty-five sessions in. The tables know you by now." },
-  { group: "Sessions", kind: "sessions", value: 50, title: "50 sessions", subtitle: "Fifty. That's PingPod royalty." },
-  { group: "Time played", kind: "hours", value: 1, title: "First hour", subtitle: "Sixty minutes of table time, done." },
-  { group: "Time played", kind: "hours", value: 5, title: "5 hours", subtitle: "Five hours on the table. The 300 club." },
-  { group: "Time played", kind: "hours", value: 10, title: "10 hours", subtitle: "Double digits. Serious table time." },
-  { group: "Time played", kind: "hours", value: 20, title: "20 hours", subtitle: "Twenty hours. You basically live here." },
-  { group: "Streaks", kind: "streak", value: 3, title: "3-day streak", subtitle: "Three days in a row. Keep the fire going." },
-  { group: "Streaks", kind: "streak", value: 7, title: "7-day streak", subtitle: "A full week, every single day." },
-  { group: "Big moments", kind: "goal", title: "Weekly goal hit", subtitle: "You hit this week's goal. New week starts Monday." },
-  { group: "Big moments", kind: "crew", title: "Crew up", subtitle: "You're in a crew. Your minutes count together now." },
-  { group: "Big moments", kind: "top5", title: "Top five", subtitle: "You finished the week in the top five." },
-  { group: "Big moments", kind: "long", title: "Long rally", subtitle: "One session, two whole hours. Legendary." },
-];
+const ITEMS = MILESTONES;
 
 const GROUPS = [...new Set(ITEMS.map((it) => it.group))];
 

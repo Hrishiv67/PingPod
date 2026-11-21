@@ -10,7 +10,7 @@ import { useApp } from "../state";
 const openedKey = (id: string) => `pingpod-survey-${id}`;
 
 export const SURVEY_ASK =
-  "We're high school students running this pilot with PingPod Morrisville to learn what keeps players coming back. Mind answering a short, anonymous survey?";
+  "We're high school students studying what keeps players coming back. Mind taking a short, anonymous survey?";
 
 export const surveyOpened = (id: string) => store.get<string>(openedKey(id)) === "opened";
 

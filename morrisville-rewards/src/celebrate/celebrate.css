@@ -330,6 +330,102 @@
   }
 }
 
+/* First session: spotlight on, the ball drops into the light, the 1 stamps on impact.
+   Timeline (1.45 s): light flickers on 0–0.45 s, ball lands at the climax (0.95 s), small rebound. */
+.spot {
+  align-self: end;
+  width: 300px;
+  height: 560px;
+  margin-bottom: 18px;
+  filter: blur(6px);
+  opacity: 0;
+  animation:
+    spot-on 0.5s 0.05s linear forwards,
+    spot-flash 0.7s var(--climax) ease-out forwards;
+}
+.spot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  clip-path: polygon(44% 0, 56% 0, 100% 100%, 0 100%);
+  background: linear-gradient(180deg, rgba(255, 225, 240, 0) 0%, rgba(255, 170, 210, 0.12) 55%, rgba(255, 60, 150, 0.26) 100%);
+}
+.spot-pool {
+  align-self: end;
+  width: 300px;
+  height: 64px;
+  margin-bottom: -10px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 200, 228, 0.42), rgba(255, 0, 120, 0.16) 62%, transparent);
+  opacity: 0;
+  animation:
+    spot-on 0.5s 0.05s linear forwards,
+    spot-flash 0.7s var(--climax) ease-out forwards;
+}
+@keyframes spot-on {
+  0% { opacity: 0; }
+  18% { opacity: 0.75; }
+  28% { opacity: 0.1; }
+  42% { opacity: 0.9; }
+  54% { opacity: 0.35; }
+  72%, 100% { opacity: 1; }
+}
+@keyframes spot-flash {
+  0% { opacity: 1; filter: blur(6px) brightness(1); }
+  25% { opacity: 1; filter: blur(6px) brightness(2); }
+  100% { opacity: 1; filter: blur(6px) brightness(1.2); }
+}
+.spot-pool {
+  filter: none;
+}
+.sball-y.first {
+  animation:
+    first-drop 1.45s linear both,
+    cel-fade-in 0.1s 0.42s ease-out both;
+}
+@keyframes first-drop {
+  0%, 29% { transform: translateY(-440px); animation-timing-function: cubic-bezier(0.55, 0.085, 0.68, 0.53); }
+  65.5% { transform: translateY(0); animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+  82.5% { transform: translateY(-44px); animation-timing-function: cubic-bezier(0.55, 0.085, 0.68, 0.53); }
+  100% { transform: translateY(0); }
+}
+.sball.first {
+  animation:
+    first-squash 1.45s linear both,
+    sball-glow 0.9s var(--climax) ease-out forwards;
+}
+@keyframes first-squash {
+  0%, 61% { transform: scale(1); }
+  64% { transform: scale(0.9, 1.12); }
+  65.5% { transform: scale(1.26, 0.74); }
+  71% { transform: scale(0.94, 1.07); }
+  77% { transform: scale(1); }
+  96% { transform: scale(0.97, 1.03); }
+  100% { transform: scale(1); }
+}
+.sball.first b {
+  animation: first-stamp 0.5s var(--climax) cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+@keyframes first-stamp {
+  from {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.sball-shadow.first {
+  animation: first-shadow 1.45s linear both;
+}
+@keyframes first-shadow {
+  0%, 29% { transform: scale(0.3); opacity: 0; }
+  65.5% { transform: scale(1.1); opacity: 1; }
+  82.5% { transform: scale(0.8); opacity: 0.6; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 /* ── Hours: dial sweep + count ── */
 .st-hours svg {
   width: 100%;

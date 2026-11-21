@@ -18,12 +18,14 @@ import Rankings from "./screens/Rankings";
 import Crew from "./screens/Crew";
 import MeScreen from "./screens/Me";
 import JoinCrew from "./screens/JoinCrew";
+import { useMilestones } from "./celebrate/useMilestones";
 import ResetPassword from "./screens/ResetPassword";
 
 const Display = lazy(() => import("./display/Display"));
 const Poster = lazy(() => import("./display/Poster"));
 const AdminApp = lazy(() => import("./admin/AdminApp"));
 const Celebrations = lazy(() => import("./celebrate/Gallery"));
+const Celebration = lazy(() => import("./celebrate/Celebration").then((m) => ({ default: m.Celebration })));
 
 export function Boot({ label = "Loading" }: { label?: string }) {
   return (
@@ -120,6 +122,8 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const offset = useRef(0);
   const online = useOnline();
+  // Milestone pop-ups (first session, 10 sessions, first hour…) after saves, once per player.
+  const milestone = useMilestones(user.id, me, version);
 
   // Tabs slide in from the side you're moving toward (Home → Rankings → Crew → Me).
   const currentTab = tabFor(path, inviteCode);
@@ -135,12 +139,13 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
   const refresh = useCallback(async () => {
     // A finish tapped while offline is replayed first, with the time the player tapped it.
     const pending = store.get<PendingStop>(KEYS.pendingStop);
+    let replayed = false;
     if (pending) {
       try {
         const done = await api.stopSession(pending.id, pending.endedAt);
         store.remove(KEYS.pendingStop);
         setFinished(done);
-        setVersion((v) => v + 1);
+        replayed = true;
       } catch (err) {
         if (!(err as { offline?: boolean }).offline) store.remove(KEYS.pendingStop);
       }
@@ -153,6 +158,8 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
     offset.current = new Date(next.server_now).getTime() - (t0 + t1) / 2;
     setMe(next);
     setLoadError("");
+    // Lists re-fetch (and milestones are checked) once the new totals are in.
+    if (replayed) setVersion((v) => v + 1);
   }, []);
 
   useEffect(() => {
@@ -288,6 +295,11 @@ function SignedIn({ user, path, inviteCode }: { user: AuthUser; path: string; in
                 : null
             }
           />
+        )}
+        {!tutorialOpen && milestone.current && (
+          <Suspense fallback={null}>
+            <Celebration key={milestone.current.key} spec={milestone.current} onClose={milestone.next} />
+          </Suspense>
         )}
         <nav className="bottom-nav" aria-label="Main">
           <span className="nav-indicator" style={{ "--i": TAB_ORDER.indexOf(currentTab) } as CSSProperties} aria-hidden />

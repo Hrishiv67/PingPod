@@ -27,6 +27,10 @@ handle bookings, door entry or payments, and it never asks for anyone's PingPod 
 8. **Weekly Rally** on Home: a flame for each day played this week, plus an optional weekly goal
    (hours and days). The goal planner starts with the CDC's 150-minutes-a-week guideline as a
    suggestion, then the player picks their own.
+9. **Milestone pop-ups**: a full-screen celebration when a player reaches a milestone, right after
+   a timer finish or a logged session: first session, 10/25/50 sessions, 1/5/10/20 hours, a 3- or
+   7-day streak, a 2-hour session, or this week's goal. Joining a crew and finishing a week in the
+   top five get one too. Each shows once per player. Preview them all at `/celebrations`.
 
 Returning customers stay signed in, so they just open the app and tap Start playing.
 

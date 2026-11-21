@@ -115,7 +115,6 @@ export default function Welcome({ inviteCode }: { inviteCode: string | null }) {
               }
               setError("");
             }}
-            hint={step === "email" ? "No password needed. Just your email." : undefined}
             required
           />
           {step === "password" && (

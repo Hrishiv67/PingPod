@@ -37,6 +37,10 @@ const CLIMAX: Record<CelebrationKind, number> = {
   long: 1450,
 };
 
+/** The first session has its own, quicker landing. */
+const FIRST_CLIMAX = 950;
+const climaxOf = (kind: CelebrationKind, value: number) => (kind === "sessions" && value <= 1 ? FIRST_CLIMAX : CLIMAX[kind]);
+
 const reducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export function Celebration({ spec, onClose }: { spec: CelebrationSpec; onClose: () => void }) {
@@ -46,6 +50,7 @@ export function Celebration({ spec, onClose }: { spec: CelebrationSpec; onClose:
   const stage = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const [reduced] = useState(reducedMotion);
+  const climaxMs = climaxOf(kind, value);
 
   useEffect(() => {
     document.body.classList.add("no-scroll");
@@ -54,20 +59,21 @@ export function Celebration({ spec, onClose }: { spec: CelebrationSpec; onClose:
     const climax = window.setTimeout(
       () => {
         if (!reduced && canvas.current && stage.current) {
-          const r = stage.current.getBoundingClientRect();
+          // Confetti comes out of the badge itself (the ball sits low in the session stages).
+          const r = (stage.current.querySelector(".sball") ?? stage.current).getBoundingClientRect();
           burst(canvas.current, r.left + r.width / 2, r.top + r.height / 2, ACCENT[kind]);
           navigator.vibrate?.([18, 40, 28]);
         }
         button.current?.focus({ preventScroll: true });
       },
-      reduced ? 0 : CLIMAX[kind],
+      reduced ? 0 : climaxMs,
     );
     return () => {
       window.clearTimeout(climax);
       document.removeEventListener("keydown", onKey);
       document.body.classList.remove("no-scroll");
     };
-  }, [kind, onClose, reduced]);
+  }, [kind, onClose, reduced, climaxMs]);
 
   return (
     <div
@@ -75,12 +81,12 @@ export function Celebration({ spec, onClose }: { spec: CelebrationSpec; onClose:
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
-      style={{ "--accent": ACCENT[kind], "--climax": `${reduced ? 0 : CLIMAX[kind]}ms` } as CSSProperties}
+      style={{ "--accent": ACCENT[kind], "--climax": `${reduced ? 0 : climaxMs}ms` } as CSSProperties}
     >
       <div className="cel-glow" aria-hidden />
       <canvas ref={canvas} className="cel-burst" aria-hidden />
       <div className="cel-stage" ref={stage} aria-hidden>
-        {kind === "sessions" && <SessionsStage n={value} reduced={reduced} />}
+        {kind === "sessions" && (value <= 1 ? <FirstSessionStage /> : <SessionsStage n={value} reduced={reduced} />)}
         {kind === "hours" && <HoursStage hours={value} reduced={reduced} />}
         {kind === "streak" && <StreakStage days={value} />}
         {kind === "goal" && <GoalStage />}
@@ -112,6 +118,26 @@ export function Medal({ kind, children, size = 150 }: { kind: CelebrationKind; c
 }
 
 // ── Stages ────────────────────────────────────────────────────────────────
+
+/**
+ * First session: a spotlight flickers on, the ball drops out of the dark into the light and slams
+ * down, and the 1 stamps onto it. Your debut.
+ */
+function FirstSessionStage() {
+  return (
+    <div className="st st-sessions st-first">
+      <span className="spot" />
+      <span className="spot-pool" />
+      <span className="sball-shadow first" />
+      <span className="ring sball-ring" />
+      <span className="sball-y first">
+        <span className="sball first">
+          <b className="num">1</b>
+        </span>
+      </span>
+    </div>
+  );
+}
 
 /**
  * Sessions: a ping-pong ball drops in and bounces faster and faster, the count going up on every

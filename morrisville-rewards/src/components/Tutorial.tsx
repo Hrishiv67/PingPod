@@ -15,37 +15,37 @@ const SLIDES: Slide[] = [
   {
     key: "track",
     title: "Track your table time",
-    text: "Tap Start playing when you get on a table and Finish when you're done. Forgot? Log it afterwards.",
+    text: "Start the timer when you play. Forgot? Log the session after.",
     visual: <TimerVisual />,
   },
   {
     key: "board",
     title: "Climb the leaderboard",
-    text: "Every minute counts toward this week's board. It resets each Monday, so anyone can win the week.",
+    text: "More minutes, higher rank. Everyone starts fresh on Monday.",
     visual: <PodiumVisual />,
   },
   {
     key: "rally",
     title: "Keep your rally going",
-    text: "Each day you play lights a flame. Set a weekly goal and watch it fill up.",
+    text: "Each day you play lights a flame. Set a weekly goal to stay on track.",
     visual: <FlamesVisual />,
   },
   {
     key: "crew",
     title: "Play as a crew",
-    text: "Start a crew, send friends the invite link, and add your minutes together on the crew board.",
+    text: "Invite friends. Your minutes add up on the crew board.",
     visual: <CrewVisual />,
   },
   {
     key: "spindex",
     title: "Show your SPINDEX",
-    text: "Add your PingPod skill rating and see where you stand on the SPINDEX board.",
+    text: "Add your skill rating and see how you stack up.",
     visual: <SpindexVisual />,
   },
   {
     key: "screen",
     title: "See your name at PingPod",
-    text: "The boards play on the screen at PingPod Morrisville. Scan its QR code to join.",
+    text: "The leaderboard plays on the big screen at PingPod Morrisville.",
     visual: <ScreenVisual />,
   },
 ];

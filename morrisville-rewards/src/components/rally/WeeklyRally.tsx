@@ -419,7 +419,6 @@ function GoalDialog({
                   Like <strong>30 minutes, 5 days a week.</strong>
                 </p>
               </div>
-              <p className="rally-fine">It's a guide, not a rule. Pick whatever works for you.</p>
               <button type="button" className="rally-primary" onClick={() => advance("hours")}>
                 Pick my goal <span aria-hidden="true">→</span>
               </button>
@@ -545,7 +544,7 @@ function GoalDialog({
                 <strong>{hoursLabel(hours)}</strong> over <strong>{days} {days === 1 ? "day" : "days"}</strong> a week. That's about{" "}
                 <strong>{perDay !== null ? duration(perDay) : ""}</strong> each time you play.
               </p>
-              <p className="rally-fine">Your progress shows on the Weekly Rally card on Home. A new week starts every Monday.</p>
+              <p className="rally-fine">Track it on Home. A new week starts Monday.</p>
               <button className="rally-primary" type="button" onClick={onClose}>
                 Done
               </button>

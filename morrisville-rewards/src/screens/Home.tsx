@@ -229,8 +229,10 @@ export default function Home() {
           onSaved={() => {
             setLogOpen(false);
             toast("Session saved. Nice work!");
-            bump();
-            void refresh().catch(() => {});
+            // Refresh first so the milestone check (run on bump) sees the new totals.
+            void refresh()
+              .catch(() => {})
+              .finally(bump);
           }}
         />
       )}
