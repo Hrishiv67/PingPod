@@ -217,7 +217,8 @@ export default function Display() {
     const wanted = slidesKey ? (slidesKey.split(",") as Board[]) : ORDER;
     const list = ORDER.filter((b) => wanted.includes(b));
     const base: Board[] = list.length ? list : ["minutes"];
-    return hasJoined ? ["joined", ...base] : base;
+    // While the Players board is on, it is the only board (no rotation, no tabs).
+    return hasJoined ? ["joined"] : base;
   }, [slidesKey, hasJoined]);
   const current: Board = boards.includes(board) ? board : boards[0];
   const scope: Scope = data?.scope ?? "community";
