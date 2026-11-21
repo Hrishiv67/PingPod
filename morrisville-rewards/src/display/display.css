@@ -133,7 +133,7 @@ html.display-mode body {
 /* Main split */
 .display-main {
   display: grid;
-  grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 2.6fr) minmax(0, 1fr);
   gap: clamp(18px, 3vmin, 44px);
   min-height: 0;
 }
@@ -460,7 +460,7 @@ html.display-mode body {
 }
 .display-qr {
   flex: none;
-  width: min(100%, 40vmin);
+  width: min(100%, 28vmin);
   aspect-ratio: 1;
   padding: clamp(8px, 1.4vmin, 16px);
   border-radius: clamp(10px, 1.4vmin, 16px);

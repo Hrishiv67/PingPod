@@ -35,8 +35,9 @@
 
 /* Shell */
 .app {
+  min-height: 100vh;
   min-height: 100dvh;
-  padding-bottom: calc(var(--nav-h) + var(--safe-bottom) + 24px);
+  padding-bottom: calc(var(--nav-h) + var(--safe-bottom) + var(--vv-bottom, 0px) + 24px);
 }
 .app-header {
   position: sticky;
@@ -139,6 +140,7 @@
   left: 0;
   right: 0;
   bottom: 0;
+  bottom: var(--vv-bottom, 0px); /* stays on screen in kiosk apps (see lib/viewportFit) */
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   padding: 6px calc(8px + var(--safe-right)) calc(6px + var(--safe-bottom)) calc(8px + var(--safe-left));
@@ -171,7 +173,7 @@
   z-index: 41;
   left: 0;
   right: 0;
-  bottom: calc(var(--nav-h) + var(--safe-bottom));
+  bottom: calc(var(--nav-h) + var(--safe-bottom) + var(--vv-bottom, 0px));
   padding: 8px 16px;
   background: var(--warn);
   color: #000;
